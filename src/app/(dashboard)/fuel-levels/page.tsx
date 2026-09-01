@@ -22,21 +22,16 @@ import {
     ResponsiveContainer
 } from 'recharts';
 
+import { DateRangePicker, DateRange, getDateRangeFromPreset } from '@/components/common/DateRangePicker';
+
 export default function FuelLevelsPage() {
     const router = useRouter();
     const selectedClient = useClientStore((state) => state.selectedClient);
+    const [allLevels, setAllLevels] = useState<FuelLevel[]>([]);
     const [levels, setLevels] = useState<FuelLevel[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const getTodayDateStr = () => {
-        const d = new Date();
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        return `${yyyy}-${mm}-${dd}`;
-    };
-
-    const [selectedDate, setSelectedDate] = useState(getTodayDateStr());
+    const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
     const [search, setSearch] = useState('');
 
     useEffect(() => {
@@ -49,15 +44,17 @@ export default function FuelLevelsPage() {
             loadData();
         };
         checkAuth();
-    }, [router, selectedClient, selectedDate]);
+    }, [router, selectedClient, dateRange.startDate, dateRange.endDate, dateRange.preset]);
 
     const loadData = async () => {
         try {
             setLoading(true);
+
+            // Fetch broad datasets (e.g., past 90 days or all data) to calculate counts correctly
             const response = await fuelLevelService.getFuelLevels({
                 pageSize: 10000,
-                startDate: selectedDate || undefined,
-                endDate: selectedDate || undefined
+                startDate: dateRange.startDate || undefined,
+                endDate: dateRange.endDate || undefined
             });
 
             const sortedData = [...response.data].sort((a, b) => {
@@ -67,6 +64,23 @@ export default function FuelLevelsPage() {
             });
 
             setLevels(sortedData);
+
+            // If we don't have allLevels populated yet or full refresh requested, fetch complete set for badges
+            if (allLevels.length === 0 || dateRange.preset === 'all') {
+                if (dateRange.preset === 'all') {
+                    setAllLevels(sortedData);
+                } else {
+                    const allResponse = await fuelLevelService.getFuelLevels({
+                        pageSize: 10000,
+                        startDate: undefined,
+                        endDate: undefined
+                    });
+                    setAllLevels(allResponse.data);
+                }
+            } else {
+                setAllLevels(prev => prev.length > 0 ? prev : sortedData);
+            }
+
             setError(null);
         } catch (err) {
             setError('Failed to load fuel level data');
@@ -82,7 +96,9 @@ export default function FuelLevelsPage() {
             level.time.includes(search) ||
             level.status.toLowerCase().includes(search);
 
-        const matchesDate = selectedDate ? level.date === selectedDate : true;
+        let matchesDate = true;
+        if (dateRange.startDate && level.date < dateRange.startDate) matchesDate = false;
+        if (dateRange.endDate && level.date > dateRange.endDate) matchesDate = false;
 
         return matchesSearch && matchesDate;
     });
@@ -99,7 +115,7 @@ export default function FuelLevelsPage() {
             `${level.percentage}%`,
             level.status
         ]);
-        exportToCSV(`fuel_levels_${selectedDate || 'all'}.csv`, headers, rows);
+        exportToCSV(`fuel_levels_${dateRange.preset}.csv`, headers, rows);
     };
 
     const formatTimeTick = (timeStr: string) => {
@@ -178,16 +194,12 @@ export default function FuelLevelsPage() {
                                 </div>
                             </div>
 
-                            {/* Single Date Selector */}
-                            <div className="w-full sm:w-[180px] flex flex-col gap-1.5">
-                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Date</label>
-                                <input
-                                    type="date"
-                                    value={selectedDate}
-                                    onChange={(e) => setSelectedDate(e.target.value)}
-                                    className="rounded border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 shadow-xs w-full"
-                                />
-                            </div>
+                            {/* Date Range Selector */}
+                            <DateRangePicker
+                                value={dateRange}
+                                onChange={(newRange) => setDateRange(newRange)}
+                                allRecords={allLevels}
+                            />
                         </div>
 
                         {/* Action Buttons */}
@@ -197,7 +209,7 @@ export default function FuelLevelsPage() {
                                 size="sm"
                                 onClick={() => {
                                     setSearch('');
-                                    setSelectedDate(getTodayDateStr());
+                                    setDateRange(getDateRangeFromPreset('30days'));
                                 }}
                                 className="h-8 px-4 rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-1.5 text-xs font-semibold"
                                 title="Reset filters"
@@ -221,8 +233,8 @@ export default function FuelLevelsPage() {
                 <div style={{ height: '380px' }} className="w-full">
                     {chartData.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-slate-400 text-sm gap-1">
-                            <p className="font-semibold text-slate-600">No fuel level records found for {selectedDate}</p>
-                            <p className="text-xs text-slate-400">Please choose another date or reset filters</p>
+                            <p className="font-semibold text-slate-600">No fuel level records found for {dateRange.label}</p>
+                            <p className="text-xs text-slate-400">Please choose another date range or reset filters</p>
                         </div>
                     ) : (
                         <ResponsiveContainer width="100%" height="100%">
