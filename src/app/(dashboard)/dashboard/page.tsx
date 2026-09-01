@@ -446,17 +446,15 @@ export default function DashboardPage() {
 
             // 5. FUEL TANK LEVELS HISTORY
             csvLines.push('"SECTION 4: FUEL TANK LEVEL DIP READINGS"');
-            const levelHeaders = ['Date', 'Time', 'Tank No', 'Fuel Level (L)', 'Water Level (mm)', 'Volume %', 'Temperature (°C)'];
+            const levelHeaders = ['Date', 'Time', 'Fuel Level (L)', 'Percentage (%)', 'Status'];
             csvLines.push(levelHeaders.map(h => `"${h}"`).join(','));
             levels.forEach(lvl => {
                 csvLines.push([
                     lvl.date,
                     lvl.time,
-                    lvl.tankId,
                     lvl.fuelLevel,
-                    lvl.waterLevel ?? '',
-                    lvl.volumePercentage ? `${lvl.volumePercentage}%` : '',
-                    lvl.temperature ?? ''
+                    lvl.percentage !== undefined ? `${lvl.percentage}%` : '',
+                    lvl.status || ''
                 ].map(val => typeof val === 'string' ? `"${val}"` : val).join(','));
             });
             csvLines.push('');
