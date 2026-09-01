@@ -105,10 +105,8 @@ export default function FuelIssuesPage() {
 
     // Filter states
     const [search, setSearch] = useState('');
-    const [selectedStatus, setSelectedStatus] = useState('');
     const [selectedVehicle, setSelectedVehicle] = useState('');
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
+    const [selectedDate, setSelectedDate] = useState('');
 
     const [vehicles, setVehicles] = useState<string[]>([]);
     const [total, setTotal] = useState(0);
@@ -128,26 +126,23 @@ export default function FuelIssuesPage() {
             loadVehicles();
         };
         checkAuth();
-    }, [router, page, selectedClient, startDate, endDate, selectedStatus]);
+    }, [router, page, selectedClient, selectedDate]);
 
     const loadData = async (
         overrideSearch?: string,
-        overrideStatus?: string,
         overrideVehicle?: string,
-        overrideStart?: string,
-        overrideEnd?: string
+        overrideDate?: string
     ) => {
         try {
-            console.log('loadData component state:', { startDate, endDate, overrideStart, overrideEnd });
             setLoading(true);
+            const dateToUse = overrideDate !== undefined ? overrideDate : selectedDate;
             const response = await fuelIssueService.getFuelIssues({
                 page,
                 pageSize,
                 search: overrideSearch !== undefined ? overrideSearch || undefined : search || undefined,
-                status: overrideStatus !== undefined ? overrideStatus || undefined : selectedStatus || undefined,
                 vehicleId: overrideVehicle !== undefined ? overrideVehicle || undefined : selectedVehicle || undefined,
-                startDate: overrideStart !== undefined ? overrideStart : startDate,
-                endDate: overrideEnd !== undefined ? overrideEnd : endDate,
+                startDate: dateToUse || undefined,
+                endDate: dateToUse || undefined,
             });
             setIssues(response.data);
             setTotal(response.total);
@@ -177,12 +172,10 @@ export default function FuelIssuesPage() {
 
     const handleReset = () => {
         setSearch('');
-        setSelectedStatus('');
         setSelectedVehicle('');
-        setStartDate('');
-        setEndDate('');
+        setSelectedDate('');
         setPage(1);
-        loadData('', '', '', '', '');
+        loadData('', '', '');
     };
 
     const handleExport = async () => {
@@ -191,10 +184,9 @@ export default function FuelIssuesPage() {
                 page: 1,
                 pageSize: 100000,
                 search: search || undefined,
-                status: selectedStatus || undefined,
                 vehicleId: selectedVehicle || undefined,
-                startDate,
-                endDate,
+                startDate: selectedDate || undefined,
+                endDate: selectedDate || undefined,
             });
             const allIssues = response.data;
             if (allIssues.length === 0) return;
@@ -213,7 +205,7 @@ export default function FuelIssuesPage() {
                 issue.engineHours,
                 issue.dem || issue.status
             ]);
-            exportToCSV(`fuel_issues_${startDate || 'all'}_to_${endDate || 'all'}.csv`, headers, rows);
+            exportToCSV(`fuel_issues_${selectedDate || 'all'}.csv`, headers, rows);
         } catch (err) {
             console.error('Failed to export fuel issues:', err);
         }
@@ -282,41 +274,15 @@ export default function FuelIssuesPage() {
                                 </div>
                             </div>
 
-                            {/* FROM Date Selector */}
-                            <div className="w-full sm:w-[130px] flex flex-col gap-1.5">
-                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">From date</label>
+                            {/* Single Date Selector */}
+                            <div className="w-full sm:w-[180px] flex flex-col gap-1.5">
+                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Date</label>
                                 <input
                                     type="date"
-                                    value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
+                                    value={selectedDate}
+                                    onChange={(e) => setSelectedDate(e.target.value)}
                                     className="rounded border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 shadow-xs w-full"
                                 />
-                            </div>
-
-                            {/* TO Date Selector */}
-                            <div className="w-full sm:w-[130px] flex flex-col gap-1.5">
-                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">To date</label>
-                                <input
-                                    type="date"
-                                    value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                    className="rounded border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 shadow-xs w-full"
-                                />
-                            </div>
-
-                            {/* DEM METHOD Dropdown Selector */}
-                            <div className="w-full sm:w-[130px] flex flex-col gap-1.5">
-                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">method</label>
-                                <select
-                                    value={selectedStatus}
-                                    onChange={(e) => setSelectedStatus(e.target.value)}
-                                    className="rounded border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 cursor-pointer w-full"
-                                >
-                                    <option value="">All methods</option>
-                                    <option value="Matched">Matched</option>
-                                    <option value="Unmatched">Unmatched</option>
-                                    <option value="Exception">Exception</option>
-                                </select>
                             </div>
                         </div>
 

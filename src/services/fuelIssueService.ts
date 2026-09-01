@@ -1,4 +1,3 @@
-// src/services/fuelIssueService.ts
 import { FuelIssue } from '@/types/fuel';
 import { FilterParams, PaginatedResponse } from '@/types/common';
 import { useClientStore, fmaApiRequest } from './api';
@@ -7,31 +6,37 @@ export const fuelIssueService = {
   async getFuelIssues(params: FilterParams = {}): Promise<PaginatedResponse<any>> {
     const client = useClientStore.getState().selectedClient;
     
-    // Get start/end dates
-    const today = new Date().toISOString().split('T')[0];
-    const defaultFrom = (() => {
+    const apiDateFrom = (() => {
+      if (params.startDate) {
+        const d = new Date(params.startDate + 'T00:00:00');
+        if (!isNaN(d.getTime())) {
+          d.setDate(d.getDate() - 30);
+          return d.toISOString().split('T')[0];
+        }
+      }
       const d = new Date();
       d.setDate(d.getDate() - 90);
       return d.toISOString().split('T')[0];
     })();
-    const datefrom = params.startDate || defaultFrom;
-    const dateto = params.endDate || today;
 
-    // Add 1 day to dateto for the API call to ensure the backend database query includes all items on the end date
     const apiDateTo = (() => {
-      const date = new Date(dateto + 'T00:00:00');
-      if (isNaN(date.getTime())) return dateto;
-      date.setDate(date.getDate() + 1);
-      return date.toISOString().split('T')[0];
+      if (params.endDate) {
+        const d = new Date(params.endDate + 'T00:00:00');
+        if (!isNaN(d.getTime())) {
+          d.setDate(d.getDate() + 30);
+          return d.toISOString().split('T')[0];
+        }
+      }
+      const d = new Date();
+      d.setDate(d.getDate() + 30);
+      return d.toISOString().split('T')[0];
     })();
-
-    console.log('getFuelIssues params:', { params, datefrom, dateto, apiDateTo });
 
     const payload = {
       clientid: client.clientid, // Must be string
       userid: Number(client.userid),
       divisionid: Number(client.divisionid),
-      datefrom,
+      datefrom: apiDateFrom,
       dateto: apiDateTo
     };
 

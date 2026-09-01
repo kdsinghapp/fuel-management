@@ -28,17 +28,15 @@ export default function FuelLevelsPage() {
     const [levels, setLevels] = useState<FuelLevel[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const getPastDateStr = (daysAgo: number) => {
+    const getTodayDateStr = () => {
         const d = new Date();
-        d.setDate(d.getDate() - daysAgo);
         const yyyy = d.getFullYear();
         const mm = String(d.getMonth() + 1).padStart(2, '0');
         const dd = String(d.getDate()).padStart(2, '0');
         return `${yyyy}-${mm}-${dd}`;
     };
 
-    const [startDate, setStartDate] = useState(getPastDateStr(6));
-    const [endDate, setEndDate] = useState(getPastDateStr(0));
+    const [selectedDate, setSelectedDate] = useState(getTodayDateStr());
     const [search, setSearch] = useState('');
 
     useEffect(() => {
@@ -51,15 +49,15 @@ export default function FuelLevelsPage() {
             loadData();
         };
         checkAuth();
-    }, [router, selectedClient, startDate, endDate]);
+    }, [router, selectedClient, selectedDate]);
 
     const loadData = async () => {
         try {
             setLoading(true);
             const response = await fuelLevelService.getFuelLevels({
                 pageSize: 10000,
-                startDate: startDate || undefined,
-                endDate: endDate || undefined
+                startDate: selectedDate || undefined,
+                endDate: selectedDate || undefined
             });
 
             const sortedData = [...response.data].sort((a, b) => {
@@ -81,36 +79,15 @@ export default function FuelLevelsPage() {
     const filteredLevels = levels.filter((level) => {
         const matchesSearch =
             level.date.includes(search) ||
+            level.time.includes(search) ||
             level.status.toLowerCase().includes(search);
 
-        let matchesDateRange = true;
-        if (startDate) {
-            matchesDateRange = matchesDateRange && level.date >= startDate;
-        }
-        if (endDate) {
-            matchesDateRange = matchesDateRange && level.date <= endDate;
-        }
+        const matchesDate = selectedDate ? level.date === selectedDate : true;
 
-        return matchesSearch && matchesDateRange;
+        return matchesSearch && matchesDate;
     });
 
-    const getChartData = () => {
-        if (startDate || endDate) {
-            return filteredLevels;
-        }
-        if (filteredLevels.length === 0) {
-            return [];
-        }
-        const latestDateStr = filteredLevels[filteredLevels.length - 1].date;
-        const latestDate = new Date(latestDateStr);
-        const sevenDaysAgo = new Date(latestDate);
-        sevenDaysAgo.setDate(latestDate.getDate() - 7);
-        const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
-
-        return filteredLevels.filter(level => level.date >= sevenDaysAgoStr);
-    };
-
-    const chartData = getChartData();
+    const chartData = filteredLevels;
 
     const handleExport = () => {
         if (filteredLevels.length === 0) return;
@@ -122,19 +99,20 @@ export default function FuelLevelsPage() {
             `${level.percentage}%`,
             level.status
         ]);
-        exportToCSV(`fuel_levels_${startDate}_to_${endDate}.csv`, headers, rows);
+        exportToCSV(`fuel_levels_${selectedDate || 'all'}.csv`, headers, rows);
     };
 
-    const formatDateTick = (tickItem: string) => {
+    const formatTimeTick = (timeStr: string) => {
+        if (!timeStr) return '';
         try {
-            const dateStr = tickItem.split('T')[0];
-            const parts = dateStr.split('-');
-            const month = parseInt(parts[1], 10) - 1;
-            const day = parseInt(parts[2], 10);
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            return `${months[month]} ${String(day).padStart(2, '0')}`;
+            // If timeStr is HH:MM:SS, format to HH:MM
+            const parts = timeStr.split(':');
+            if (parts.length >= 2) {
+                return `${parts[0]}:${parts[1]}`;
+            }
+            return timeStr;
         } catch {
-            return tickItem;
+            return timeStr;
         }
     };
 
@@ -200,24 +178,13 @@ export default function FuelLevelsPage() {
                                 </div>
                             </div>
 
-                            {/* FROM Date Selector */}
-                            <div className="w-full sm:w-[150px] flex flex-col gap-1.5">
-                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">From date</label>
+                            {/* Single Date Selector */}
+                            <div className="w-full sm:w-[180px] flex flex-col gap-1.5">
+                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Date</label>
                                 <input
                                     type="date"
-                                    value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
-                                    className="rounded border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 shadow-xs w-full"
-                                />
-                            </div>
-
-                            {/* TO Date Selector */}
-                            <div className="w-full sm:w-[150px] flex flex-col gap-1.5">
-                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">To date</label>
-                                <input
-                                    type="date"
-                                    value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
+                                    value={selectedDate}
+                                    onChange={(e) => setSelectedDate(e.target.value)}
                                     className="rounded border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 shadow-xs w-full"
                                 />
                             </div>
@@ -230,8 +197,7 @@ export default function FuelLevelsPage() {
                                 size="sm"
                                 onClick={() => {
                                     setSearch('');
-                                    setStartDate(getPastDateStr(6));
-                                    setEndDate(getPastDateStr(0));
+                                    setSelectedDate(getTodayDateStr());
                                 }}
                                 className="h-8 px-4 rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-1.5 text-xs font-semibold"
                                 title="Reset filters"
@@ -253,55 +219,64 @@ export default function FuelLevelsPage() {
 
                 {/* Area Chart matching the dashboard orange theme */}
                 <div style={{ height: '380px' }} className="w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
-                            <defs>
-                                <linearGradient id="colorFuel" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#f26522" stopOpacity={0.45} />
-                                    <stop offset="95%" stopColor="#f26522" stopOpacity={0.02} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke="#f0f0f0" />
-                            <XAxis
-                                dataKey="createdAt"
-                                tickFormatter={formatDateTick}
-                                tick={{ fill: '#666', fontSize: 11 }}
-                                axisLine={{ stroke: '#ccc' }}
-                            />
-                            <YAxis
-                                tickFormatter={(val) => formatNumber(val)}
-                                tick={{ fill: '#666', fontSize: 11 }}
-                                axisLine={{ stroke: '#ccc' }}
-                            />
-                            <Tooltip
-                                content={({ active, payload }) => {
-                                    if (active && payload && payload.length) {
-                                        const val = Number(payload[0].value);
-                                        const date = payload[0].payload.date;
-                                        const time = payload[0].payload.time;
+                    {chartData.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-slate-400 text-sm gap-1">
+                            <p className="font-semibold text-slate-600">No fuel level records found for {selectedDate}</p>
+                            <p className="text-xs text-slate-400">Please choose another date or reset filters</p>
+                        </div>
+                    ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+                                <defs>
+                                    <linearGradient id="colorFuel" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#f26522" stopOpacity={0.45} />
+                                        <stop offset="95%" stopColor="#f26522" stopOpacity={0.02} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke="#f0f0f0" />
+                                <XAxis
+                                    dataKey="time"
+                                    tickFormatter={formatTimeTick}
+                                    tick={{ fill: '#666', fontSize: 11 }}
+                                    axisLine={{ stroke: '#ccc' }}
+                                />
+                                <YAxis
+                                    tickFormatter={(val) => formatNumber(val)}
+                                    tick={{ fill: '#666', fontSize: 11 }}
+                                    axisLine={{ stroke: '#ccc' }}
+                                />
+                                <Tooltip
+                                    content={({ active, payload }) => {
+                                        if (active && payload && payload.length) {
+                                            const val = Number(payload[0].value);
+                                            const date = payload[0].payload.date;
+                                            const time = payload[0].payload.time;
+                                            const pct = payload[0].payload.percentage;
 
-                                        return (
-                                            <div className="bg-white border border-[#f26522]/30 p-3 rounded-lg shadow-lg text-xs">
-                                                <p className="font-bold text-slate-800">{formatDateTick(date)} {time}</p>
-                                                <div className="flex items-center gap-1.5 mt-1.5 font-bold text-[#f26522]">
-                                                    <span>🛢️ {formatNumber(val)} L</span>
+                                            return (
+                                                <div className="bg-white border border-[#f26522]/30 p-3 rounded-lg shadow-lg text-xs">
+                                                    <p className="font-bold text-slate-800">{date} • {time}</p>
+                                                    <div className="flex items-center gap-1.5 mt-1.5 font-bold text-[#f26522]">
+                                                        <span>🛢️ {formatNumber(val)} L</span>
+                                                        {pct !== undefined && <span className="text-slate-500 font-normal">({pct}%)</span>}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        );
-                                    }
-                                    return null;
-                                }}
-                            />
-                            <Area
-                                type="monotone"
-                                dataKey="fuelLevel"
-                                stroke="#f26522"
-                                strokeWidth={2.5}
-                                fillOpacity={1}
-                                fill="url(#colorFuel)"
-                            />
-                        </AreaChart>
-                    </ResponsiveContainer>
+                                            );
+                                        }
+                                        return null;
+                                    }}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="fuelLevel"
+                                    stroke="#f26522"
+                                    strokeWidth={2.5}
+                                    fillOpacity={1}
+                                    fill="url(#colorFuel)"
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    )}
                 </div>
             </div>
         </PageContainer>

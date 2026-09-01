@@ -7,29 +7,38 @@ export const deliveryService = {
   async getDeliveries(params: FilterParams = {}): Promise<PaginatedResponse<FuelDelivery>> {
     const client = useClientStore.getState().selectedClient;
     
-    // Get start/end dates
-    const today = new Date().toISOString().split('T')[0];
-    const defaultFrom = (() => {
+    // Compute API date window with a generous buffer so backend datetime comparison / timezone differences never miss deliveries
+    const apiDateFrom = (() => {
+      if (params.startDate) {
+        const d = new Date(params.startDate + 'T00:00:00');
+        if (!isNaN(d.getTime())) {
+          d.setDate(d.getDate() - 30);
+          return d.toISOString().split('T')[0];
+        }
+      }
       const d = new Date();
-      d.setDate(d.getDate() - 90);
+      d.setDate(d.getDate() - 365);
       return d.toISOString().split('T')[0];
     })();
-    const datefrom = params.startDate || defaultFrom;
-    const dateto = params.endDate || today;
 
-    // Add 1 day to dateto for the API call to ensure the backend database query includes all items on the end date
     const apiDateTo = (() => {
-      const date = new Date(dateto + 'T00:00:00');
-      if (isNaN(date.getTime())) return dateto;
-      date.setDate(date.getDate() + 1);
-      return date.toISOString().split('T')[0];
+      if (params.endDate) {
+        const d = new Date(params.endDate + 'T00:00:00');
+        if (!isNaN(d.getTime())) {
+          d.setDate(d.getDate() + 30);
+          return d.toISOString().split('T')[0];
+        }
+      }
+      const d = new Date();
+      d.setDate(d.getDate() + 30);
+      return d.toISOString().split('T')[0];
     })();
 
     const payload = {
       clientid: Number(client.clientid),
       userid: Number(client.userid),
       divisionid: Number(client.divisionid),
-      datefrom,
+      datefrom: apiDateFrom,
       dateto: apiDateTo,
       tankno: 1
     };
@@ -38,15 +47,16 @@ export const deliveryService = {
       const response = await fmaApiRequest<any[]>('/api/fmaweldandeliveries/GetDeliveries', payload);
       
       let data = response.map((item: any) => {
-        const datePart = item['Delivery Start'] ? item['Delivery Start'].split('T')[0] : '2026-08-14';
-        const timePart = item['Delivery Start'] ? item['Delivery Start'].split('T')[1].slice(0, 8) : '00:00:00';
+        const rawDate = item['Delivery Start'] || item.Date || item.DeliveryDate || item['Delivery Date'] || '';
+        const datePart = rawDate ? rawDate.split('T')[0] : '2026-08-14';
+        const timePart = rawDate && rawDate.includes('T') ? rawDate.split('T')[1].slice(0, 8) : (item.Time || '00:00:00');
         return {
           id: item.pk.toString(),
           deliveryId: item.pk.toString(),
           date: datePart,
           time: timePart,
-          quantity: item['Delivery amount'],
-          supplier: item.Name || 'Unknown',
+          quantity: item['Delivery amount'] || item.Quantity || 0,
+          supplier: item.Name || item.Supplier || 'Unknown',
           status: item.Acronym === 'AD' ? 'Completed' : 'Pending',
           createdAt: item['Delivery Start'] || `${datePart}T${timePart}Z`,
           updatedAt: item['Delivery End'] || `${datePart}T${timePart}Z`,

@@ -27,8 +27,7 @@ export default function DeliveriesPage() {
     const [page, setPage] = useState(1);
     const [pageSize] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
+    const [selectedDate, setSelectedDate] = useState('');
 
     const columns = [
         {
@@ -68,21 +67,21 @@ export default function DeliveriesPage() {
             loadData();
         };
         checkAuth();
-    }, [router, page, selectedClient, startDate, endDate]);
+    }, [router, page, selectedClient, selectedDate]);
 
     const loadData = async (
         overrideSearch?: string,
-        overrideStart?: string,
-        overrideEnd?: string
+        overrideDate?: string
     ) => {
         try {
             setLoading(true);
+            const dateToUse = overrideDate !== undefined ? overrideDate : selectedDate;
             const response = await deliveryService.getDeliveries({
                 page,
                 pageSize,
                 search: overrideSearch !== undefined ? overrideSearch || undefined : search || undefined,
-                startDate: overrideStart !== undefined ? overrideStart : startDate,
-                endDate: overrideEnd !== undefined ? overrideEnd : endDate,
+                startDate: dateToUse || undefined,
+                endDate: dateToUse || undefined,
             });
             setDeliveries(response.data);
             setTotal(response.total);
@@ -103,10 +102,9 @@ export default function DeliveriesPage() {
 
     const handleReset = () => {
         setSearch('');
-        setStartDate('');
-        setEndDate('');
+        setSelectedDate('');
         setPage(1);
-        loadData('', '', '');
+        loadData('', '');
     };
 
     const handleExport = async () => {
@@ -115,8 +113,8 @@ export default function DeliveriesPage() {
                 page: 1,
                 pageSize: 100000,
                 search: search || undefined,
-                startDate,
-                endDate,
+                startDate: selectedDate || undefined,
+                endDate: selectedDate || undefined,
             });
             const allDeliveries = response.data;
             if (allDeliveries.length === 0) return;
@@ -127,7 +125,7 @@ export default function DeliveriesPage() {
                 d.time,
                 d.quantity
             ]);
-            exportToCSV(`deliveries_${startDate || 'all'}_to_${endDate || 'all'}.csv`, headers, rows);
+            exportToCSV(`deliveries_${selectedDate || 'all'}.csv`, headers, rows);
         } catch (err) {
             console.error('Failed to export deliveries:', err);
         }
@@ -196,24 +194,13 @@ export default function DeliveriesPage() {
                                 </div>
                             </div>
 
-                            {/* FROM Date Selector */}
-                            <div className="w-full sm:w-[150px] flex flex-col gap-1.5">
-                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">From date</label>
+                            {/* Single Date Selector */}
+                            <div className="w-full sm:w-[180px] flex flex-col gap-1.5">
+                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Date</label>
                                 <input
                                     type="date"
-                                    value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
-                                    className="rounded border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 shadow-xs w-full"
-                                />
-                            </div>
-
-                            {/* TO Date Selector */}
-                            <div className="w-full sm:w-[150px] flex flex-col gap-1.5">
-                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">To date</label>
-                                <input
-                                    type="date"
-                                    value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
+                                    value={selectedDate}
+                                    onChange={(e) => setSelectedDate(e.target.value)}
                                     className="rounded border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 shadow-xs w-full"
                                 />
                             </div>
