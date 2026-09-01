@@ -16,9 +16,12 @@ import { useClientStore } from '@/services/api';
 
 import { CustomTable } from '@/components/ui/table';
 
+import { DateRangePicker, DateRange, getDateRangeFromPreset } from '@/components/common/DateRangePicker';
+
 export default function DeliveriesPage() {
     const router = useRouter();
     const selectedClient = useClientStore((state) => state.selectedClient);
+    const [allDeliveries, setAllDeliveries] = useState<FuelDelivery[]>([]);
     const [deliveries, setDeliveries] = useState<FuelDelivery[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -27,7 +30,7 @@ export default function DeliveriesPage() {
     const [page, setPage] = useState(1);
     const [pageSize] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
-    const [selectedDate, setSelectedDate] = useState('');
+    const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
 
     const columns = [
         {
@@ -67,25 +70,39 @@ export default function DeliveriesPage() {
             loadData();
         };
         checkAuth();
-    }, [router, page, selectedClient, selectedDate]);
+    }, [router, page, selectedClient, dateRange.startDate, dateRange.endDate, dateRange.preset]);
 
     const loadData = async (
         overrideSearch?: string,
-        overrideDate?: string
+        overrideDateRange?: DateRange
     ) => {
         try {
             setLoading(true);
-            const dateToUse = overrideDate !== undefined ? overrideDate : selectedDate;
+            const currentRange = overrideDateRange || dateRange;
+            const currentSearch = overrideSearch !== undefined ? overrideSearch : search;
+
             const response = await deliveryService.getDeliveries({
                 page,
                 pageSize,
-                search: overrideSearch !== undefined ? overrideSearch || undefined : search || undefined,
-                startDate: dateToUse || undefined,
-                endDate: dateToUse || undefined,
+                search: currentSearch || undefined,
+                startDate: currentRange.startDate || undefined,
+                endDate: currentRange.endDate || undefined,
             });
             setDeliveries(response.data);
             setTotal(response.total);
             setTotalPages(response.totalPages);
+
+            // Fetch all records for badge counts in DateRangePicker if needed
+            if (allDeliveries.length === 0 || currentRange.preset === 'all') {
+                const allResponse = await deliveryService.getDeliveries({
+                    page: 1,
+                    pageSize: 100000,
+                    startDate: undefined,
+                    endDate: undefined
+                });
+                setAllDeliveries(allResponse.data);
+            }
+
             setError(null);
         } catch (err) {
             setError('Failed to load deliveries');
@@ -101,10 +118,11 @@ export default function DeliveriesPage() {
     };
 
     const handleReset = () => {
+        const defaultRange = getDateRangeFromPreset('30days');
         setSearch('');
-        setSelectedDate('');
+        setDateRange(defaultRange);
         setPage(1);
-        loadData('', '');
+        loadData('', defaultRange);
     };
 
     const handleExport = async () => {
@@ -113,19 +131,19 @@ export default function DeliveriesPage() {
                 page: 1,
                 pageSize: 100000,
                 search: search || undefined,
-                startDate: selectedDate || undefined,
-                endDate: selectedDate || undefined,
+                startDate: dateRange.startDate || undefined,
+                endDate: dateRange.endDate || undefined,
             });
-            const allDeliveries = response.data;
-            if (allDeliveries.length === 0) return;
+            const exportDeliveries = response.data;
+            if (exportDeliveries.length === 0) return;
             const headers = ['Delivery ID', 'Date', 'Time', 'Quantity (L)'];
-            const rows = allDeliveries.map(d => [
+            const rows = exportDeliveries.map(d => [
                 d.deliveryId,
                 d.date,
                 d.time,
                 d.quantity
             ]);
-            exportToCSV(`deliveries_${selectedDate || 'all'}.csv`, headers, rows);
+            exportToCSV(`deliveries_${dateRange.preset}.csv`, headers, rows);
         } catch (err) {
             console.error('Failed to export deliveries:', err);
         }
@@ -194,16 +212,15 @@ export default function DeliveriesPage() {
                                 </div>
                             </div>
 
-                            {/* Single Date Selector */}
-                            <div className="w-full sm:w-[180px] flex flex-col gap-1.5">
-                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Date</label>
-                                <input
-                                    type="date"
-                                    value={selectedDate}
-                                    onChange={(e) => setSelectedDate(e.target.value)}
-                                    className="rounded border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 shadow-xs w-full"
-                                />
-                            </div>
+                            {/* Date Range Selector */}
+                            <DateRangePicker
+                                value={dateRange}
+                                onChange={(newRange) => {
+                                    setDateRange(newRange);
+                                    setPage(1);
+                                }}
+                                allRecords={allDeliveries as any}
+                            />
                         </div>
 
                         {/* Action Buttons */}

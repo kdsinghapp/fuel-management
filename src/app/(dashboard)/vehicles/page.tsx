@@ -17,9 +17,12 @@ import { useClientStore } from '@/services/api';
 
 import { CustomTable } from '@/components/ui/table';
 
+import { DateRangePicker, DateRange, getDateRangeFromPreset } from '@/components/common/DateRangePicker';
+
 export default function VehiclesPage() {
     const router = useRouter();
     const selectedClient = useClientStore((state) => state.selectedClient);
+    const [allVehicles, setAllVehicles] = useState<Vehicle[]>([]);
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -91,7 +94,7 @@ export default function VehiclesPage() {
     const [search, setSearch] = useState('');
     const [selectedStatus, setSelectedStatus] = useState('');
     const [selectedVehicleType, setSelectedVehicleType] = useState('');
-    const [selectedDate, setSelectedDate] = useState('');
+    const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
 
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
@@ -108,29 +111,50 @@ export default function VehiclesPage() {
             loadData();
         };
         checkAuth();
-    }, [router, page, pageSize, selectedClient]);
+    }, [router, page, pageSize, selectedClient, dateRange.startDate, dateRange.endDate, dateRange.preset]);
 
     const loadData = async (
         overrideSearch?: string,
         overrideStatus?: string,
         overrideVehicleType?: string,
-        overrideDate?: string
+        overrideDateRange?: DateRange
     ) => {
         try {
             setLoading(true);
-            const dateVal = overrideDate !== undefined ? overrideDate : selectedDate;
+            const currentRange = overrideDateRange || dateRange;
+            const currentSearch = overrideSearch !== undefined ? overrideSearch : search;
+            const currentStatus = overrideStatus !== undefined ? overrideStatus : selectedStatus;
+            const currentVehicleType = overrideVehicleType !== undefined ? overrideVehicleType : selectedVehicleType;
+
             const response = await vehicleService.getVehicles({
                 page,
                 pageSize,
-                search: overrideSearch !== undefined ? overrideSearch || undefined : search || undefined,
-                status: overrideStatus !== undefined ? overrideStatus || undefined : selectedStatus || undefined,
-                vehicleType: overrideVehicleType !== undefined ? overrideVehicleType || undefined : selectedVehicleType || undefined,
-                startDate: dateVal || undefined,
-                endDate: dateVal || undefined,
+                search: currentSearch || undefined,
+                status: currentStatus || undefined,
+                vehicleType: currentVehicleType || undefined,
+                startDate: currentRange.startDate || undefined,
+                endDate: currentRange.endDate || undefined,
             });
             setVehicles(response.data);
             setTotal(response.total);
             setTotalPages(response.totalPages);
+
+            if (allVehicles.length === 0 || currentRange.preset === 'all') {
+                const allResponse = await vehicleService.getVehicles({
+                    page: 1,
+                    pageSize: 100000,
+                    startDate: undefined,
+                    endDate: undefined,
+                });
+
+                // Format objects with date property for DateRangePicker count logic
+                const formattedAll = allResponse.data.map(v => ({
+                    ...v,
+                    date: v.lastDate || ''
+                }));
+                setAllVehicles(formattedAll as any);
+            }
+
             setError(null);
         } catch (err) {
             setError('Failed to load vehicles');
@@ -146,12 +170,13 @@ export default function VehiclesPage() {
     };
 
     const handleReset = () => {
+        const defaultRange = getDateRangeFromPreset('30days');
         setSearch('');
         setSelectedStatus('');
         setSelectedVehicleType('');
-        setSelectedDate('');
+        setDateRange(defaultRange);
         setPage(1);
-        loadData('', '', '', '');
+        loadData('', '', '', defaultRange);
     };
 
     const handleExport = async () => {
@@ -162,13 +187,13 @@ export default function VehiclesPage() {
                 search: search || undefined,
                 status: selectedStatus || undefined,
                 vehicleType: selectedVehicleType || undefined,
-                startDate: selectedDate || undefined,
-                endDate: selectedDate || undefined,
+                startDate: dateRange.startDate || undefined,
+                endDate: dateRange.endDate || undefined,
             });
-            const allVehicles = response.data;
-            if (allVehicles.length === 0) return;
+            const exportVehicles = response.data;
+            if (exportVehicles.length === 0) return;
             const headers = ['Vehicle ID', 'Vehicle Type', 'Asset Type', 'Odometer (km)', 'Distance (km)', 'Fuel Issued (L)', 'Consumption (L/100km)', 'Last Date', 'Status'];
-            const rows = allVehicles.map(v => [
+            const rows = exportVehicles.map(v => [
                 v.vehicleId,
                 v.vehicleType,
                 v.assetType,
@@ -179,7 +204,7 @@ export default function VehiclesPage() {
                 v.lastDate || '—',
                 v.status
             ]);
-            exportToCSV(`vehicles_${selectedDate || 'all'}.csv`, headers, rows);
+            exportToCSV(`vehicles_${dateRange.preset}.csv`, headers, rows);
         } catch (err) {
             console.error('Failed to export vehicles:', err);
         }
@@ -227,14 +252,14 @@ export default function VehiclesPage() {
                 <CardContent className="flex-1 flex flex-col p-0">
                     {/* Filter bar container matching single horizontal row structure */}
                     <div className="mb-4 py-2.5 px-4 bg-[#eefcf2] border border-[#d6f2e1] rounded w-full shrink-0">
-                        <div className="flex flex-wrap items-end justify-between gap-3">
+                        <div className="flex flex-wrap items-end justify-between gap-2.5">
                             {/* Left Filters Group - All in 1 row */}
-                            <div className="flex flex-wrap items-end gap-2.5 flex-1">
+                            <div className="flex flex-wrap items-end gap-2 flex-1 min-w-0">
                                 {/* Compact Search Input Group */}
-                                <div className="flex flex-col gap-1 w-[200px]">
-                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Search vehicles</label>
+                                <div className="flex flex-col gap-1 w-[160px] sm:w-[180px]">
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Search vehicles</label>
                                     <div className="flex h-8">
-                                        <span className="flex items-center px-2.5 border border-r-0 border-slate-200 bg-slate-50 rounded-l text-slate-400">
+                                        <span className="flex items-center px-2 border border-r-0 border-slate-200 bg-slate-50 rounded-l text-slate-400">
                                             <Search className="h-3 w-3" />
                                         </span>
                                         <input
@@ -243,18 +268,18 @@ export default function VehiclesPage() {
                                             value={search}
                                             onChange={(e) => setSearch(e.target.value)}
                                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                            className="w-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 rounded-r rounded-l-none"
+                                            className="w-full border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 rounded-r rounded-l-none"
                                         />
                                     </div>
                                 </div>
 
                                 {/* Status Selector */}
-                                <div className="flex flex-col gap-1 w-[125px]">
-                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Status</label>
+                                <div className="flex flex-col gap-1 w-[110px]">
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Status</label>
                                     <select
                                         value={selectedStatus}
                                         onChange={(e) => setSelectedStatus(e.target.value)}
-                                        className="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 cursor-pointer w-full"
+                                        className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 cursor-pointer w-full"
                                     >
                                         <option value="">All statuses</option>
                                         <option value="Active">Active</option>
@@ -263,12 +288,12 @@ export default function VehiclesPage() {
                                 </div>
 
                                 {/* Vehicle Type Selector */}
-                                <div className="flex flex-col gap-1 w-[125px]">
-                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Vehicle Type</label>
+                                <div className="flex flex-col gap-1 w-[115px]">
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Vehicle Type</label>
                                     <select
                                         value={selectedVehicleType}
                                         onChange={(e) => setSelectedVehicleType(e.target.value)}
-                                        className="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 cursor-pointer w-full"
+                                        className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 cursor-pointer w-full"
                                     >
                                         <option value="">All types</option>
                                         <option value="Car">Car</option>
@@ -277,24 +302,23 @@ export default function VehiclesPage() {
                                     </select>
                                 </div>
 
-                                {/* Single Date Picker */}
-                                <div className="flex flex-col gap-1 w-[135px]">
-                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Date</label>
-                                    <input
-                                        type="date"
-                                        value={selectedDate}
-                                        onChange={(e) => setSelectedDate(e.target.value)}
-                                        className="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 cursor-pointer w-full"
-                                    />
-                                </div>
+                                {/* Date Range Selector */}
+                                <DateRangePicker
+                                    value={dateRange}
+                                    onChange={(newRange) => {
+                                        setDateRange(newRange);
+                                        setPage(1);
+                                    }}
+                                    allRecords={allVehicles as any}
+                                />
                             </div>
 
                             {/* Right Action Buttons Group */}
-                            <div className="flex items-end gap-2">
+                            <div className="flex items-end gap-1.5 shrink-0">
                                 {/* Search Button */}
                                 <Button
                                     onClick={handleSearch}
-                                    className="bg-[#f26522] hover:bg-[#d94f12] text-xs font-semibold text-white px-3.5 rounded h-8 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5"
+                                    className="bg-[#f26522] hover:bg-[#d94f12] text-xs font-semibold text-white px-3 rounded h-8 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5"
                                 >
                                     <Sliders className="h-3.5 w-3.5" />
                                     Search
@@ -305,7 +329,7 @@ export default function VehiclesPage() {
                                     variant="outline"
                                     size="sm"
                                     onClick={handleReset}
-                                    className="h-8 px-3.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-1.5 text-xs font-semibold"
+                                    className="h-8 px-3 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-1.5 text-xs font-semibold"
                                     title="Reset filters"
                                 >
                                     <RotateCcw className="h-3.5 w-3.5" />
@@ -315,7 +339,7 @@ export default function VehiclesPage() {
                                 {/* Export Button */}
                                 <Button
                                     onClick={handleExport}
-                                    className="bg-[#f26522] hover:bg-[#d94f12] text-white text-xs font-semibold rounded h-8 px-3.5 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5"
+                                    className="bg-[#f26522] hover:bg-[#d94f12] text-white text-xs font-semibold rounded h-8 px-3 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5"
                                     title="Export fuel levels"
                                 >
                                     <Download className="h-3.5 w-3.5" />

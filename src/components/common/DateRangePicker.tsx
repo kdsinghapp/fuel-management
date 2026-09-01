@@ -166,8 +166,8 @@ export function DateRangePicker({ value, onChange, allRecords = [] }: DateRangeP
   ];
 
   return (
-    <div className="relative w-full sm:w-[200px]" ref={popoverRef}>
-      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+    <div className="relative w-full sm:w-[150px]" ref={popoverRef}>
+      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5 whitespace-nowrap">
         DATE RANGE
       </label>
       <button

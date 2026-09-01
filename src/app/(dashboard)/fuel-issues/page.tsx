@@ -16,9 +16,12 @@ import { useClientStore } from '@/services/api';
 
 import { CustomTable } from '@/components/ui/table';
 
+import { DateRangePicker, DateRange, getDateRangeFromPreset } from '@/components/common/DateRangePicker';
+
 export default function FuelIssuesPage() {
     const router = useRouter();
     const selectedClient = useClientStore((state) => state.selectedClient);
+    const [allIssues, setAllIssues] = useState<any[]>([]);
     const [issues, setIssues] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -106,7 +109,7 @@ export default function FuelIssuesPage() {
     // Filter states
     const [search, setSearch] = useState('');
     const [selectedVehicle, setSelectedVehicle] = useState('');
-    const [selectedDate, setSelectedDate] = useState('');
+    const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
 
     const [vehicles, setVehicles] = useState<string[]>([]);
     const [total, setTotal] = useState(0);
@@ -126,27 +129,41 @@ export default function FuelIssuesPage() {
             loadVehicles();
         };
         checkAuth();
-    }, [router, page, selectedClient, selectedDate]);
+    }, [router, page, selectedClient, dateRange.startDate, dateRange.endDate, dateRange.preset]);
 
     const loadData = async (
         overrideSearch?: string,
         overrideVehicle?: string,
-        overrideDate?: string
+        overrideDateRange?: DateRange
     ) => {
         try {
             setLoading(true);
-            const dateToUse = overrideDate !== undefined ? overrideDate : selectedDate;
+            const currentRange = overrideDateRange || dateRange;
+            const currentSearch = overrideSearch !== undefined ? overrideSearch : search;
+            const currentVehicle = overrideVehicle !== undefined ? overrideVehicle : selectedVehicle;
+
             const response = await fuelIssueService.getFuelIssues({
                 page,
                 pageSize,
-                search: overrideSearch !== undefined ? overrideSearch || undefined : search || undefined,
-                vehicleId: overrideVehicle !== undefined ? overrideVehicle || undefined : selectedVehicle || undefined,
-                startDate: dateToUse || undefined,
-                endDate: dateToUse || undefined,
+                search: currentSearch || undefined,
+                vehicleId: currentVehicle || undefined,
+                startDate: currentRange.startDate || undefined,
+                endDate: currentRange.endDate || undefined,
             });
             setIssues(response.data);
             setTotal(response.total);
             setTotalPages(response.totalPages);
+
+            if (allIssues.length === 0 || currentRange.preset === 'all') {
+                const allResponse = await fuelIssueService.getFuelIssues({
+                    page: 1,
+                    pageSize: 100000,
+                    startDate: undefined,
+                    endDate: undefined,
+                });
+                setAllIssues(allResponse.data);
+            }
+
             setError(null);
         } catch (err) {
             setError('Failed to load transactions');
@@ -171,11 +188,12 @@ export default function FuelIssuesPage() {
     };
 
     const handleReset = () => {
+        const defaultRange = getDateRangeFromPreset('30days');
         setSearch('');
         setSelectedVehicle('');
-        setSelectedDate('');
+        setDateRange(defaultRange);
         setPage(1);
-        loadData('', '', '');
+        loadData('', '', defaultRange);
     };
 
     const handleExport = async () => {
@@ -185,13 +203,13 @@ export default function FuelIssuesPage() {
                 pageSize: 100000,
                 search: search || undefined,
                 vehicleId: selectedVehicle || undefined,
-                startDate: selectedDate || undefined,
-                endDate: selectedDate || undefined,
+                startDate: dateRange.startDate || undefined,
+                endDate: dateRange.endDate || undefined,
             });
-            const allIssues = response.data;
-            if (allIssues.length === 0) return;
+            const exportIssues = response.data;
+            if (exportIssues.length === 0) return;
             const headers = ['Date', 'Time', 'ID', 'Vehicle Req', 'Fleet Id', 'Vehicle Detail', 'Site', 'Litres', 'Pump', 'Odo Meter', 'Hour Meter', 'DEM/Status'];
-            const rows = allIssues.map(issue => [
+            const rows = exportIssues.map(issue => [
                 issue.date,
                 issue.time,
                 issue.transactionId,
@@ -205,7 +223,7 @@ export default function FuelIssuesPage() {
                 issue.engineHours,
                 issue.dem || issue.status
             ]);
-            exportToCSV(`fuel_issues_${selectedDate || 'all'}.csv`, headers, rows);
+            exportToCSV(`fuel_issues_${dateRange.preset}.csv`, headers, rows);
         } catch (err) {
             console.error('Failed to export fuel issues:', err);
         }
@@ -274,16 +292,15 @@ export default function FuelIssuesPage() {
                                 </div>
                             </div>
 
-                            {/* Single Date Selector */}
-                            <div className="w-full sm:w-[180px] flex flex-col gap-1.5">
-                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Date</label>
-                                <input
-                                    type="date"
-                                    value={selectedDate}
-                                    onChange={(e) => setSelectedDate(e.target.value)}
-                                    className="rounded border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 shadow-xs w-full"
-                                />
-                            </div>
+                            {/* Date Range Selector */}
+                            <DateRangePicker
+                                value={dateRange}
+                                onChange={(newRange) => {
+                                    setDateRange(newRange);
+                                    setPage(1);
+                                }}
+                                allRecords={allIssues}
+                            />
                         </div>
 
                         {/* Action Buttons */}
