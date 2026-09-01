@@ -14,14 +14,12 @@ import {
     FolderKanban,
     Receipt,
     RefreshCw,
-    ArrowUpRight,
-    ArrowDownRight,
     CheckCircle2,
-    Layers,
-    ChevronRight,
+    Inbox,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageContainer } from '@/components/layout/PageContainer';
+import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { fuelLevelService } from '@/services/fuelLevelService';
 import { deliveryService } from '@/services/deliveryService';
 import { fuelIssueService } from '@/services/fuelIssueService';
@@ -63,6 +61,12 @@ interface TrendPoint {
     formattedDate: string;
 }
 
+interface ConsumptionCategory {
+    name: string;
+    value: number;
+    color: string;
+}
+
 export default function DashboardPage() {
     const router = useRouter();
     const selectedClient = useClientStore((state) => state.selectedClient);
@@ -70,101 +74,101 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    // KPI stats state with sensible high-quality defaults
-    const [currentStock, setCurrentStock] = useState<number>(10200);
-    const [stockCapacityPct, setStockCapacityPct] = useState<number>(85);
-    const [recentDeliveriesSum, setRecentDeliveriesSum] = useState<number>(7340);
-    const [deliveriesCount, setDeliveriesCount] = useState<number>(4);
-    const [totalTransactions, setTotalTransactions] = useState<number>(103);
-    const [todayIssuedLitres, setTodayIssuedLitres] = useState<number>(528.3);
-    const [activeVehiclesCount, setActiveVehiclesCount] = useState<number>(13);
-    const [operationalPct, setOperationalPct] = useState<number>(100);
+    // KPI stats state - initialized dynamically to 0
+    const [currentStock, setCurrentStock] = useState<number>(0);
+    const [stockCapacityPct, setStockCapacityPct] = useState<number>(0);
+    const [recentDeliveriesSum, setRecentDeliveriesSum] = useState<number>(0);
+    const [deliveriesCount, setDeliveriesCount] = useState<number>(0);
+    const [totalTransactions, setTotalTransactions] = useState<number>(0);
+    const [todayIssuedLitres, setTodayIssuedLitres] = useState<number>(0);
+    const [issuedLabel, setIssuedLabel] = useState<string>('Issued Today');
+    const [activeVehiclesCount, setActiveVehiclesCount] = useState<number>(0);
+    const [operationalPct, setOperationalPct] = useState<number>(0);
 
-    // Visualizations state
-    const [trendData, setTrendData] = useState<TrendPoint[]>([
-        { date: '2026-08-15', level: 5900, formattedDate: 'Aug 15' },
-        { date: '2026-08-16', level: 7400, formattedDate: 'Aug 16' },
-        { date: '2026-08-17', level: 8800, formattedDate: 'Aug 17' },
-        { date: '2026-08-18', level: 10200, formattedDate: 'Aug 18' },
-        { date: '2026-08-19', level: 10100, formattedDate: 'Aug 19' },
-        { date: '2026-08-20', level: 10050, formattedDate: 'Aug 20' },
-    ]);
+    // Visualizations state - dynamic
+    const [trendData, setTrendData] = useState<TrendPoint[]>([]);
+    const [consumptionSpread, setConsumptionSpread] = useState<ConsumptionCategory[]>([]);
 
-    const [consumptionSpread, setConsumptionSpread] = useState([
-        { name: 'Light Vehicles', value: 55, color: '#1b5e20' },
-        { name: 'Heavy Fleet', value: 32, color: '#f26522' },
-        { name: 'Unassigned', value: 13, color: '#1e3a5f' },
-    ]);
+    // Table rows state - dynamic
+    const [recentDeliveries, setRecentDeliveries] = useState<DeliveryRow[]>([]);
+    const [latestTransactions, setLatestTransactions] = useState<TransactionRow[]>([]);
 
-    // Table rows state
-    const [recentDeliveries, setRecentDeliveries] = useState<DeliveryRow[]>([
-        { id: '1', deliveryId: '30628147', date: '2026-08-12', quantity: 2410.7 },
-        { id: '2', deliveryId: '30628452', date: '2026-08-13', quantity: 1245.0 },
-        { id: '3', deliveryId: '30628711', date: '2026-08-14', quantity: 691.6 },
-        { id: '4', deliveryId: '30629014', date: '2026-08-14', quantity: 2978.5 },
-        { id: '5', deliveryId: '30629015', date: '2026-08-14', quantity: 2978.5 },
-    ]);
-
-    const [latestTransactions, setLatestTransactions] = useState<TransactionRow[]>([
-        { id: '1', dateTime: '08-18 06:44', vehicle: 'WAI362', litres: 45.0, demMethod: 'ST500 Key' },
-        { id: '2', dateTime: '08-18 08:01', vehicle: 'BH0719', litres: 47.8, demMethod: 'Driver Tag' },
-        { id: '3', dateTime: '08-18 10:07', vehicle: 'FAE085', litres: 47.2, demMethod: 'Driver Tag' },
-        { id: '4', dateTime: '08-18 22:35', vehicle: 'Unknown', litres: 64.4, demMethod: 'ST500 Key' },
-        { id: '5', dateTime: '08-19 22:43', vehicle: 'FAE085', litres: 51.6, demMethod: 'Driver Tag' },
-    ]);
+    const getPastDateStr = (daysAgo: number) => {
+        const d = new Date();
+        d.setDate(d.getDate() - daysAgo);
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    };
 
     const loadDashboardData = useCallback(async () => {
         try {
-            // Helper to get past date string
-            const getPastDate = (days: number) => {
-                const d = new Date();
-                d.setDate(d.getDate() - days);
-                return d.toISOString().split('T')[0];
-            };
-
-            const todayStr = new Date().toISOString().split('T')[0];
-            const thirtyDaysAgoStr = getPastDate(30);
-            const sevenDaysAgoStr = getPastDate(7);
+            const todayStr = getPastDateStr(0);
+            const sevenDaysAgoStr = getPastDateStr(6);
+            const thirtyDaysAgoStr = getPastDateStr(30);
+            const ninetyDaysAgoStr = getPastDateStr(90);
 
             // Fetch live API data in parallel
             const [levelsRes, deliveriesRes, transactionsRes, vehiclesRes] = await Promise.allSettled([
-                fuelLevelService.getFuelLevels({ pageSize: 100, startDate: sevenDaysAgoStr, endDate: todayStr }),
-                deliveryService.getDeliveries({ pageSize: 50, startDate: thirtyDaysAgoStr, endDate: todayStr }),
-                fuelIssueService.getFuelIssues({ pageSize: 200, startDate: thirtyDaysAgoStr, endDate: todayStr }),
-                vehicleService.getVehicles({ pageSize: 100 }),
+                fuelLevelService.getFuelLevels({ pageSize: 10000, startDate: sevenDaysAgoStr, endDate: todayStr }),
+                deliveryService.getDeliveries({ pageSize: 500, startDate: ninetyDaysAgoStr, endDate: todayStr }),
+                fuelIssueService.getFuelIssues({ pageSize: 2000, startDate: thirtyDaysAgoStr, endDate: todayStr }),
+                vehicleService.getVehicles({ pageSize: 500, startDate: thirtyDaysAgoStr, endDate: todayStr }),
             ]);
 
             // Process Tank Levels
             if (levelsRes.status === 'fulfilled' && levelsRes.value.data.length > 0) {
                 const levels = levelsRes.value.data;
-                const latestLevel = levels[0];
-                if (latestLevel) {
-                    setCurrentStock(latestLevel.fuelLevel);
-                    setStockCapacityPct(latestLevel.percentage || Math.round((latestLevel.fuelLevel / 20000) * 100));
-                }
 
-                // Group by date to get clean trend points
-                const dateMap = new Map<string, number>();
-                levels.forEach((l) => {
-                    if (!dateMap.has(l.date)) {
-                        dateMap.set(l.date, l.fuelLevel);
-                    }
+                // Sort descending to get the latest reading for current stock KPI
+                const descLevels = [...levels].sort((a, b) => {
+                    const timeA = new Date(`${a.date}T${a.time}Z`).getTime();
+                    const timeB = new Date(`${b.date}T${b.time}Z`).getTime();
+                    return timeB - timeA;
                 });
 
-                const points: TrendPoint[] = Array.from(dateMap.entries())
-                    .map(([date, level]) => {
-                        const d = new Date(date);
-                        const formattedDate = isNaN(d.getTime())
-                            ? date.slice(5)
-                            : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                        return { date, level, formattedDate };
-                    })
-                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                    .slice(-7);
-
-                if (points.length >= 2) {
-                    setTrendData(points);
+                const latestLevel = descLevels[0];
+                if (latestLevel) {
+                    setCurrentStock(latestLevel.fuelLevel || 0);
+                    setStockCapacityPct(
+                        latestLevel.percentage !== undefined
+                            ? latestLevel.percentage
+                            : Math.round(((latestLevel.fuelLevel || 0) / 20000) * 100)
+                    );
                 }
+
+                // Sort ascending for chart chronological display (same as Fuel Levels page)
+                const ascLevels = [...levels].sort((a, b) => {
+                    const timeA = new Date(`${a.date}T${a.time}Z`).getTime();
+                    const timeB = new Date(`${b.date}T${b.time}Z`).getTime();
+                    return timeA - timeB;
+                });
+
+                const points: TrendPoint[] = ascLevels.map((l) => {
+                    let formattedDate = l.date;
+                    try {
+                        const parts = l.date.split('-');
+                        const month = parseInt(parts[1], 10) - 1;
+                        const day = parseInt(parts[2], 10);
+                        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                        formattedDate = `${months[month]} ${String(day).padStart(2, '0')}`;
+                    } catch {
+                        formattedDate = l.date;
+                    }
+
+                    return {
+                        date: l.date,
+                        level: l.fuelLevel,
+                        formattedDate,
+                    };
+                });
+
+                setTrendData(points);
+            } else {
+                setCurrentStock(0);
+                setStockCapacityPct(0);
+                setTrendData([]);
             }
 
             // Process Deliveries
@@ -181,6 +185,10 @@ export default function DashboardPage() {
                     quantity: d.quantity,
                 }));
                 setRecentDeliveries(topDels);
+            } else {
+                setRecentDeliveriesSum(0);
+                setDeliveriesCount(0);
+                setRecentDeliveries([]);
             }
 
             // Process Transactions
@@ -188,17 +196,21 @@ export default function DashboardPage() {
                 const txs = transactionsRes.value.data;
                 setTotalTransactions(transactionsRes.value.total || txs.length);
 
-                // Today's total issued litres
+                // Today's total issued litres or latest date total
                 const todayTxs = txs.filter((t: any) => t.date === todayStr);
                 const todaySum = todayTxs.reduce((acc: number, t: any) => acc + (t.fuelQuantity || 0), 0);
                 if (todaySum > 0) {
                     setTodayIssuedLitres(Number(todaySum.toFixed(1)));
+                    setIssuedLabel('Issued Today');
                 } else if (txs.length > 0) {
-                    // Fallback to latest day total
                     const latestDate = txs[0].date;
                     const latestDayTxs = txs.filter((t: any) => t.date === latestDate);
                     const latestSum = latestDayTxs.reduce((acc: number, t: any) => acc + (t.fuelQuantity || 0), 0);
                     setTodayIssuedLitres(Number(latestSum.toFixed(1)));
+                    setIssuedLabel(`Issued on ${latestDate}`);
+                } else {
+                    setTodayIssuedLitres(0);
+                    setIssuedLabel('Issued Today');
                 }
 
                 // Latest 5 Transactions
@@ -207,21 +219,12 @@ export default function DashboardPage() {
                         ? `${t.date.slice(5)} ${t.time.slice(0, 5)}`
                         : t.createdAt
                         ? `${t.createdAt.slice(5, 10)} ${t.createdAt.slice(11, 16)}`
-                        : '08-18 06:44';
+                        : `${t.date || ''} ${t.time || ''}`.trim() || '—';
 
-                    let method = 'ST500 Key';
-                    if (t.dem) {
-                        if (t.dem.toLowerCase().includes('tag') || t.dem.toLowerCase().includes('driver')) {
-                            method = 'Driver Tag';
-                        } else if (t.dem.toLowerCase().includes('key') || t.dem.toLowerCase().includes('st500')) {
-                            method = 'ST500 Key';
-                        } else {
-                            method = t.dem;
-                        }
-                    }
+                    let method = t.dem || 'Standard';
 
                     return {
-                        id: t.id,
+                        id: t.id || t.transactionId || String(Math.random()),
                         dateTime: formattedDateTime,
                         vehicle: t.vehicleId || 'Unknown',
                         litres: t.fuelQuantity || 0,
@@ -238,9 +241,15 @@ export default function DashboardPage() {
                 txs.forEach((t: any) => {
                     const v = (t.vehicleId || '').toLowerCase();
                     const q = t.fuelQuantity || 0;
-                    if (!v || v === 'unknown') {
+                    if (!v || v === 'unknown' || v === 'unassigned') {
                         unassignedL += q;
-                    } else if (v.includes('truck') || v.includes('bus') || v.includes('heavy') || v.includes('ht')) {
+                    } else if (
+                        v.includes('truck') ||
+                        v.includes('bus') ||
+                        v.includes('heavy') ||
+                        v.includes('ht') ||
+                        v.includes('semi')
+                    ) {
                         heavyL += q;
                     } else {
                         lightL += q;
@@ -250,18 +259,28 @@ export default function DashboardPage() {
                 const totalVol = lightL + heavyL + unassignedL;
                 if (totalVol > 0) {
                     setConsumptionSpread([
-                        { name: 'Light Vehicles', value: Math.round((lightL / totalVol) * 100) || 55, color: '#1b5e20' },
-                        { name: 'Heavy Fleet', value: Math.round((heavyL / totalVol) * 100) || 32, color: '#f26522' },
-                        { name: 'Unassigned', value: Math.round((unassignedL / totalVol) * 100) || 13, color: '#1e3a5f' },
+                        { name: 'Light Vehicles', value: Math.round((lightL / totalVol) * 100), color: '#1b5e20' },
+                        { name: 'Heavy Fleet', value: Math.round((heavyL / totalVol) * 100), color: '#f26522' },
+                        { name: 'Unassigned', value: Math.round((unassignedL / totalVol) * 100), color: '#1e3a5f' },
                     ]);
+                } else {
+                    setConsumptionSpread([]);
                 }
+            } else {
+                setTotalTransactions(0);
+                setTodayIssuedLitres(0);
+                setLatestTransactions([]);
+                setConsumptionSpread([]);
             }
 
             // Process Vehicles
             if (vehiclesRes.status === 'fulfilled' && vehiclesRes.value.data.length > 0) {
                 const total = vehiclesRes.value.total || vehiclesRes.value.data.length;
                 setActiveVehiclesCount(total);
-                setOperationalPct(100);
+                setOperationalPct(total > 0 ? 100 : 0);
+            } else {
+                setActiveVehiclesCount(0);
+                setOperationalPct(0);
             }
         } catch (err) {
             console.error('Error loading dashboard data:', err);
@@ -288,6 +307,16 @@ export default function DashboardPage() {
         setRefreshing(true);
         await loadDashboardData();
     };
+
+    if (loading) {
+        return (
+            <PageContainer className="bg-[#fcfaf7] min-h-[calc(100vh-4.5rem)]">
+                <div className="flex h-[60vh] items-center justify-center">
+                    <LoadingSpinner size="lg" />
+                </div>
+            </PageContainer>
+        );
+    }
 
     return (
         <PageContainer className="bg-[#fcfaf7] min-h-[calc(100vh-4.5rem)] space-y-6 pb-12">
@@ -335,13 +364,13 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                {/* Card 2: Recent Deliveries (30D) */}
+                {/* Card 2: Recent Deliveries */}
                 <div className="relative bg-white rounded-2xl p-5 border border-zinc-200/90 shadow-xs flex flex-col justify-between overflow-hidden hover:shadow-md transition-all duration-200">
                     <div className="absolute top-0 left-0 right-0 h-1 bg-[#f26522]" />
                     <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
                             <span className="text-xs font-bold text-zinc-500">
-                                Recent Deliveries (30D)
+                                Total Deliveries
                             </span>
                             <div className="text-2xl md:text-3xl font-black text-zinc-900 tracking-tight">
                                 {formatNumber(recentDeliveriesSum)} L
@@ -366,7 +395,7 @@ export default function DashboardPage() {
                                 Total Transactions
                             </span>
                             <div className="text-2xl md:text-3xl font-black text-zinc-900 tracking-tight">
-                                {totalTransactions}
+                                {formatNumber(totalTransactions)}
                             </div>
                         </div>
                         <div className="h-11 w-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-100">
@@ -375,7 +404,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="mt-3 flex items-center gap-1.5 text-xs font-bold text-rose-600">
                         <span className="text-rose-500 text-sm leading-none">↓</span>
-                        <span>{todayIssuedLitres} L Issued Today</span>
+                        <span>{todayIssuedLitres} L {issuedLabel}</span>
                     </div>
                 </div>
 
@@ -423,54 +452,61 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="h-64 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                <defs>
-                                    <linearGradient id="fuelTrendGradient" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#f26522" stopOpacity={0.45} />
-                                        <stop offset="95%" stopColor="#f26522" stopOpacity={0.02} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={true} />
-                                <XAxis
-                                    dataKey="formattedDate"
-                                    stroke="#94a3b8"
-                                    fontSize={11}
-                                    tickLine={false}
-                                    axisLine={{ stroke: '#e2e8f0' }}
-                                />
-                                <YAxis
-                                    stroke="#94a3b8"
-                                    fontSize={11}
-                                    tickLine={false}
-                                    axisLine={{ stroke: '#e2e8f0' }}
-                                    tickFormatter={(val) => formatNumber(val)}
-                                />
-                                <Tooltip
-                                    contentStyle={{
-                                        backgroundColor: '#09090b',
-                                        borderColor: '#27272a',
-                                        borderRadius: '0.5rem',
-                                        color: '#ffffff',
-                                        fontSize: '12px',
-                                        padding: '6px 12px',
-                                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                                    }}
-                                    formatter={(value: any) => [`${formatNumber(Number(value))} L`, 'Fuel Level']}
-                                    labelFormatter={(label) => `Date: ${label}`}
-                                />
-                                <Area
-                                    type="monotone"
-                                    dataKey="level"
-                                    stroke="#f26522"
-                                    strokeWidth={3}
-                                    fillOpacity={1}
-                                    fill="url(#fuelTrendGradient)"
-                                    dot={{ r: 3.5, fill: '#f26522', stroke: '#ffffff', strokeWidth: 1.5 }}
-                                    activeDot={{ r: 5, fill: '#f26522', stroke: '#ffffff', strokeWidth: 2 }}
-                                />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                        {trendData.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={trendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="fuelTrendGradient" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#f26522" stopOpacity={0.45} />
+                                            <stop offset="95%" stopColor="#f26522" stopOpacity={0.02} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={true} />
+                                    <XAxis
+                                        dataKey="formattedDate"
+                                        stroke="#94a3b8"
+                                        fontSize={11}
+                                        tickLine={false}
+                                        axisLine={{ stroke: '#e2e8f0' }}
+                                    />
+                                    <YAxis
+                                        stroke="#94a3b8"
+                                        fontSize={11}
+                                        tickLine={false}
+                                        axisLine={{ stroke: '#e2e8f0' }}
+                                        tickFormatter={(val) => formatNumber(val)}
+                                    />
+                                    <Tooltip
+                                        contentStyle={{
+                                            backgroundColor: '#09090b',
+                                            borderColor: '#27272a',
+                                            borderRadius: '0.5rem',
+                                            color: '#ffffff',
+                                            fontSize: '12px',
+                                            padding: '6px 12px',
+                                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                                        }}
+                                        formatter={(value: any) => [`${formatNumber(Number(value))} L`, 'Fuel Level']}
+                                        labelFormatter={(label) => `Date: ${label}`}
+                                    />
+                                    <Area
+                                        type="monotone"
+                                        dataKey="level"
+                                        stroke="#f26522"
+                                        strokeWidth={2.5}
+                                        fillOpacity={1}
+                                        fill="url(#fuelTrendGradient)"
+                                        dot={trendData.length <= 15 ? { r: 3, fill: '#f26522', stroke: '#ffffff', strokeWidth: 1.5 } : false}
+                                        activeDot={{ r: 4, fill: '#f26522', stroke: '#ffffff', strokeWidth: 2 }}
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="h-full w-full flex flex-col items-center justify-center text-zinc-400 gap-2">
+                                <Inbox className="h-8 w-8 text-zinc-300" />
+                                <span className="text-xs font-medium">No fuel level history recorded</span>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -492,52 +528,62 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="h-52 w-full flex items-center justify-center relative">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={consumptionSpread}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={48}
-                                    outerRadius={76}
-                                    paddingAngle={3}
-                                    dataKey="value"
-                                    stroke="transparent"
-                                >
-                                    {consumptionSpread.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                </Pie>
-                                <Tooltip
-                                    contentStyle={{
-                                        backgroundColor: '#09090b',
-                                        borderColor: '#27272a',
-                                        borderRadius: '0.5rem',
-                                        color: '#ffffff',
-                                        fontSize: '12px',
-                                        padding: '4px 10px',
-                                    }}
-                                    formatter={(value: any) => [`${value}%`, 'Consumption Share']}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
+                        {consumptionSpread.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={consumptionSpread}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={48}
+                                        outerRadius={76}
+                                        paddingAngle={3}
+                                        dataKey="value"
+                                        stroke="transparent"
+                                    >
+                                        {consumptionSpread.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip
+                                        contentStyle={{
+                                            backgroundColor: '#09090b',
+                                            borderColor: '#27272a',
+                                            borderRadius: '0.5rem',
+                                            color: '#ffffff',
+                                            fontSize: '12px',
+                                            padding: '4px 10px',
+                                        }}
+                                        formatter={(value: any) => [`${value}%`, 'Consumption Share']}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center text-zinc-400 gap-2">
+                                <Inbox className="h-7 w-7 text-zinc-300" />
+                                <span className="text-xs font-medium">No consumption records available</span>
+                            </div>
+                        )}
                     </div>
 
                     {/* Bottom Custom Legend */}
-                    <div className="flex items-center justify-center gap-4 text-xs font-bold text-zinc-600 pt-2">
-                        <div className="flex items-center gap-1.5">
-                            <span className="h-2.5 w-6 rounded-xs bg-[#1b5e20]" />
-                            <span>Light Vehicles</span>
+                    {consumptionSpread.length > 0 ? (
+                        <div className="flex items-center justify-center gap-4 text-xs font-bold text-zinc-600 pt-2 flex-wrap">
+                            {consumptionSpread.map((item) => (
+                                <div key={item.name} className="flex items-center gap-1.5">
+                                    <span
+                                        className="h-2.5 w-6 rounded-xs"
+                                        style={{ backgroundColor: item.color }}
+                                    />
+                                    <span>{item.name} ({item.value}%)</span>
+                                </div>
+                            ))}
                         </div>
-                        <div className="flex items-center gap-1.5">
-                            <span className="h-2.5 w-6 rounded-xs bg-[#f26522]" />
-                            <span>Heavy Fleet</span>
+                    ) : (
+                        <div className="text-center text-[11px] text-zinc-400 pt-2">
+                            Awaiting transaction data
                         </div>
-                        <div className="flex items-center gap-1.5">
-                            <span className="h-2.5 w-6 rounded-xs bg-[#1e3a5f]" />
-                            <span>Unassigned</span>
-                        </div>
-                    </div>
+                    )}
                 </div>
             </div>
 
@@ -570,19 +616,27 @@ export default function DashboardPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-100 text-xs">
-                                {recentDeliveries.map((del) => (
-                                    <tr key={del.id} className="hover:bg-zinc-50/80 transition-colors">
-                                        <td className="py-3 px-5 font-bold text-zinc-900">
-                                            {del.deliveryId}
-                                        </td>
-                                        <td className="py-3 px-5 text-zinc-600 font-medium">
-                                            {del.date}
-                                        </td>
-                                        <td className="py-3 px-5 text-right font-bold text-emerald-600">
-                                            {formatNumber(del.quantity)} L
+                                {recentDeliveries.length > 0 ? (
+                                    recentDeliveries.map((del) => (
+                                        <tr key={del.id} className="hover:bg-zinc-50/80 transition-colors">
+                                            <td className="py-3 px-5 font-bold text-zinc-900">
+                                                {del.deliveryId}
+                                            </td>
+                                            <td className="py-3 px-5 text-zinc-600 font-medium">
+                                                {del.date}
+                                            </td>
+                                            <td className="py-3 px-5 text-right font-bold text-emerald-600">
+                                                {formatNumber(del.quantity)} L
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={3} className="py-8 text-center text-zinc-400 font-medium">
+                                            No deliveries found
                                         </td>
                                     </tr>
-                                ))}
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -616,42 +670,54 @@ export default function DashboardPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-100 text-xs">
-                                {latestTransactions.map((tx) => {
-                                    const isST500 = tx.demMethod.toLowerCase().includes('st500') || tx.demMethod.toLowerCase().includes('key');
-                                    const isDriverTag = tx.demMethod.toLowerCase().includes('driver') || tx.demMethod.toLowerCase().includes('tag');
+                                {latestTransactions.length > 0 ? (
+                                    latestTransactions.map((tx) => {
+                                        const isST500 =
+                                            tx.demMethod.toLowerCase().includes('st500') ||
+                                            tx.demMethod.toLowerCase().includes('key');
+                                        const isDriverTag =
+                                            tx.demMethod.toLowerCase().includes('driver') ||
+                                            tx.demMethod.toLowerCase().includes('tag');
 
-                                    return (
-                                        <tr key={tx.id} className="hover:bg-zinc-50/80 transition-colors">
-                                            <td className="py-3 px-5 text-zinc-600 font-medium whitespace-nowrap">
-                                                {tx.dateTime}
-                                            </td>
-                                            <td className="py-3 px-5">
-                                                <Link
-                                                    href={`/fuel-issues?search=${encodeURIComponent(tx.vehicle)}`}
-                                                    className="font-bold text-blue-600 hover:text-blue-800 hover:underline"
-                                                >
-                                                    {tx.vehicle}
-                                                </Link>
-                                            </td>
-                                            <td className="py-3 px-5 font-bold text-zinc-900">
-                                                {formatNumber(tx.litres)} L
-                                            </td>
-                                            <td className="py-3 px-5 text-center">
-                                                <span
-                                                    className={`inline-block px-3 py-0.5 rounded-full text-[11px] font-bold border ${
-                                                        isST500
-                                                            ? 'bg-amber-50 text-amber-700 border-amber-200/80'
-                                                            : isDriverTag
-                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
-                                                            : 'bg-zinc-100 text-zinc-700 border-zinc-200'
-                                                    }`}
-                                                >
-                                                    {tx.demMethod}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                                        return (
+                                            <tr key={tx.id} className="hover:bg-zinc-50/80 transition-colors">
+                                                <td className="py-3 px-5 text-zinc-600 font-medium whitespace-nowrap">
+                                                    {tx.dateTime}
+                                                </td>
+                                                <td className="py-3 px-5">
+                                                    <Link
+                                                        href={`/fuel-issues?search=${encodeURIComponent(tx.vehicle)}`}
+                                                        className="font-bold text-blue-600 hover:text-blue-800 hover:underline"
+                                                    >
+                                                        {tx.vehicle}
+                                                    </Link>
+                                                </td>
+                                                <td className="py-3 px-5 font-bold text-zinc-900">
+                                                    {formatNumber(tx.litres)} L
+                                                </td>
+                                                <td className="py-3 px-5 text-center">
+                                                    <span
+                                                        className={`inline-block px-3 py-0.5 rounded-full text-[11px] font-bold border ${
+                                                            isST500
+                                                                ? 'bg-amber-50 text-amber-700 border-amber-200/80'
+                                                                : isDriverTag
+                                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
+                                                                : 'bg-zinc-100 text-zinc-700 border-zinc-200'
+                                                        }`}
+                                                    >
+                                                        {tx.demMethod}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                ) : (
+                                    <tr>
+                                        <td colSpan={4} className="py-8 text-center text-zinc-400 font-medium">
+                                            No transactions recorded
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>

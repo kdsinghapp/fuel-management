@@ -9,7 +9,12 @@ export const fuelIssueService = {
     
     // Get start/end dates
     const today = new Date().toISOString().split('T')[0];
-    const datefrom = params.startDate;
+    const defaultFrom = (() => {
+      const d = new Date();
+      d.setDate(d.getDate() - 90);
+      return d.toISOString().split('T')[0];
+    })();
+    const datefrom = params.startDate || defaultFrom;
     const dateto = params.endDate || today;
 
     // Add 1 day to dateto for the API call to ensure the backend database query includes all items on the end date
