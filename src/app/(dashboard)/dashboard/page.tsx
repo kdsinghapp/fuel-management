@@ -16,6 +16,7 @@ import {
     CheckCircle2,
     Package,
     Inbox,
+    FileSpreadsheet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -24,6 +25,7 @@ import { fuelLevelService } from '@/services/fuelLevelService';
 import { deliveryService } from '@/services/deliveryService';
 import { fuelIssueService } from '@/services/fuelIssueService';
 import { vehicleService } from '@/services/vehicleService';
+import { reconciliationService } from '@/services/reconciliationService';
 import { useClientStore } from '@/services/api';
 import { authService } from '@/lib/auth';
 import { formatNumber } from '@/lib/utils';
@@ -312,9 +314,183 @@ export default function DashboardPage() {
         checkAuth();
     }, [router, selectedClient, loadDashboardData]);
 
+    const [isExportingCombined, setIsExportingCombined] = useState(false);
+
     const handleRefresh = async () => {
         setRefreshing(true);
         await loadDashboardData();
+    };
+
+    const handleExportCombined = async () => {
+        try {
+            setIsExportingCombined(true);
+            const clientName = selectedClient?.name || 'Client';
+            const generatedDate = new Date().toLocaleString();
+
+            const [levelsRes, deliveriesRes, issuesRes, reconRes] = await Promise.all([
+                fuelLevelService.getFuelLevels({ pageSize: 100000 }),
+                deliveryService.getDeliveries({ pageSize: 100000 }),
+                fuelIssueService.getFuelIssues({ pageSize: 100000 }),
+                reconciliationService.getReconciliationRecords({ pageSize: 100000 })
+            ]);
+
+            const levels = levelsRes.data || [];
+            const deliveries = deliveriesRes.data || [];
+            const issues = issuesRes.data || [];
+            const reconRecords = reconRes.data || [];
+
+            // Group vehicle fuel efficiency
+            const vehicleMap = new Map<string, { ltrs: number; count: number; minOdo: number; maxOdo: number }>();
+            issues.forEach(item => {
+                const desc = item.vehicleId || item.driverAttendant || 'Unknown Vehicle';
+                const current = vehicleMap.get(desc) || { ltrs: 0, count: 0, minOdo: Infinity, maxOdo: -Infinity };
+                current.ltrs += Number(item.fuelQuantity) || 0;
+                current.count += 1;
+                const odo = Number(item.odometer) || 0;
+                if (odo > 0) {
+                    current.minOdo = Math.min(current.minOdo, odo);
+                    current.maxOdo = Math.max(current.maxOdo, odo);
+                }
+                vehicleMap.set(desc, current);
+            });
+
+            const efficiencyList = Array.from(vehicleMap.entries()).map(([desc, v]) => {
+                const distance = v.maxOdo > v.minOdo && v.minOdo !== Infinity ? v.maxOdo - v.minOdo : 0;
+                const kmPerLtr = v.ltrs > 0 && distance > 0 ? distance / v.ltrs : 0;
+                const ltrsPer100Km = distance > 0 ? (v.ltrs / distance) * 100 : 0;
+                return {
+                    description: desc,
+                    ltrs: v.ltrs,
+                    transactions: v.count,
+                    distance,
+                    kmPerLtr,
+                    ltrsPer100Km,
+                };
+            });
+
+            const csvLines: string[] = [];
+
+            // 1. MASTER REPORT HEADER
+            csvLines.push('"COMBINED MASTER FUEL MANAGEMENT & RECONCILIATION AUDIT REPORT"');
+            csvLines.push(`"Client:","${clientName}"`);
+            csvLines.push(`"Generated Timestamp:","${generatedDate}"`);
+            csvLines.push('');
+
+            // 2. DAILY RECONCILIATION AUDIT LOG
+            csvLines.push('"SECTION 1: DAILY RECONCILIATION AUDIT LEDGER"');
+            const reconHeaders = [
+                'Date',
+                'Opening Balance / Dip (L)',
+                'Deliveries / Receipts (+L)',
+                'Fuel Issues / Dispensed (-L)',
+                'Expected Closing (L)',
+                'Actual Closing Dip (L)',
+                'Variance (L)',
+                'Variance %',
+                'Status'
+            ];
+            csvLines.push(reconHeaders.map(h => `"${h}"`).join(','));
+            reconRecords.forEach(record => {
+                const vPercent = record.expectedClosing > 0 ? (record.variance / record.expectedClosing) * 100 : 0;
+                csvLines.push([
+                    record.date,
+                    record.openingBalance,
+                    record.deliveries,
+                    record.fuelIssues,
+                    record.expectedClosing,
+                    record.actualClosing,
+                    record.variance,
+                    `${vPercent.toFixed(1)}%`,
+                    record.status
+                ].map(val => typeof val === 'string' ? `"${val}"` : val).join(','));
+            });
+            csvLines.push('');
+
+            // 3. FUEL DELIVERIES LOG
+            csvLines.push('"SECTION 2: FUEL DELIVERIES AUDIT LOG"');
+            const deliveryHeaders = ['Delivery ID', 'Date', 'Time', 'Quantity (L)', 'Supplier', 'Status'];
+            csvLines.push(deliveryHeaders.map(h => `"${h}"`).join(','));
+            deliveries.forEach(d => {
+                csvLines.push([
+                    d.deliveryId,
+                    d.date,
+                    d.time,
+                    d.quantity,
+                    d.supplier || '',
+                    d.status || ''
+                ].map(val => typeof val === 'string' ? `"${val}"` : val).join(','));
+            });
+            csvLines.push('');
+
+            // 4. FUEL ISSUES / TRANSACTIONS LOG
+            csvLines.push('"SECTION 3: FUEL ISSUES & DISPENSING TRANSACTIONS"');
+            const issueHeaders = ['Date', 'Time', 'Transaction ID', 'Vehicle Req', 'Fleet Id', 'Vehicle Detail', 'Site', 'Litres (L)', 'Pump', 'Odo Meter', 'Hour Meter', 'DEM / Status'];
+            csvLines.push(issueHeaders.map(h => `"${h}"`).join(','));
+            issues.forEach(issue => {
+                csvLines.push([
+                    issue.date,
+                    issue.time,
+                    issue.transactionId,
+                    issue.vehicleId,
+                    issue.fleetId,
+                    issue.driverAttendant,
+                    issue.depot,
+                    issue.fuelQuantity,
+                    issue.pump,
+                    issue.odometer,
+                    issue.engineHours,
+                    issue.dem || issue.status
+                ].map(val => typeof val === 'string' ? `"${val}"` : val).join(','));
+            });
+            csvLines.push('');
+
+            // 5. FUEL TANK LEVELS HISTORY
+            csvLines.push('"SECTION 4: FUEL TANK LEVEL DIP READINGS"');
+            const levelHeaders = ['Date', 'Time', 'Tank No', 'Fuel Level (L)', 'Water Level (mm)', 'Volume %', 'Temperature (°C)'];
+            csvLines.push(levelHeaders.map(h => `"${h}"`).join(','));
+            levels.forEach(lvl => {
+                csvLines.push([
+                    lvl.date,
+                    lvl.time,
+                    lvl.tankId,
+                    lvl.fuelLevel,
+                    lvl.waterLevel ?? '',
+                    lvl.volumePercentage ? `${lvl.volumePercentage}%` : '',
+                    lvl.temperature ?? ''
+                ].map(val => typeof val === 'string' ? `"${val}"` : val).join(','));
+            });
+            csvLines.push('');
+
+            // 6. VEHICLE FUEL EFFICIENCY SUMMARY
+            csvLines.push('"SECTION 5: VEHICLE FUEL EFFICIENCY & USAGE SUMMARY"');
+            const effHeaders = ['Vehicle Description', 'Total Litres (L)', 'Transactions Count', 'Total Distance (km)', 'Fuel Economy (km/L)', 'Consumption Rate (L/100km)'];
+            csvLines.push(effHeaders.map(h => `"${h}"`).join(','));
+            efficiencyList.forEach(eff => {
+                csvLines.push([
+                    eff.description,
+                    eff.ltrs.toFixed(1),
+                    eff.transactions,
+                    eff.distance.toFixed(0),
+                    eff.kmPerLtr > 0 ? eff.kmPerLtr.toFixed(2) : 'N/A',
+                    eff.ltrsPer100Km > 0 ? eff.ltrsPer100Km.toFixed(2) : 'N/A'
+                ].map(val => typeof val === 'string' ? `"${val}"` : val).join(','));
+            });
+
+            const csvContent = csvLines.join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `master_combined_fuel_report_${selectedClient?.name ? selectedClient.name.toLowerCase().replace(/\\s+/g, '_') : 'client'}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (err) {
+            console.error('Failed to export combined master report:', err);
+        } finally {
+            setIsExportingCombined(false);
+        }
     };
 
     if (loading) {
@@ -339,14 +515,34 @@ export default function DashboardPage() {
                         Real-time stats across tank levels, deliveries, efficiency, and active transactions
                     </p>
                 </div>
-                <Button
-                    onClick={handleRefresh}
-                    disabled={refreshing}
-                    className="bg-[#2d7a5b] hover:bg-[#236349] text-white text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-2 shadow-xs transition-all shrink-0 cursor-pointer self-start sm:self-auto"
-                >
-                    <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-                    <span>Refresh Data</span>
-                </Button>
+                <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-auto">
+                    <Button
+                        onClick={handleRefresh}
+                        disabled={refreshing}
+                        className="bg-[#2d7a5b] hover:bg-[#236349] text-white text-xs font-semibold px-3.5 py-2 rounded flex items-center gap-2 shadow-xs transition-all shrink-0 cursor-pointer"
+                    >
+                        <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                        <span>Refresh Data</span>
+                    </Button>
+                    <Button
+                        onClick={handleExportCombined}
+                        disabled={isExportingCombined}
+                        className="bg-[#f26522] hover:bg-[#d45316] text-white text-xs font-semibold px-4 py-2 rounded flex items-center gap-2 shadow-xs transition-all shrink-0 cursor-pointer"
+                        title="Download complete Master Combined Report across Fuel Levels, Deliveries, Transactions, Efficiency, and Reconciliation"
+                    >
+                        {isExportingCombined ? (
+                            <>
+                                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                <span>Generating Master Report...</span>
+                            </>
+                        ) : (
+                            <>
+                                <FileSpreadsheet className="h-3.5 w-3.5" />
+                                <span>Export Report</span>
+                            </>
+                        )}
+                    </Button>
+                </div>
             </div>
 
             {/* 4 KPI Stat Cards */}
@@ -725,10 +921,10 @@ export default function DashboardPage() {
                                                 <td className="py-3 px-5 text-center">
                                                     <span
                                                         className={`inline-block px-3 py-1 rounded-full text-xs font-semibold border ${isST500
-                                                                ? 'bg-[#fff6f0] text-[#f26522] border-[#ffe3d1]'
-                                                                : isDriverTag
-                                                                    ? 'bg-[#eefcf2] text-[#138024] border-[#d6f2e1]'
-                                                                    : 'bg-zinc-100 text-zinc-700 border-zinc-200'
+                                                            ? 'bg-[#fff6f0] text-[#f26522] border-[#ffe3d1]'
+                                                            : isDriverTag
+                                                                ? 'bg-[#eefcf2] text-[#138024] border-[#d6f2e1]'
+                                                                : 'bg-zinc-100 text-zinc-700 border-zinc-200'
                                                             }`}
                                                     >
                                                         {tx.demMethod}

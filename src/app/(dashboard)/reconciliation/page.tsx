@@ -204,7 +204,7 @@ export default function ReconciliationPage() {
         const csvLines: string[] = [];
 
         // 1. Report Header
-        csvLines.push('"COMBINED FUEL & RECONCILIATION AUDIT REPORT"');
+        csvLines.push('"RECONCILIATION AUDIT REPORT"');
         csvLines.push(`"Client:","${clientName}"`);
         csvLines.push(`"Date Range:","${dateRangeStr}"`);
         csvLines.push(`"Generated At:","${generatedDate}"`);
@@ -286,7 +286,7 @@ export default function ReconciliationPage() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.setAttribute('href', url);
-        link.setAttribute('download', `combined_fuel_reconciliation_report_${selectedDate || 'all'}.csv`);
+        link.setAttribute('download', `reconciliation_report_${selectedDate || 'all'}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
@@ -329,7 +329,7 @@ export default function ReconciliationPage() {
                     <span className="text-sm text-zinc-500 mt-1 inline-block">Daily fuel reconciliation and variance tracking</span>
                 </div>
 
-                <div className="flex flex-wrap items-end gap-3 w-full lg:w-auto">
+                <div className="flex flex-wrap items-end gap-2.5 w-full lg:w-auto">
                     {/* Single Date Selector */}
                     <div className="flex flex-col gap-1 w-full sm:w-auto">
                         <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Date</label>
@@ -337,26 +337,27 @@ export default function ReconciliationPage() {
                             type="date"
                             value={selectedDate}
                             onChange={(e) => setSelectedDate(e.target.value)}
-                            className="bg-white border border-zinc-200 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-10 text-zinc-700 w-full sm:w-44"
+                            className="bg-white border border-zinc-200 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-10 text-zinc-700 w-full sm:w-40"
                         />
                     </div>
                     <Button
                         onClick={loadData}
-                        className="bg-[#3c8e75] hover:bg-[#317561] text-sm font-semibold rounded px-4 py-2 flex items-center gap-1.5 transition-colors duration-200 border-0 h-10 shadow-sm text-white w-full sm:w-auto justify-center"
+                        className="bg-[#3c8e75] hover:bg-[#317561] text-sm font-semibold rounded px-3.5 py-2 flex items-center gap-1.5 transition-colors duration-200 border-0 h-10 shadow-sm text-white w-full sm:w-auto justify-center"
                     >
                         <RefreshCw className="h-4 w-4" />
                         Refresh
                     </Button>
                     <Button
                         onClick={handleReset}
-                        className="bg-white hover:bg-zinc-50 text-sm font-semibold border border-zinc-200 rounded px-4 py-2 flex items-center gap-1.5 transition-colors duration-200 h-10 shadow-sm text-zinc-600 w-full sm:w-auto justify-center"
+                        className="bg-white hover:bg-zinc-50 text-sm font-semibold border border-zinc-200 rounded px-3.5 py-2 flex items-center gap-1.5 transition-colors duration-200 h-10 shadow-sm text-zinc-600 w-full sm:w-auto justify-center"
                     >
                         <RotateCcw className="h-4 w-4" />
                         Reset
                     </Button>
                     <Button
                         onClick={handleExport}
-                        className="bg-[#f26522] hover:bg-[#d45316] text-sm font-semibold rounded px-4 py-2 flex items-center gap-1.5 transition-colors duration-200 border-0 h-10 shadow-sm text-white w-full sm:w-auto justify-center"
+                        className="bg-[#f26522] hover:bg-[#d45316] text-sm font-semibold rounded px-3.5 py-2 flex items-center gap-1.5 transition-colors duration-200 border-0 h-10 shadow-sm text-white w-full sm:w-auto justify-center"
+                        title="Export reconciliation report"
                     >
                         <Download className="h-4 w-4" />
                         Export
