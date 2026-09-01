@@ -9,11 +9,21 @@ import { calculateReconciliation } from '@/lib/reconciliation';
 export const reconciliationService = {
   async getReconciliationRecords(params: FilterParams = {}): Promise<PaginatedResponse<Reconciliation>> {
     try {
-      // Fetch data from endpoints
-      const defaultStart = '2026-08-01';
-      const levelsRes = await fuelLevelService.getFuelLevels({ pageSize: 100000, startDate: params.startDate || defaultStart, endDate: params.endDate });
-      const deliveriesRes = await deliveryService.getDeliveries({ pageSize: 100000, startDate: params.startDate || defaultStart, endDate: params.endDate });
-      const issuesRes = await fuelIssueService.getFuelIssues({ pageSize: 100000, startDate: params.startDate || defaultStart, endDate: params.endDate });
+      // Fetch data from endpoints with a buffer before startDate so previous day opening balance is always available
+      const rawStart = (() => {
+        if (params.startDate) {
+          const d = new Date(params.startDate + 'T00:00:00');
+          if (!isNaN(d.getTime())) {
+            d.setDate(d.getDate() - 30);
+            return d.toISOString().split('T')[0];
+          }
+        }
+        return '2026-01-01';
+      })();
+
+      const levelsRes = await fuelLevelService.getFuelLevels({ pageSize: 100000, startDate: rawStart, endDate: params.endDate });
+      const deliveriesRes = await deliveryService.getDeliveries({ pageSize: 100000, startDate: rawStart, endDate: params.endDate });
+      const issuesRes = await fuelIssueService.getFuelIssues({ pageSize: 100000, startDate: rawStart, endDate: params.endDate });
 
       const levels = levelsRes.data;
       const deliveries = deliveriesRes.data;

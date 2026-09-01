@@ -99,9 +99,8 @@ export default function ReconciliationPage() {
     const [pageSize] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
 
-    // Date range filters
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
+    // Single Date filter
+    const [selectedDate, setSelectedDate] = useState('');
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -113,7 +112,7 @@ export default function ReconciliationPage() {
             loadData();
         };
         checkAuth();
-    }, [router, page, selectedClient, startDate, endDate]);
+    }, [router, page, selectedClient, selectedDate, selectedStatus]);
 
     const loadData = async () => {
         try {
@@ -122,8 +121,8 @@ export default function ReconciliationPage() {
                 page,
                 pageSize,
                 status: selectedStatus || undefined,
-                startDate,
-                endDate,
+                startDate: selectedDate || undefined,
+                endDate: selectedDate || undefined,
             });
             setRecords(response.data);
             setTotal(response.total);
@@ -199,7 +198,7 @@ export default function ReconciliationPage() {
         if (records.length === 0) return;
 
         const clientName = selectedClient?.name || 'Client';
-        const dateRangeStr = `${startDate || 'Start'} to ${endDate || 'Latest'}`;
+        const dateRangeStr = selectedDate || 'All Dates';
         const generatedDate = new Date().toLocaleString();
 
         const csvLines: string[] = [];
@@ -287,7 +286,7 @@ export default function ReconciliationPage() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.setAttribute('href', url);
-        link.setAttribute('download', `combined_fuel_reconciliation_report_${startDate || 'all'}_to_${endDate || 'today'}.csv`);
+        link.setAttribute('download', `combined_fuel_reconciliation_report_${selectedDate || 'all'}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
@@ -295,8 +294,8 @@ export default function ReconciliationPage() {
     };
 
     const handleReset = () => {
-        setStartDate('');
-        setEndDate('');
+        setSelectedDate('');
+        setSelectedStatus('');
         setPage(1);
     };
 
@@ -331,22 +330,14 @@ export default function ReconciliationPage() {
                 </div>
 
                 <div className="flex flex-wrap items-end gap-3 w-full lg:w-auto">
+                    {/* Single Date Selector */}
                     <div className="flex flex-col gap-1 w-full sm:w-auto">
-                        <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Date From</label>
+                        <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Date</label>
                         <input
                             type="date"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                            className="bg-white border border-zinc-200 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400 h-10 text-zinc-700 w-full sm:w-40"
-                        />
-                    </div>
-                    <div className="flex flex-col gap-1 w-full sm:w-auto">
-                        <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Date To</label>
-                        <input
-                            type="date"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            className="bg-white border border-zinc-200 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400 h-10 text-zinc-700 w-full sm:w-40"
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            className="bg-white border border-zinc-200 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-10 text-zinc-700 w-full sm:w-44"
                         />
                     </div>
                     <Button
