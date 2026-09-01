@@ -9,62 +9,32 @@ export const vehicleService = {
       // Fetch live transactions to aggregate vehicles, forwarding date filters
       const response = await fuelIssueService.getFuelIssues({
         page: 1,
-        pageSize: 2000,
+        pageSize: 100000,
         startDate: params.startDate,
         endDate: params.endDate,
       });
 
       const transactions = response.data;
 
-      // Group by RegistrationNo / vehicleId
-      const groups: Record<string, {
-        fuelIssued: number;
-        maxOdo: number;
-        minOdo: number;
-        lastDate: string;
-      }> = {};
-
-      transactions.forEach((tx: any) => {
-        const vehicle = tx.vehicleId || 'Unknown';
-        if (!groups[vehicle]) {
-          groups[vehicle] = {
-            fuelIssued: 0,
-            maxOdo: 0,
-            minOdo: Infinity,
-            lastDate: tx.date
-          };
-        }
-
-        groups[vehicle].fuelIssued += tx.fuelQuantity || 0;
-        
-        const odo = Number(tx.odometer);
-        if (odo > 0) {
-          if (odo > groups[vehicle].maxOdo) groups[vehicle].maxOdo = odo;
-          if (odo < groups[vehicle].minOdo) groups[vehicle].minOdo = odo;
-        }
-
-        if (new Date(tx.date).getTime() > new Date(groups[vehicle].lastDate).getTime()) {
-          groups[vehicle].lastDate = tx.date;
-        }
-      });
-
-      let data: Vehicle[] = Object.keys(groups).map((vehicle) => {
-        const g = groups[vehicle];
-        const distance = g.minOdo !== Infinity && g.maxOdo > g.minOdo ? g.maxOdo - g.minOdo : 0;
-        const consumption = distance > 0 ? Number(((g.fuelIssued / distance) * 100).toFixed(1)) : 0;
+      // Map each individual transaction as a separate item
+      let data: Vehicle[] = transactions.map((tx: any, index: number) => {
+        const vehicle = tx.vehicleId && tx.vehicleId.trim() !== '' ? tx.vehicleId : (tx.driverAttendant || 'Unassigned');
+        const odo = Number(tx.odometer) || 0;
+        const qty = Number(tx.fuelQuantity) || 0;
 
         return {
-          id: vehicle,
+          id: `${tx.transactionId || index}`,
           vehicleId: vehicle,
           vehicleType: vehicle.toLowerCase().includes('truck') ? 'Truck' : vehicle.toLowerCase().includes('bus') ? 'Bus' : 'Car',
           assetType: vehicle.toLowerCase().includes('truck') || vehicle.toLowerCase().includes('bus') ? 'Heavy' : 'Light',
-          odometer: g.maxOdo > 0 ? g.maxOdo : 0,
-          distanceTraveled: distance,
-          fuelIssued: Number(g.fuelIssued.toFixed(2)),
-          fuelConsumption: consumption,
+          odometer: odo,
+          distanceTraveled: 0,
+          fuelIssued: Number(qty.toFixed(2)),
+          fuelConsumption: 0,
           status: 'Active',
-          createdAt: `${g.lastDate}T00:00:00Z`,
-          updatedAt: `${g.lastDate}T00:00:00Z`,
+          lastDate: tx.date || '',
+          createdAt: `${tx.date}T${tx.time || '00:00:00'}Z`,
+          updatedAt: `${tx.date}T${tx.time || '00:00:00'}Z`,
         };
       });
 
@@ -86,8 +56,8 @@ export const vehicleService = {
         data = data.filter(item => item.vehicleType === params.vehicleType);
       }
 
-      // Sort by vehicleId
-      data.sort((a, b) => a.vehicleId.localeCompare(b.vehicleId));
+      // Sort by date descending
+      data.sort((a, b) => new Date(b.lastDate).getTime() - new Date(a.lastDate).getTime());
 
       // Pagination
       const page = params.page || 1;

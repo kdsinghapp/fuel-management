@@ -9,6 +9,7 @@ export interface Vehicle extends BaseEntity {
   fuelIssued: number;
   fuelConsumption: number;
   status: string;
+  lastDate: string;
 }
 
 export interface VehicleFuelUsage {

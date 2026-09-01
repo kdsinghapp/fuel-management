@@ -72,6 +72,13 @@ export default function VehiclesPage() {
             render: (vehicle: Vehicle) => `${vehicle.fuelConsumption.toFixed(1)} L/100km`,
         },
         {
+            key: "lastDate",
+            header: "Last Date",
+            headerClassName: "bg-[#137e19] text-white",
+            cellClassName: "py-2 px-3 text-slate-600 align-middle",
+            render: (vehicle: Vehicle) => vehicle.lastDate ? vehicle.lastDate : '—',
+        },
+        {
             key: "status",
             header: "Status",
             headerClassName: "bg-[#555555] text-white",
@@ -84,12 +91,11 @@ export default function VehiclesPage() {
     const [search, setSearch] = useState('');
     const [selectedStatus, setSelectedStatus] = useState('');
     const [selectedVehicleType, setSelectedVehicleType] = useState('');
-    const [startDate, setStartDate] = useState('2026-08-01');
-    const [endDate, setEndDate] = useState('2026-08-19');
+    const [selectedDate, setSelectedDate] = useState('');
 
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
-    const [pageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
 
     useEffect(() => {
@@ -102,25 +108,25 @@ export default function VehiclesPage() {
             loadData();
         };
         checkAuth();
-    }, [router, page, selectedClient]);
+    }, [router, page, pageSize, selectedClient]);
 
     const loadData = async (
         overrideSearch?: string,
         overrideStatus?: string,
         overrideVehicleType?: string,
-        overrideStart?: string,
-        overrideEnd?: string
+        overrideDate?: string
     ) => {
         try {
             setLoading(true);
+            const dateVal = overrideDate !== undefined ? overrideDate : selectedDate;
             const response = await vehicleService.getVehicles({
                 page,
                 pageSize,
                 search: overrideSearch !== undefined ? overrideSearch || undefined : search || undefined,
                 status: overrideStatus !== undefined ? overrideStatus || undefined : selectedStatus || undefined,
                 vehicleType: overrideVehicleType !== undefined ? overrideVehicleType || undefined : selectedVehicleType || undefined,
-                startDate: overrideStart !== undefined ? overrideStart : startDate,
-                endDate: overrideEnd !== undefined ? overrideEnd : endDate,
+                startDate: dateVal || undefined,
+                endDate: dateVal || undefined,
             });
             setVehicles(response.data);
             setTotal(response.total);
@@ -143,10 +149,9 @@ export default function VehiclesPage() {
         setSearch('');
         setSelectedStatus('');
         setSelectedVehicleType('');
-        setStartDate('2026-08-01');
-        setEndDate('2026-08-19');
+        setSelectedDate('');
         setPage(1);
-        loadData('', '', '', '2026-08-01', '2026-08-19');
+        loadData('', '', '', '');
     };
 
     const handleExport = async () => {
@@ -157,12 +162,12 @@ export default function VehiclesPage() {
                 search: search || undefined,
                 status: selectedStatus || undefined,
                 vehicleType: selectedVehicleType || undefined,
-                startDate,
-                endDate,
+                startDate: selectedDate || undefined,
+                endDate: selectedDate || undefined,
             });
             const allVehicles = response.data;
             if (allVehicles.length === 0) return;
-            const headers = ['Vehicle ID', 'Vehicle Type', 'Asset Type', 'Odometer (km)', 'Distance (km)', 'Fuel Issued (L)', 'Consumption (L/100km)', 'Status'];
+            const headers = ['Vehicle ID', 'Vehicle Type', 'Asset Type', 'Odometer (km)', 'Distance (km)', 'Fuel Issued (L)', 'Consumption (L/100km)', 'Last Date', 'Status'];
             const rows = allVehicles.map(v => [
                 v.vehicleId,
                 v.vehicleType,
@@ -171,9 +176,10 @@ export default function VehiclesPage() {
                 v.distanceTraveled,
                 v.fuelIssued,
                 v.fuelConsumption,
+                v.lastDate || '—',
                 v.status
             ]);
-            exportToCSV(`vehicles_${startDate || 'all'}_to_${endDate || 'all'}.csv`, headers, rows);
+            exportToCSV(`vehicles_${selectedDate || 'all'}.csv`, headers, rows);
         } catch (err) {
             console.error('Failed to export vehicles:', err);
         }
@@ -219,36 +225,36 @@ export default function VehiclesPage() {
 
             <Card className="flex-1 flex flex-col rounded border border-slate-200 shadow-sm p-4 mb-4">
                 <CardContent className="flex-1 flex flex-col p-0">
-                    {/* Filter bar container matching the bootstrap grid structure */}
+                    {/* Filter bar container matching single horizontal row structure */}
                     <div className="mb-4 py-2.5 px-4 bg-[#eefcf2] border border-[#d6f2e1] rounded w-full shrink-0">
-                        <div className="flex flex-wrap items-end justify-between gap-4">
-                            {/* Left Filters Group */}
-                            <div className="flex flex-wrap items-end gap-3 flex-1 min-w-[280px]">
-                                {/* Search Input Group */}
-                                <div className="flex flex-col gap-1.5 min-w-[260px] flex-1 max-w-xs">
+                        <div className="flex flex-wrap items-end justify-between gap-3">
+                            {/* Left Filters Group - All in 1 row */}
+                            <div className="flex flex-wrap items-end gap-2.5 flex-1">
+                                {/* Compact Search Input Group */}
+                                <div className="flex flex-col gap-1 w-[200px]">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Search vehicles</label>
                                     <div className="flex h-8">
-                                        <span className="flex items-center px-3 border border-r-0 border-slate-200 bg-slate-50 rounded-l text-slate-400">
+                                        <span className="flex items-center px-2.5 border border-r-0 border-slate-200 bg-slate-50 rounded-l text-slate-400">
                                             <Search className="h-3 w-3" />
                                         </span>
                                         <input
                                             type="text"
-                                            placeholder="Search by ID, type, or asset..."
+                                            placeholder="Search by ID..."
                                             value={search}
                                             onChange={(e) => setSearch(e.target.value)}
                                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                            className="flex-1 border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 rounded-r rounded-l-none"
+                                            className="w-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 rounded-r rounded-l-none"
                                         />
                                     </div>
                                 </div>
 
                                 {/* Status Selector */}
-                                <div className="flex flex-col gap-1.5 min-w-[140px]">
+                                <div className="flex flex-col gap-1 w-[125px]">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Status</label>
                                     <select
                                         value={selectedStatus}
                                         onChange={(e) => setSelectedStatus(e.target.value)}
-                                        className="rounded border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 cursor-pointer w-full"
+                                        className="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 cursor-pointer w-full"
                                     >
                                         <option value="">All statuses</option>
                                         <option value="Active">Active</option>
@@ -257,18 +263,29 @@ export default function VehiclesPage() {
                                 </div>
 
                                 {/* Vehicle Type Selector */}
-                                <div className="flex flex-col gap-1.5 min-w-[140px]">
+                                <div className="flex flex-col gap-1 w-[125px]">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Vehicle Type</label>
                                     <select
                                         value={selectedVehicleType}
                                         onChange={(e) => setSelectedVehicleType(e.target.value)}
-                                        className="rounded border border-[#f26522] bg-white px-3 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 cursor-pointer w-full"
+                                        className="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 cursor-pointer w-full"
                                     >
                                         <option value="">All types</option>
                                         <option value="Car">Car</option>
                                         <option value="Truck">Truck</option>
                                         <option value="Bus">Bus</option>
                                     </select>
+                                </div>
+
+                                {/* Single Date Picker */}
+                                <div className="flex flex-col gap-1 w-[135px]">
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Date</label>
+                                    <input
+                                        type="date"
+                                        value={selectedDate}
+                                        onChange={(e) => setSelectedDate(e.target.value)}
+                                        className="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 cursor-pointer w-full"
+                                    />
                                 </div>
                             </div>
 
@@ -277,7 +294,7 @@ export default function VehiclesPage() {
                                 {/* Search Button */}
                                 <Button
                                     onClick={handleSearch}
-                                    className="bg-[#f26522] hover:bg-[#d94f12] text-xs font-semibold text-white px-4 rounded h-8 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5"
+                                    className="bg-[#f26522] hover:bg-[#d94f12] text-xs font-semibold text-white px-3.5 rounded h-8 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5"
                                 >
                                     <Sliders className="h-3.5 w-3.5" />
                                     Search
@@ -288,7 +305,7 @@ export default function VehiclesPage() {
                                     variant="outline"
                                     size="sm"
                                     onClick={handleReset}
-                                    className="h-8 px-4 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-1.5 text-xs font-semibold"
+                                    className="h-8 px-3.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-1.5 text-xs font-semibold"
                                     title="Reset filters"
                                 >
                                     <RotateCcw className="h-3.5 w-3.5" />
@@ -298,7 +315,7 @@ export default function VehiclesPage() {
                                 {/* Export Button */}
                                 <Button
                                     onClick={handleExport}
-                                    className="bg-[#f26522] hover:bg-[#d94f12] text-white text-xs font-semibold rounded h-8 px-4 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5"
+                                    className="bg-[#f26522] hover:bg-[#d94f12] text-white text-xs font-semibold rounded h-8 px-3.5 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5"
                                     title="Export fuel levels"
                                 >
                                     <Download className="h-3.5 w-3.5" />
