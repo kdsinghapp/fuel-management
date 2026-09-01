@@ -1,4 +1,3 @@
-// src/app/admin/roles/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -191,11 +190,10 @@ export default function RolesPage() {
                                             return (
                                                 <span
                                                     key={key}
-                                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-                                                        value
+                                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${value
                                                             ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
                                                             : 'bg-red-50 text-red-800 border-red-100'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     {value ? (
                                                         <Check className="h-3 w-3 stroke-[2.5]" />
@@ -234,9 +232,8 @@ export default function RolesPage() {
                                     {Object.entries(permissionLabels).map(([key, label], index) => (
                                         <tr
                                             key={key}
-                                            className={`border-b border-zinc-100 last:border-0 hover:bg-zinc-50/50 transition-colors ${
-                                                index % 2 === 0 ? 'bg-[#fffbf7]' : 'bg-white'
-                                            }`}
+                                            className={`border-b border-zinc-100 last:border-0 hover:bg-zinc-50/50 transition-colors ${index % 2 === 0 ? 'bg-[#fffbf7]' : 'bg-white'
+                                                }`}
                                         >
                                             <td className="py-3 px-6 font-semibold text-zinc-800">{label}</td>
                                             {roleData.map((role) => {
@@ -259,4 +256,4 @@ export default function RolesPage() {
             </div>
         </PageContainer>
     );
-}
+}
