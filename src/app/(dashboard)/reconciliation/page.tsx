@@ -198,10 +198,61 @@ export default function ReconciliationPage() {
     const handleExport = () => {
         if (records.length === 0) return;
 
-        const headers = ['Date', 'Opening Balance', 'Deliveries', 'Fuel Issues', 'Expected Closing', 'Actual Closing', 'Variance', 'Variance %', 'Status'];
-        const rows = records.map(record => {
+        const clientName = selectedClient?.name || 'Client';
+        const dateRangeStr = `${startDate || 'Start'} to ${endDate || 'Latest'}`;
+        const generatedDate = new Date().toLocaleString();
+
+        const csvLines: string[] = [];
+
+        // 1. Report Header
+        csvLines.push('"COMBINED FUEL & RECONCILIATION AUDIT REPORT"');
+        csvLines.push(`"Client:","${clientName}"`);
+        csvLines.push(`"Date Range:","${dateRangeStr}"`);
+        csvLines.push(`"Generated At:","${generatedDate}"`);
+        csvLines.push('');
+
+        // 2. Stock Reconciliation Summary Section
+        if (summaryData) {
+            csvLines.push('"STOCK RECONCILIATION SUMMARY"');
+            csvLines.push(`"Opening Dip (L)","${summaryData.openingDip}"`);
+            csvLines.push(`"Total Fuel Receipts / Deliveries (L)","+${summaryData.totalDeliveries}"`);
+            csvLines.push(`"Total Fuel Issues / Dispensed (L)","-${summaryData.totalIssues}"`);
+            csvLines.push(`"Expected Closing Stock (L)","${summaryData.closingStock}"`);
+            csvLines.push(`"Actual Closing Dip (L)","${summaryData.closingDip}"`);
+            csvLines.push(`"Net Variance (L)","${summaryData.variance >= 0 ? '+' : ''}${summaryData.variance.toFixed(2)}"`);
+            csvLines.push(`"Variance %","${summaryData.variancePercent.toFixed(1)}%"`);
+            csvLines.push('');
+
+            // 3. Stock Demand Plan Section
+            csvLines.push('"STOCK DEMAND PLAN & REORDER FORECAST"');
+            csvLines.push(`"Current Tank Stock (L)","${summaryData.closingDip}","Balance remaining in the Tank"`);
+            csvLines.push(`"Average Daily Consumption (L)","${Math.round(summaryData.avDailyCons)}","Average Fuel Consumption/Day MTD"`);
+            csvLines.push(`"Days Stock Remaining","${summaryData.daysStock} Days","Days left before Stock run Out based on Rated Use"`);
+            csvLines.push(`"Min Buffer Stock (L)","${summaryData.minStock}","Critical Tank Level for Main Tank"`);
+            csvLines.push(`"Re-Order Lead Time","${summaryData.reorderDays} Days","Days to prepare for New Purchase"`);
+            csvLines.push(`"Target Re-Order Date","${summaryData.reorderDate}","Placing Of order Date"`);
+            csvLines.push(`"Expected Stock Arrival Date","${summaryData.arrivalDate}","Delivery of stock Date"`);
+            csvLines.push('');
+        }
+
+        // 4. Detailed Day-by-Day Reconciliation & Fuel Ledger
+        csvLines.push('"DETAILED DAILY RECONCILIATION & FUEL AUDIT LOG"');
+        const headers = [
+            'Date',
+            'Opening Balance / Dip (L)',
+            'Deliveries / Receipts (+L)',
+            'Fuel Issues / Dispensed (-L)',
+            'Expected Closing (L)',
+            'Actual Closing Dip (L)',
+            'Variance (L)',
+            'Variance %',
+            'Status'
+        ];
+        csvLines.push(headers.map(h => `"${h}"`).join(','));
+
+        records.forEach(record => {
             const vPercent = record.expectedClosing > 0 ? (record.variance / record.expectedClosing) * 100 : 0;
-            return [
+            const row = [
                 record.date,
                 record.openingBalance,
                 record.deliveries,
@@ -212,18 +263,31 @@ export default function ReconciliationPage() {
                 `${vPercent.toFixed(1)}%`,
                 record.status
             ];
+            csvLines.push(row.map(val => typeof val === 'string' ? `"${val}"` : val).join(','));
         });
 
-        const csvContent = [
-            headers.join(','),
-            ...rows.map(row => row.map(val => typeof val === 'string' ? `"${val}"` : val).join(','))
-        ].join('\n');
+        // Totals summary row
+        if (summaryData) {
+            const totalsRow = [
+                '"TOTALS / NET"',
+                '""',
+                `"+${summaryData.totalDeliveries}"`,
+                `"-${summaryData.totalIssues}"`,
+                '""',
+                '""',
+                `"${summaryData.variance >= 0 ? '+' : ''}${summaryData.variance.toFixed(2)}"`,
+                `"${summaryData.variancePercent.toFixed(1)}%"`,
+                '""'
+            ];
+            csvLines.push(totalsRow.join(','));
+        }
 
+        const csvContent = csvLines.join('\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.setAttribute('href', url);
-        link.setAttribute('download', `reconciliation_export_${startDate}_to_${endDate}.csv`);
+        link.setAttribute('download', `combined_fuel_reconciliation_report_${startDate || 'all'}_to_${endDate || 'today'}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();

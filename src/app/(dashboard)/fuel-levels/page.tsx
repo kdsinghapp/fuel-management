@@ -251,14 +251,14 @@ export default function FuelLevelsPage() {
                     </div>
                 </div>
 
-                {/* Area Chart matching the bootstrap design */}
+                {/* Area Chart matching the dashboard orange theme */}
                 <div style={{ height: '380px' }} className="w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
                             <defs>
                                 <linearGradient id="colorFuel" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#3498db" stopOpacity={0.4} />
-                                    <stop offset="95%" stopColor="#3498db" stopOpacity={0.0} />
+                                    <stop offset="5%" stopColor="#f26522" stopOpacity={0.45} />
+                                    <stop offset="95%" stopColor="#f26522" stopOpacity={0.02} />
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke="#f0f0f0" />
@@ -281,9 +281,9 @@ export default function FuelLevelsPage() {
                                         const time = payload[0].payload.time;
 
                                         return (
-                                            <div className="bg-white border border-[#3498db]/40 p-3 rounded shadow-lg text-xs">
+                                            <div className="bg-white border border-[#f26522]/30 p-3 rounded-lg shadow-lg text-xs">
                                                 <p className="font-bold text-slate-800">{formatDateTick(date)} {time}</p>
-                                                <div className="flex items-center gap-1.5 mt-1 font-semibold text-[#2980b9]">
+                                                <div className="flex items-center gap-1.5 mt-1.5 font-bold text-[#f26522]">
                                                     <span>🛢️ {formatNumber(val)} L</span>
                                                 </div>
                                             </div>
@@ -295,7 +295,7 @@ export default function FuelLevelsPage() {
                             <Area
                                 type="monotone"
                                 dataKey="fuelLevel"
-                                stroke="#3498db"
+                                stroke="#f26522"
                                 strokeWidth={2.5}
                                 fillOpacity={1}
                                 fill="url(#colorFuel)"
