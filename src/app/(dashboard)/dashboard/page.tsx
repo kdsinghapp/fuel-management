@@ -10,11 +10,11 @@ import {
     FileText,
     Car,
     TrendingUp,
-    Compass,
-    FolderKanban,
+    PieChart as PieChartIcon,
     Receipt,
     RefreshCw,
     CheckCircle2,
+    Package,
     Inbox,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -138,31 +138,40 @@ export default function DashboardPage() {
                     );
                 }
 
-                // Sort ascending for chart chronological display (same as Fuel Levels page)
-                const ascLevels = [...levels].sort((a, b) => {
-                    const timeA = new Date(`${a.date}T${a.time}Z`).getTime();
-                    const timeB = new Date(`${b.date}T${b.time}Z`).getTime();
-                    return timeA - timeB;
-                });
+                // Group by date to get daily end-of-day reading for a clean 7-day trend
+                const dailyMap = new Map<string, { date: string; level: number; time: string }>();
 
-                const points: TrendPoint[] = ascLevels.map((l) => {
-                    let formattedDate = l.date;
-                    try {
-                        const parts = l.date.split('-');
-                        const month = parseInt(parts[1], 10) - 1;
-                        const day = parseInt(parts[2], 10);
-                        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                        formattedDate = `${months[month]} ${String(day).padStart(2, '0')}`;
-                    } catch {
-                        formattedDate = l.date;
+                levels.forEach((l) => {
+                    const existing = dailyMap.get(l.date);
+                    if (!existing || (l.time && l.time >= (existing.time || ''))) {
+                        dailyMap.set(l.date, {
+                            date: l.date,
+                            level: l.fuelLevel,
+                            time: l.time || '',
+                        });
                     }
-
-                    return {
-                        date: l.date,
-                        level: l.fuelLevel,
-                        formattedDate,
-                    };
                 });
+
+                const points: TrendPoint[] = Array.from(dailyMap.values())
+                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                    .map((l) => {
+                        let formattedDate = l.date;
+                        try {
+                            const parts = l.date.split('-');
+                            const month = parseInt(parts[1], 10) - 1;
+                            const day = parseInt(parts[2], 10);
+                            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                            formattedDate = `${months[month]} ${String(day).padStart(2, '0')}`;
+                        } catch {
+                            formattedDate = l.date;
+                        }
+
+                        return {
+                            date: l.date,
+                            level: l.level,
+                            formattedDate,
+                        };
+                    });
 
                 setTrendData(points);
             } else {
@@ -218,8 +227,8 @@ export default function DashboardPage() {
                     const formattedDateTime = t.date && t.time
                         ? `${t.date.slice(5)} ${t.time.slice(0, 5)}`
                         : t.createdAt
-                        ? `${t.createdAt.slice(5, 10)} ${t.createdAt.slice(11, 16)}`
-                        : `${t.date || ''} ${t.time || ''}`.trim() || '—';
+                            ? `${t.createdAt.slice(5, 10)} ${t.createdAt.slice(11, 16)}`
+                            : `${t.date || ''} ${t.time || ''}`.trim() || '—';
 
                     let method = t.dem || 'Standard';
 
@@ -343,9 +352,9 @@ export default function DashboardPage() {
             {/* 4 KPI Stat Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Card 1: Current Fuel Stock */}
-                <div className="relative bg-white rounded-2xl p-5 border border-zinc-200/90 shadow-xs flex flex-col justify-between overflow-hidden hover:shadow-md transition-all duration-200">
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-[#f26522]" />
-                    <div className="flex items-start justify-between gap-3">
+                <div className="relative bg-white rounded-tl-[28px] rounded-tr-[6px] rounded-bl-[6px] rounded-br-[28px] p-5 border border-zinc-200/80 shadow-xs flex flex-col justify-between overflow-hidden hover:shadow-md transition-all duration-200">
+                    <div className="absolute top-0 left-0 w-24 h-1 bg-[#f26522] rounded-r-full" />
+                    <div className="flex items-start justify-between gap-3 pt-1">
                         <div className="space-y-1">
                             <span className="text-xs font-bold text-zinc-500">
                                 Current Fuel Stock
@@ -354,30 +363,30 @@ export default function DashboardPage() {
                                 {formatNumber(currentStock)} L
                             </div>
                         </div>
-                        <div className="h-11 w-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
-                            <Fuel className="h-5 w-5" />
+                        <div className="h-12 w-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100/50">
+                            <Fuel className="h-6 w-6" />
                         </div>
                     </div>
-                    <div className="mt-3 flex items-center gap-1.5 text-xs font-bold text-emerald-600">
-                        <span className="text-emerald-500 text-sm leading-none">↑</span>
+                    <div className="mt-3 flex items-center gap-1 text-xs font-bold text-emerald-600">
+                        <span className="text-sm leading-none">↑</span>
                         <span>Tank Capacity {stockCapacityPct}%</span>
                     </div>
                 </div>
 
-                {/* Card 2: Recent Deliveries */}
-                <div className="relative bg-white rounded-2xl p-5 border border-zinc-200/90 shadow-xs flex flex-col justify-between overflow-hidden hover:shadow-md transition-all duration-200">
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-[#f26522]" />
-                    <div className="flex items-start justify-between gap-3">
+                {/* Card 2: Recent Deliveries (30D) */}
+                <div className="relative bg-white rounded-tl-[28px] rounded-tr-[6px] rounded-bl-[6px] rounded-br-[28px] p-5 border border-zinc-200/80 shadow-xs flex flex-col justify-between overflow-hidden hover:shadow-md transition-all duration-200">
+                    <div className="absolute top-0 left-0 w-24 h-1 bg-[#f26522] rounded-r-full" />
+                    <div className="flex items-start justify-between gap-3 pt-1">
                         <div className="space-y-1">
                             <span className="text-xs font-bold text-zinc-500">
-                                Total Deliveries
+                                Recent Deliveries
                             </span>
                             <div className="text-2xl md:text-3xl font-black text-zinc-900 tracking-tight">
                                 {formatNumber(recentDeliveriesSum)} L
                             </div>
                         </div>
-                        <div className="h-11 w-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
-                            <Truck className="h-5 w-5" />
+                        <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100/50">
+                            <Package className="h-6 w-6 text-emerald-600" />
                         </div>
                     </div>
                     <div className="mt-3 flex items-center gap-1.5 text-xs font-medium text-zinc-500">
@@ -387,9 +396,9 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Card 3: Total Transactions */}
-                <div className="relative bg-white rounded-2xl p-5 border border-zinc-200/90 shadow-xs flex flex-col justify-between overflow-hidden hover:shadow-md transition-all duration-200">
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-[#f26522]" />
-                    <div className="flex items-start justify-between gap-3">
+                <div className="relative bg-white rounded-tl-[28px] rounded-tr-[6px] rounded-bl-[6px] rounded-br-[28px] p-5 border border-zinc-200/80 shadow-xs flex flex-col justify-between overflow-hidden hover:shadow-md transition-all duration-200">
+                    <div className="absolute top-0 left-0 w-24 h-1 bg-[#f26522] rounded-r-full" />
+                    <div className="flex items-start justify-between gap-3 pt-1">
                         <div className="space-y-1">
                             <span className="text-xs font-bold text-zinc-500">
                                 Total Transactions
@@ -398,20 +407,20 @@ export default function DashboardPage() {
                                 {formatNumber(totalTransactions)}
                             </div>
                         </div>
-                        <div className="h-11 w-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-100">
-                            <FileText className="h-5 w-5" />
+                        <div className="h-12 w-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0 border border-amber-100/50">
+                            <Receipt className="h-6 w-6 text-amber-500" />
                         </div>
                     </div>
-                    <div className="mt-3 flex items-center gap-1.5 text-xs font-bold text-rose-600">
-                        <span className="text-rose-500 text-sm leading-none">↓</span>
+                    <div className="mt-3 flex items-center gap-1 text-xs font-bold text-rose-600">
+                        <span className="text-sm leading-none">↓</span>
                         <span>{todayIssuedLitres} L {issuedLabel}</span>
                     </div>
                 </div>
 
                 {/* Card 4: Active Fleet Vehicles */}
-                <div className="relative bg-white rounded-2xl p-5 border border-zinc-200/90 shadow-xs flex flex-col justify-between overflow-hidden hover:shadow-md transition-all duration-200">
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-[#f26522]" />
-                    <div className="flex items-start justify-between gap-3">
+                <div className="relative bg-white rounded-tl-[28px] rounded-tr-[6px] rounded-bl-[6px] rounded-br-[28px] p-5 border border-zinc-200/80 shadow-xs flex flex-col justify-between overflow-hidden hover:shadow-md transition-all duration-200">
+                    <div className="absolute top-0 left-0 w-24 h-1 bg-[#f26522] rounded-r-full" />
+                    <div className="flex items-start justify-between gap-3 pt-1">
                         <div className="space-y-1">
                             <span className="text-xs font-bold text-zinc-500">
                                 Active Fleet Vehicles
@@ -420,8 +429,8 @@ export default function DashboardPage() {
                                 {activeVehiclesCount}
                             </div>
                         </div>
-                        <div className="h-11 w-11 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center shrink-0 border border-cyan-100">
-                            <Car className="h-5 w-5" />
+                        <div className="h-12 w-12 rounded-2xl bg-cyan-50 text-cyan-500 flex items-center justify-center shrink-0 border border-cyan-100/50">
+                            <Car className="h-6 w-6 text-cyan-500" />
                         </div>
                     </div>
                     <div className="mt-3 flex items-center gap-1.5 text-xs font-bold text-emerald-600">
@@ -434,7 +443,7 @@ export default function DashboardPage() {
             {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Chart 1: Fuel Levels Trend (2 Cols) */}
-                <div className="lg:col-span-2 bg-white rounded-2xl p-5 md:p-6 border border-zinc-200/90 shadow-xs">
+                <div className="lg:col-span-2 bg-white rounded-xl p-5 md:p-6 border border-zinc-200/90 shadow-xs">
                     <div className="flex items-center justify-between pb-4 border-b border-zinc-100 mb-4">
                         <div className="flex items-center gap-2">
                             <TrendingUp className="h-4 w-4 text-blue-500" />
@@ -451,7 +460,7 @@ export default function DashboardPage() {
                         </Link>
                     </div>
 
-                    <div className="h-64 w-full">
+                    <div className="h-72 w-full">
                         {trendData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={trendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -493,11 +502,11 @@ export default function DashboardPage() {
                                         type="monotone"
                                         dataKey="level"
                                         stroke="#f26522"
-                                        strokeWidth={2.5}
+                                        strokeWidth={3}
                                         fillOpacity={1}
                                         fill="url(#fuelTrendGradient)"
-                                        dot={trendData.length <= 15 ? { r: 3, fill: '#f26522', stroke: '#ffffff', strokeWidth: 1.5 } : false}
-                                        activeDot={{ r: 4, fill: '#f26522', stroke: '#ffffff', strokeWidth: 2 }}
+                                        dot={{ r: 3.5, fill: '#f26522', stroke: '#ffffff', strokeWidth: 1.5 }}
+                                        activeDot={{ r: 5, fill: '#f26522', stroke: '#ffffff', strokeWidth: 2 }}
                                     />
                                 </AreaChart>
                             </ResponsiveContainer>
@@ -511,10 +520,10 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Chart 2: Fleet Consumption Spread (1 Col) */}
-                <div className="bg-white rounded-2xl p-5 md:p-6 border border-zinc-200/90 shadow-xs flex flex-col justify-between">
+                <div className="bg-white rounded-xl p-5 md:p-6 border border-zinc-200/90 shadow-xs flex flex-col justify-between">
                     <div className="flex items-center justify-between pb-4 border-b border-zinc-100 mb-2">
                         <div className="flex items-center gap-2">
-                            <Compass className="h-4 w-4 text-emerald-600" />
+                            <PieChartIcon className="h-4 w-4 text-emerald-600" />
                             <h2 className="text-sm md:text-base font-bold text-zinc-900">
                                 Fleet Consumption Spread
                             </h2>
@@ -527,7 +536,7 @@ export default function DashboardPage() {
                         </Link>
                     </div>
 
-                    <div className="h-52 w-full flex items-center justify-center relative">
+                    <div className="h-56 w-full flex items-center justify-center relative">
                         {consumptionSpread.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -535,8 +544,8 @@ export default function DashboardPage() {
                                         data={consumptionSpread}
                                         cx="50%"
                                         cy="50%"
-                                        innerRadius={48}
-                                        outerRadius={76}
+                                        innerRadius={50}
+                                        outerRadius={80}
                                         paddingAngle={3}
                                         dataKey="value"
                                         stroke="transparent"
@@ -566,18 +575,23 @@ export default function DashboardPage() {
                         )}
                     </div>
 
-                    {/* Bottom Custom Legend */}
+                    {/* Bottom Custom Legend (matching screenshot row 1 & row 2 centered) */}
                     {consumptionSpread.length > 0 ? (
-                        <div className="flex items-center justify-center gap-4 text-xs font-bold text-zinc-600 pt-2 flex-wrap">
-                            {consumptionSpread.map((item) => (
-                                <div key={item.name} className="flex items-center gap-1.5">
-                                    <span
-                                        className="h-2.5 w-6 rounded-xs"
-                                        style={{ backgroundColor: item.color }}
-                                    />
-                                    <span>{item.name} ({item.value}%)</span>
+                        <div className="flex flex-col items-center justify-center gap-1.5 text-xs font-semibold text-zinc-600 pt-2 border-t border-slate-100">
+                            <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-1.5">
+                                    <span className="h-2.5 w-6 rounded-xs bg-[#1b5e20]" />
+                                    <span>Light Vehicles</span>
                                 </div>
-                            ))}
+                                <div className="flex items-center gap-1.5">
+                                    <span className="h-2.5 w-6 rounded-xs bg-[#f26522]" />
+                                    <span>Heavy Fleet</span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <span className="h-2.5 w-6 rounded-xs bg-[#1e3a5f]" />
+                                <span>Unassigned</span>
+                            </div>
                         </div>
                     ) : (
                         <div className="text-center text-[11px] text-zinc-400 pt-2">
@@ -590,10 +604,10 @@ export default function DashboardPage() {
             {/* Tables Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Table 1: Recent Deliveries */}
-                <div className="bg-white rounded-2xl border border-zinc-200/90 shadow-xs overflow-hidden">
+                <div className="bg-white rounded-xl border border-zinc-200/90 shadow-xs overflow-hidden">
                     <div className="flex items-center justify-between p-5 pb-4">
                         <div className="flex items-center gap-2">
-                            <FolderKanban className="h-4 w-4 text-amber-500" />
+                            <Truck className="h-4 w-4 text-amber-500" />
                             <h2 className="text-sm md:text-base font-bold text-zinc-900">
                                 Recent Deliveries
                             </h2>
@@ -609,7 +623,7 @@ export default function DashboardPage() {
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-zinc-950 text-white text-[11px] font-bold tracking-wider">
+                                <tr className="bg-[#18181b] text-white text-[11px] font-bold tracking-wider">
                                     <th className="py-3 px-5">Delivery ID</th>
                                     <th className="py-3 px-5">Date</th>
                                     <th className="py-3 px-5 text-right">Quantity</th>
@@ -617,8 +631,12 @@ export default function DashboardPage() {
                             </thead>
                             <tbody className="divide-y divide-zinc-100 text-xs">
                                 {recentDeliveries.length > 0 ? (
-                                    recentDeliveries.map((del) => (
-                                        <tr key={del.id} className="hover:bg-zinc-50/80 transition-colors">
+                                    recentDeliveries.map((del, idx) => (
+                                        <tr
+                                            key={del.id}
+                                            className={`transition-colors hover:bg-zinc-50 ${idx % 2 === 1 ? 'bg-[#fff9f5]' : 'bg-white'
+                                                }`}
+                                        >
                                             <td className="py-3 px-5 font-bold text-zinc-900">
                                                 {del.deliveryId}
                                             </td>
@@ -643,7 +661,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Table 2: Latest Transactions */}
-                <div className="bg-white rounded-2xl border border-zinc-200/90 shadow-xs overflow-hidden">
+                <div className="bg-white rounded-xl border border-zinc-200/90 shadow-xs overflow-hidden">
                     <div className="flex items-center justify-between p-5 pb-4">
                         <div className="flex items-center gap-2">
                             <Receipt className="h-4 w-4 text-rose-500" />
@@ -662,7 +680,7 @@ export default function DashboardPage() {
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-zinc-950 text-white text-[11px] font-bold tracking-wider">
+                                <tr className="bg-[#18181b] text-white text-[11px] font-bold tracking-wider">
                                     <th className="py-3 px-5">Date/Time</th>
                                     <th className="py-3 px-5">Vehicle</th>
                                     <th className="py-3 px-5">Litres</th>
@@ -671,39 +689,47 @@ export default function DashboardPage() {
                             </thead>
                             <tbody className="divide-y divide-zinc-100 text-xs">
                                 {latestTransactions.length > 0 ? (
-                                    latestTransactions.map((tx) => {
+                                    latestTransactions.map((tx, idx) => {
                                         const isST500 =
                                             tx.demMethod.toLowerCase().includes('st500') ||
                                             tx.demMethod.toLowerCase().includes('key');
                                         const isDriverTag =
                                             tx.demMethod.toLowerCase().includes('driver') ||
                                             tx.demMethod.toLowerCase().includes('tag');
+                                        const isUnknown = tx.vehicle.toLowerCase() === 'unknown';
 
                                         return (
-                                            <tr key={tx.id} className="hover:bg-zinc-50/80 transition-colors">
+                                            <tr
+                                                key={tx.id}
+                                                className={`transition-colors hover:bg-zinc-50 ${idx % 2 === 1 ? 'bg-[#fff9f5]' : 'bg-white'
+                                                    }`}
+                                            >
                                                 <td className="py-3 px-5 text-zinc-600 font-medium whitespace-nowrap">
                                                     {tx.dateTime}
                                                 </td>
                                                 <td className="py-3 px-5">
-                                                    <Link
-                                                        href={`/fuel-issues?search=${encodeURIComponent(tx.vehicle)}`}
-                                                        className="font-bold text-blue-600 hover:text-blue-800 hover:underline"
-                                                    >
-                                                        {tx.vehicle}
-                                                    </Link>
+                                                    {isUnknown ? (
+                                                        <span className="font-semibold text-zinc-400">Unknown</span>
+                                                    ) : (
+                                                        <Link
+                                                            href={`/fuel-issues?search=${encodeURIComponent(tx.vehicle)}`}
+                                                            className="font-bold text-blue-600 hover:text-blue-800 hover:underline"
+                                                        >
+                                                            {tx.vehicle}
+                                                        </Link>
+                                                    )}
                                                 </td>
                                                 <td className="py-3 px-5 font-bold text-zinc-900">
                                                     {formatNumber(tx.litres)} L
                                                 </td>
                                                 <td className="py-3 px-5 text-center">
                                                     <span
-                                                        className={`inline-block px-3 py-0.5 rounded-full text-[11px] font-bold border ${
-                                                            isST500
-                                                                ? 'bg-amber-50 text-amber-700 border-amber-200/80'
+                                                        className={`inline-block px-3 py-1 rounded-full text-xs font-semibold border ${isST500
+                                                                ? 'bg-[#fff6f0] text-[#f26522] border-[#ffe3d1]'
                                                                 : isDriverTag
-                                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
-                                                                : 'bg-zinc-100 text-zinc-700 border-zinc-200'
-                                                        }`}
+                                                                    ? 'bg-[#eefcf2] text-[#138024] border-[#d6f2e1]'
+                                                                    : 'bg-zinc-100 text-zinc-700 border-zinc-200'
+                                                            }`}
                                                     >
                                                         {tx.demMethod}
                                                     </span>
