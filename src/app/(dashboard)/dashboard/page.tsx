@@ -113,8 +113,8 @@ export default function DashboardPage() {
             const [levelsRes, deliveriesRes, transactionsRes, vehiclesRes] = await Promise.allSettled([
                 fuelLevelService.getFuelLevels({ pageSize: 10000, startDate: sevenDaysAgoStr, endDate: todayStr }),
                 deliveryService.getDeliveries({ pageSize: 500, startDate: ninetyDaysAgoStr, endDate: todayStr }),
-                fuelIssueService.getFuelIssues({ pageSize: 2000, startDate: thirtyDaysAgoStr, endDate: todayStr }),
-                vehicleService.getVehicles({ pageSize: 500, startDate: thirtyDaysAgoStr, endDate: todayStr }),
+                fuelIssueService.getFuelIssues({ pageSize: 5000 }),
+                vehicleService.getVehicles({ pageSize: 500 }),
             ]);
 
             // Process Tank Levels
@@ -332,10 +332,10 @@ export default function DashboardPage() {
             {/* Header Section */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-extrabold text-zinc-900 tracking-tight">
+                    <h1 className="text-xl md:text-2xl font-bold text-zinc-900 tracking-tight">
                         System Overview
                     </h1>
-                    <p className="text-xs md:text-sm text-zinc-500 font-medium mt-0.5">
+                    <p className="text-xs text-zinc-500 font-medium mt-0.5">
                         Real-time stats across tank levels, deliveries, efficiency, and active transactions
                     </p>
                 </div>
@@ -355,11 +355,11 @@ export default function DashboardPage() {
                 <div className="relative bg-white rounded-tl-[28px] rounded-tr-[6px] rounded-bl-[6px] rounded-br-[28px] p-5 border border-zinc-200/80 shadow-xs flex flex-col justify-between overflow-hidden hover:shadow-md transition-all duration-200">
                     <div className="absolute top-0 left-0 w-24 h-1 bg-[#f26522] rounded-r-full" />
                     <div className="flex items-start justify-between gap-3 pt-1">
-                        <div className="space-y-1">
-                            <span className="text-xs font-bold text-zinc-500">
+                        <div className="space-y-0.5">
+                            <span className="text-xs font-semibold text-zinc-500">
                                 Current Fuel Stock
                             </span>
-                            <div className="text-2xl md:text-3xl font-black text-zinc-900 tracking-tight">
+                            <div className="text-2xl font-bold text-zinc-900 tracking-tight">
                                 {formatNumber(currentStock)} L
                             </div>
                         </div>
@@ -377,11 +377,11 @@ export default function DashboardPage() {
                 <div className="relative bg-white rounded-tl-[28px] rounded-tr-[6px] rounded-bl-[6px] rounded-br-[28px] p-5 border border-zinc-200/80 shadow-xs flex flex-col justify-between overflow-hidden hover:shadow-md transition-all duration-200">
                     <div className="absolute top-0 left-0 w-24 h-1 bg-[#f26522] rounded-r-full" />
                     <div className="flex items-start justify-between gap-3 pt-1">
-                        <div className="space-y-1">
-                            <span className="text-xs font-bold text-zinc-500">
+                        <div className="space-y-0.5">
+                            <span className="text-xs font-semibold text-zinc-500">
                                 Recent Deliveries
                             </span>
-                            <div className="text-2xl md:text-3xl font-black text-zinc-900 tracking-tight">
+                            <div className="text-2xl font-bold text-zinc-900 tracking-tight">
                                 {formatNumber(recentDeliveriesSum)} L
                             </div>
                         </div>
@@ -399,11 +399,11 @@ export default function DashboardPage() {
                 <div className="relative bg-white rounded-tl-[28px] rounded-tr-[6px] rounded-bl-[6px] rounded-br-[28px] p-5 border border-zinc-200/80 shadow-xs flex flex-col justify-between overflow-hidden hover:shadow-md transition-all duration-200">
                     <div className="absolute top-0 left-0 w-24 h-1 bg-[#f26522] rounded-r-full" />
                     <div className="flex items-start justify-between gap-3 pt-1">
-                        <div className="space-y-1">
-                            <span className="text-xs font-bold text-zinc-500">
+                        <div className="space-y-0.5">
+                            <span className="text-xs font-semibold text-zinc-500">
                                 Total Transactions
                             </span>
-                            <div className="text-2xl md:text-3xl font-black text-zinc-900 tracking-tight">
+                            <div className="text-2xl font-bold text-zinc-900 tracking-tight">
                                 {formatNumber(totalTransactions)}
                             </div>
                         </div>
@@ -421,11 +421,11 @@ export default function DashboardPage() {
                 <div className="relative bg-white rounded-tl-[28px] rounded-tr-[6px] rounded-bl-[6px] rounded-br-[28px] p-5 border border-zinc-200/80 shadow-xs flex flex-col justify-between overflow-hidden hover:shadow-md transition-all duration-200">
                     <div className="absolute top-0 left-0 w-24 h-1 bg-[#f26522] rounded-r-full" />
                     <div className="flex items-start justify-between gap-3 pt-1">
-                        <div className="space-y-1">
-                            <span className="text-xs font-bold text-zinc-500">
+                        <div className="space-y-0.5">
+                            <span className="text-xs font-semibold text-zinc-500">
                                 Active Fleet Vehicles
                             </span>
-                            <div className="text-2xl md:text-3xl font-black text-zinc-900 tracking-tight">
+                            <div className="text-2xl font-bold text-zinc-900 tracking-tight">
                                 {activeVehiclesCount}
                             </div>
                         </div>
