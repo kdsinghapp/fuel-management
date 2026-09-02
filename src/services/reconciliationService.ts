@@ -69,19 +69,17 @@ export const reconciliationService = {
         const openingBalance = openingRecord.fuelLevel;
         const actualClosing = closingRecord.fuelLevel;
 
-        // Sum deliveries in 4 PM - 4 PM range
-        const dayDeliveries = deliveries.filter(d => {
-          const dTime = new Date(`${d.date}T${d.time}Z`);
-          return dTime >= prevIntervalStart && dTime <= currentIntervalEnd;
-        });
-        const totalDeliveries = dayDeliveries.reduce((sum, d) => sum + d.quantity, 0);
+        // Sum deliveries for the current day
+        const dayDeliveries = deliveries.filter(d => (d.date ? d.date.split('T')[0] : '') === currentDateStr);
+        const totalDeliveries = Number(dayDeliveries.reduce((sum, d) => sum + (Number(d.quantity) || 0), 0).toFixed(2));
 
-        // Sum issues in 4 PM - 4 PM range
-        const dayIssues = issues.filter(issue => {
-          const iTime = new Date(`${issue.date}T${issue.time}Z`);
-          return iTime >= prevIntervalStart && iTime <= currentIntervalEnd;
-        });
-        const totalIssues = dayIssues.reduce((sum, issue) => sum + (issue.fuelQuantity || 0), 0);
+        // Sum fuel issues for the current day (matching transactions table)
+        const dayIssues = issues.filter(issue => (issue.date ? issue.date.split('T')[0] : '') === currentDateStr);
+        const totalIssuesRaw = dayIssues.reduce((sum, issue) => sum + (Number(issue.fuelQuantity) || 0), 0);
+        const totalIssuesRounded = dayIssues.reduce((sum, issue) => sum + Math.round((Number(issue.fuelQuantity) || 0) * 10) / 10, 0);
+        const totalIssues = Number(
+          (Math.abs(totalIssuesRaw - totalIssuesRounded) < 0.15 ? totalIssuesRounded : totalIssuesRaw).toFixed(2)
+        );
 
         const recon = calculateReconciliation({
           openingBalance,
@@ -96,7 +94,7 @@ export const reconciliationService = {
           openingBalance,
           deliveries: totalDeliveries,
           fuelIssues: totalIssues,
-          expectedClosing: recon.expectedClosing,
+          expectedClosing: Number(recon.expectedClosing.toFixed(2)),
           actualClosing,
           variance: Number(recon.variance.toFixed(2)),
           status: recon.status,
