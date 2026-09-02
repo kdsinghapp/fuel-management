@@ -42,6 +42,14 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
         title: 'Reconciliation',
         subtitle: 'Reconcile daily fuel usage, deliveries and tank levels'
     },
+    '/admin/users': {
+        title: 'User Management',
+        subtitle: 'Manage system users and access'
+    },
+    '/admin/roles': {
+        title: 'Roles & Permissions',
+        subtitle: 'Manage role-based access control'
+    },
 };
 
 export function Header() {

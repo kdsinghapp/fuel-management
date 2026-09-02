@@ -128,20 +128,6 @@ export default function RolesPage() {
     return (
         <PageContainer>
             <div className="space-y-6 flex-1 flex flex-col min-h-0">
-                {/* Header */}
-                <div className="flex justify-between items-center">
-                    <div>
-                        <h1 className="font-bold text-zinc-950 text-2xl leading-tight m-0">Roles & Permissions</h1>
-                        <p className="text-sm text-zinc-500 mt-0.5">Manage role-based access control</p>
-                    </div>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="bg-[#3c8e75] hover:bg-[#317561] text-sm font-semibold rounded px-4 py-2 flex items-center gap-1.5 transition-colors duration-200 border-0 h-10 shadow-sm text-white"
-                    >
-                        <RefreshCw className="h-4 w-4" />
-                        Refresh
-                    </button>
-                </div>
 
                 {/* Role Cards */}
                 <div className="grid gap-6 md:grid-cols-3 shrink-0">
@@ -191,8 +177,8 @@ export default function RolesPage() {
                                                 <span
                                                     key={key}
                                                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${value
-                                                            ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
-                                                            : 'bg-red-50 text-red-800 border-red-100'
+                                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
+                                                        : 'bg-red-50 text-red-800 border-red-100'
                                                         }`}
                                                 >
                                                     {value ? (

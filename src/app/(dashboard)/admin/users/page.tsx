@@ -140,19 +140,8 @@ export default function UsersPage() {
 
     return (
         <PageContainer>
-            <div className="flex justify-between items-center mb-4">
-                <div>
-                    <h1 className="font-semibold text-zinc-900 text-2xl leading-tight m-0">User Management</h1>
-                    <p className="text-slate-500 text-xs">Manage system users and access</p>
-                </div>
+            <div className="flex justify-end items-center mb-4">
                 <div className="flex gap-2">
-                    <button
-                        onClick={() => loadData()}
-                        className="bg-[#3c8e75] hover:bg-[#317561] text-sm font-semibold rounded px-4 py-2 flex items-center gap-1.5 transition-colors duration-200 border-0 h-10 shadow-sm text-white"
-                    >
-                        <RefreshCw className="h-4 w-4" />
-                        Refresh
-                    </button>
                     {hasPermission(currentUser, PERMISSIONS.USERS.MANAGE) && (
                         <button
                             className="bg-[#f26522] hover:bg-[#d45316] text-sm font-semibold rounded px-4 py-2 flex items-center gap-1.5 transition-colors duration-200 border-0 h-10 shadow-sm text-white"
