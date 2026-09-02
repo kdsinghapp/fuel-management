@@ -46,7 +46,14 @@ export const deliveryService = {
     try {
       const response = await fmaApiRequest<any[]>('/api/fmaweldandeliveries/GetDeliveries', payload);
       
-      let data = response.map((item: any) => {
+      // Filter out 'Auto Delivery' (Acronym: 'AD') duplicates, keeping only 'Calculated Delivery' (CD)
+      const nonAutoDeliveries = response.filter((item: any) => {
+        const acronym = (item.Acronym || '').toString().trim().toUpperCase();
+        const name = (item.Name || '').toString().trim().toLowerCase();
+        return acronym !== 'AD' && name !== 'auto delivery';
+      });
+
+      let data = nonAutoDeliveries.map((item: any) => {
         const rawDate = item['Delivery Start'] || item.Date || item.DeliveryDate || item['Delivery Date'] || '';
         const datePart = rawDate ? rawDate.split('T')[0] : '2026-08-14';
         const timePart = rawDate && rawDate.includes('T') ? rawDate.split('T')[1].slice(0, 8) : (item.Time || '00:00:00');
@@ -56,10 +63,10 @@ export const deliveryService = {
           date: datePart,
           time: timePart,
           quantity: item['Delivery amount'] || item.Quantity || 0,
-          supplier: item.Name || item.Supplier || 'Unknown',
+          supplier: item.Name || item.Supplier || 'Calculated Delivery',
           name: item.Name || 'Calculated Delivery',
           acronym: item.Acronym || 'CD',
-          status: item.Acronym === 'AD' ? 'Completed' : 'Pending',
+          status: 'Completed',
           createdAt: item['Delivery Start'] || `${datePart}T${timePart}Z`,
           updatedAt: item['Delivery End'] || `${datePart}T${timePart}Z`,
         };
