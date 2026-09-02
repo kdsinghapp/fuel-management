@@ -200,13 +200,13 @@ export default function FuelLimitsPage() {
                 </div>
             </div>
 
-            <Card className="rounded border border-slate-200 shadow-sm p-4 mb-4">
-                <CardContent className="p-0">
+            <Card className="rounded border border-slate-200 shadow-sm p-4 mb-4 overflow-visible">
+                <CardContent className="p-0 overflow-visible">
                     {/* Filter bar container matching single horizontal row structure */}
-                    <div className="mb-4 py-2.5 px-4 bg-[#eefcf2] border border-[#d6f2e1] rounded w-full shrink-0">
-                        <div className="flex flex-nowrap items-end justify-between gap-3 overflow-x-auto pb-1">
+                    <div className="mb-4 py-2.5 px-4 bg-[#eefcf2] border border-[#d6f2e1] rounded w-full shrink-0 relative z-20 overflow-visible">
+                        <div className="flex items-end justify-between gap-2.5">
                             {/* Left Filters Group - All in 1 line */}
-                            <div className="flex flex-nowrap items-end gap-2.5 shrink-0">
+                            <div className="flex items-end gap-2 shrink-0">
                                 {/* Search Input Group */}
                                 <div className="flex flex-col gap-1 w-[180px] sm:w-[210px] shrink-0">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Search vehicles or drivers</label>
