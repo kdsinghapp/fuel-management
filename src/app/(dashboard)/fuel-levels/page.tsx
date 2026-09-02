@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Download, AlertTriangle, RefreshCw, RotateCcw } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -156,25 +155,11 @@ export default function FuelLevelsPage() {
 
     return (
         <PageContainer>
-            {/* Header section matching bootstrap layout exactly */}
-            <div className="flex justify-between items-center mb-4">
-                <div>
-                    <h2 className="font-semibold text-zinc-900 text-2xl leading-tight m-0">Fuel Levels</h2>
-                    <span className="text-sm text-zinc-500 mt-1 inline-block">Monitor tank levels and historical data</span>
-                </div>
-                <Button
-                    onClick={loadData}
-                    className="bg-[#3c8e75] hover:bg-[#317561] text-sm font-semibold rounded px-4 py-2 flex items-center gap-1.5 transition-colors duration-200 border-0 h-10 shadow-sm"
-                >
-                    <RefreshCw className="h-4 w-4 mr-0.5" />
-                    Refresh
-                </Button>
-            </div>
 
             {/* Filters & Chart Card wrapper */}
-            <div className="bg-white border border-slate-200 shadow-sm rounded p-4 mb-4">
+            <div className="bg-white border border-slate-200 shadow-sm rounded p-4 mb-4 overflow-visible">
                 {/* Filter bar container matching the bootstrap grid structure */}
-                <div className="mb-4 py-2.5 px-4 bg-[#eefcf2] border border-[#d6f2e1] rounded w-full">
+                <div className="mb-4 py-2.5 px-4 bg-[#eefcf2] border border-[#d6f2e1] rounded w-full overflow-visible relative z-20">
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
                         <div className="flex flex-col sm:flex-row flex-1 gap-3 items-stretch sm:items-end">
                             {/* Search Input Group */}

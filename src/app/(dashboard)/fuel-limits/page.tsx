@@ -177,29 +177,6 @@ export default function FuelLimitsPage() {
 
     return (
         <PageContainer>
-            <div className="flex justify-between items-center mb-4">
-                <div>
-                    <h2 className="font-semibold text-zinc-900 text-2xl leading-tight m-0">Fuel Limits</h2>
-                    <span className="text-sm text-zinc-500 mt-1 inline-block">Monitor vehicle consumption limits and monthly usage thresholds</span>
-                </div>
-                <div className="flex gap-2">
-                    <Button
-                        onClick={() => loadLimitsAndUsage()}
-                        className="bg-[#3c8e75] hover:bg-[#317561] text-sm font-semibold rounded px-4 py-2 flex items-center gap-1.5 transition-colors duration-200 border-0 h-10 shadow-sm text-white"
-                    >
-                        <RefreshCw className="h-4 w-4" />
-                        Refresh
-                    </Button>
-                    <Button
-                        onClick={handleExport}
-                        className="bg-[#f26522] hover:bg-[#d94f12] text-sm font-semibold rounded px-4 py-2 flex items-center gap-1.5 transition-colors duration-200 border-0 h-10 shadow-sm text-white"
-                    >
-                        <Download className="h-4 w-4" />
-                        Export
-                    </Button>
-                </div>
-            </div>
-
             <Card className="rounded border border-slate-200 shadow-sm p-4 mb-4 overflow-visible">
                 <CardContent className="p-0 overflow-visible">
                     {/* Filter bar container matching single horizontal row structure */}

@@ -234,19 +234,7 @@ export default function VehiclesPage() {
 
     return (
         <PageContainer>
-            <div className="flex justify-between items-center mb-4">
-                <div>
-                    <h2 className="font-semibold text-zinc-900 text-2xl leading-tight m-0">Fuel Efficiency</h2>
-                    <span className="text-sm text-zinc-500 mt-1 inline-block">Monitor fleet vehicle fuel efficiency metrics</span>
-                </div>
-                <Button
-                    onClick={() => loadData()}
-                    className="bg-[#3c8e75] hover:bg-[#317561] text-sm font-semibold rounded px-4 py-2 flex items-center gap-1.5 transition-colors duration-200 border-0 h-10 shadow-sm"
-                >
-                    <RefreshCw className="h-4 w-4 mr-0.5" />
-                    Refresh
-                </Button>
-            </div>
+
 
             <Card className="flex-1 flex flex-col rounded border border-slate-200 shadow-sm p-4 mb-4">
                 <CardContent className="flex-1 flex flex-col p-0">

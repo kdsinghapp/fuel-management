@@ -264,11 +264,6 @@ export default function ReconciliationPage() {
     return (
         <PageContainer>
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
-                <div>
-                    <h2 className="font-semibold text-zinc-900 text-2xl leading-tight m-0">Reconciliation</h2>
-                    <span className="text-sm text-zinc-500 mt-1 inline-block">Daily fuel reconciliation and variance tracking</span>
-                </div>
-
                 <div className="flex flex-wrap items-end gap-2.5 w-full lg:w-auto">
                     <DateRangePicker
                         value={dateRange}

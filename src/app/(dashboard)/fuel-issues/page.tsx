@@ -253,21 +253,6 @@ export default function FuelIssuesPage() {
 
     return (
         <PageContainer>
-            {/* Header section matching bootstrap layout exactly */}
-            <div className="flex justify-between items-center mb-4">
-                <div>
-                    <h2 className="font-semibold text-zinc-900 text-2xl leading-tight m-0">Transactions</h2>
-                    <span className="text-sm text-zinc-500 mt-1 inline-block">Track fuel dispensing and transactions</span>
-                </div>
-                <Button
-                    onClick={() => loadData()}
-                    className="bg-[#3c8e75] hover:bg-[#317561] text-sm font-semibold rounded px-4 py-2 flex items-center gap-1.5 transition-colors duration-200 border-0 h-10 shadow-sm"
-                >
-                    <RefreshCw className="h-4 w-4 mr-0.5" />
-                    Refresh
-                </Button>
-            </div>
-
             {/* Filters & Table Card wrapper */}
             <div className="flex-1 flex flex-col bg-white border border-slate-200 shadow-sm rounded p-4 mb-4">
                 {/* Filter bar container matching the bootstrap grid structure */}

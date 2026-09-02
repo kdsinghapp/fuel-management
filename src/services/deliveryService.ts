@@ -57,6 +57,8 @@ export const deliveryService = {
           time: timePart,
           quantity: item['Delivery amount'] || item.Quantity || 0,
           supplier: item.Name || item.Supplier || 'Unknown',
+          name: item.Name || 'Calculated Delivery',
+          acronym: item.Acronym || 'CD',
           status: item.Acronym === 'AD' ? 'Completed' : 'Pending',
           createdAt: item['Delivery Start'] || `${datePart}T${timePart}Z`,
           updatedAt: item['Delivery End'] || `${datePart}T${timePart}Z`,
@@ -68,7 +70,9 @@ export const deliveryService = {
         const search = params.search.toLowerCase();
         data = data.filter(item => 
           item.deliveryId.toLowerCase().includes(search) ||
-          item.supplier.toLowerCase().includes(search)
+          item.supplier.toLowerCase().includes(search) ||
+          (item.name && item.name.toLowerCase().includes(search)) ||
+          (item.acronym && item.acronym.toLowerCase().includes(search))
         );
       }
 

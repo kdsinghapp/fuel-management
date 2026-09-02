@@ -25,6 +25,8 @@ export interface FuelDelivery extends BaseEntity {
   quantity: number;
   supplier: string;
   status: string;
+  name?: string;
+  acronym?: string;
 }
 
 export interface TankStatus {

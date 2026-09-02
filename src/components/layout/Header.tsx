@@ -9,15 +9,52 @@ import { Breadcrumbs } from './Breadcrumbs';
 import { useClientStore, CLIENTS } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 
+const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
+    '/fuel-levels': {
+        title: 'Fuel Levels',
+        subtitle: 'Monitor tank levels and historical data'
+    },
+    '/dashboard': {
+        title: 'Dashboard',
+        subtitle: 'Overview and fleet fuel analytics'
+    },
+    '/deliveries': {
+        title: 'Fuel Deliveries',
+        subtitle: 'Manage all your fuel deliveries'
+    },
+    '/fuel-issues': {
+        title: 'Transactions',
+        subtitle: 'View and manage fuel transaction logs'
+    },
+    '/vehicles': {
+        title: 'Fuel Efficiency',
+        subtitle: 'Monitor fleet vehicle fuel efficiency metrics'
+    },
+    '/fuel-efficiency-summary': {
+        title: 'Fuel Efficiency Summary',
+        subtitle: 'Detailed view of vehicle fuel burn rates and usage'
+    },
+    '/fuel-limits': {
+        title: 'Fuel Limits',
+        subtitle: 'Monitor vehicle consumption limits and monthly usage thresholds'
+    },
+    '/reconciliation': {
+        title: 'Reconciliation',
+        subtitle: 'Reconcile daily fuel usage, deliveries and tank levels'
+    },
+};
+
 export function Header() {
     const pathname = usePathname();
     const { toggle, isOpen } = useSidebar();
     const { selectedClient, selectClient } = useClientStore();
     const { user } = useAuth();
 
+    const currentPage = PAGE_TITLES[pathname] || null;
+
     return (
         <header 
-            className="sticky top-0 z-40 flex h-18 items-center justify-between gap-4 text-white px-6 shadow-md"
+            className="sticky top-0 z-40 flex min-h-[72px] py-2 items-center justify-between gap-4 text-white px-6 shadow-md"
             style={{ background: 'linear-gradient(180deg, #ff9f1c 0%, #f26a21 100%)' }}
         >
             <div className="flex items-center gap-4">
@@ -25,10 +62,21 @@ export function Header() {
                     variant="ghost"
                     size="sm"
                     onClick={toggle}
-                    className="rounded-2xl text-white bg-white/20 hover:bg-white/35 h-[45px] w-[45px] p-0 flex items-center justify-center transition-all duration-200 hover:text-white"
+                    className="rounded-2xl text-white bg-white/20 hover:bg-white/35 h-[45px] w-[45px] p-0 flex items-center justify-center transition-all duration-200 hover:text-white shrink-0"
                 >
                     <Menu className="h-5 w-5 text-white" />
                 </Button>
+
+                {currentPage && (
+                    <div className="flex flex-col text-left text-white justify-center">
+                        <h1 className="text-xl sm:text-2xl font-bold leading-tight tracking-tight m-0 text-white">
+                            {currentPage.title}
+                        </h1>
+                        <span className="text-xs text-white/90 font-normal leading-tight mt-0.5">
+                            {currentPage.subtitle}
+                        </span>
+                    </div>
+                )}
             </div>
 
             <div className="flex items-center gap-4">

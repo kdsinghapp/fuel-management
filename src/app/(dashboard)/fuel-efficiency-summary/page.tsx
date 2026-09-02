@@ -132,7 +132,7 @@ export default function FuelEfficiencySummaryPage() {
         const query = search.toLowerCase();
         const matchesSearch = item.description.toLowerCase().includes(query) ||
             item.date.toLowerCase().includes(query);
-        
+
         if (selectedEfficiency === 'Normal') {
             return matchesSearch && item.ltrsPer100Km > 0 && item.ltrsPer100Km <= 15;
         }
@@ -185,20 +185,6 @@ export default function FuelEfficiencySummaryPage() {
 
     return (
         <PageContainer>
-            <div className="flex justify-between items-center mb-4">
-                <div>
-                    <h2 className="font-semibold text-zinc-900 text-2xl leading-tight m-0">Fuel Efficiency Summary</h2>
-                    <span className="text-sm text-zinc-500 mt-1 inline-block">Detailed view of vehicle fuel burn rates and usage (Calculated from Live API)</span>
-                </div>
-                <Button
-                    onClick={loadData}
-                    className="bg-[#3c8e75] hover:bg-[#317561] text-sm font-semibold rounded px-4 py-2 flex items-center gap-1.5 transition-colors duration-200 border-0 h-10 shadow-sm text-white"
-                >
-                    <RefreshCw className="h-4 w-4 mr-0.5" />
-                    Refresh
-                </Button>
-            </div>
-
             <Card className="rounded border border-slate-200 shadow-sm p-4 mb-4 overflow-visible">
                 <CardContent className="p-0 overflow-visible">
                     {/* Filter bar container matching single horizontal row structure */}
