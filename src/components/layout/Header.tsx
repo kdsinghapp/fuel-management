@@ -61,7 +61,7 @@ export function Header() {
     const currentPage = PAGE_TITLES[pathname] || null;
 
     return (
-        <header 
+        <header
             className="sticky top-0 z-40 flex min-h-[72px] py-2 items-center justify-between gap-4 text-white px-6 shadow-md"
             style={{ background: 'linear-gradient(180deg, #ff9f1c 0%, #f26a21 100%)' }}
         >
@@ -77,7 +77,7 @@ export function Header() {
 
                 {currentPage && (
                     <div className="flex flex-col text-left text-white justify-center">
-                        <h1 className="text-xl sm:text-2xl font-bold leading-tight tracking-tight m-0 text-white">
+                        <h1 className="text-xl sm:text-2xl font-medium leading-tight tracking-tight m-0 text-white">
                             {currentPage.title}
                         </h1>
                         <span className="text-xs text-white/90 font-normal leading-tight mt-0.5">

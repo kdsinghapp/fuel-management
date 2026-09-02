@@ -504,24 +504,8 @@ export default function DashboardPage() {
     return (
         <PageContainer className="bg-[#fcfaf7] min-h-[calc(100vh-4.5rem)] space-y-6 pb-12">
             {/* Header Section */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
-                <div>
-                    <h1 className="text-xl md:text-2xl font-bold text-zinc-900 tracking-tight">
-                        System Overview
-                    </h1>
-                    <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                        Real-time stats across tank levels, deliveries, efficiency, and active transactions
-                    </p>
-                </div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-4 pt-1">
                 <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-auto">
-                    <Button
-                        onClick={handleRefresh}
-                        disabled={refreshing}
-                        className="bg-[#2d7a5b] hover:bg-[#236349] text-white text-xs font-semibold px-3.5 py-2 rounded flex items-center gap-2 shadow-xs transition-all shrink-0 cursor-pointer"
-                    >
-                        <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-                        <span>Refresh Data</span>
-                    </Button>
                     <Button
                         onClick={handleExportCombined}
                         disabled={isExportingCombined}

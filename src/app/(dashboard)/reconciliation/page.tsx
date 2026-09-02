@@ -263,38 +263,37 @@ export default function ReconciliationPage() {
 
     return (
         <PageContainer>
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
-                <div className="flex flex-wrap items-end gap-2.5 w-full lg:w-auto">
-                    <DateRangePicker
-                        value={dateRange}
-                        onChange={(newRange) => {
-                            setDateRange(newRange);
-                            setPage(1);
-                        }}
-                        allRecords={allRecords as any}
-                    />
-                    <Button
-                        onClick={() => loadData()}
-                        className="bg-[#3c8e75] hover:bg-[#317561] text-sm font-semibold rounded px-3.5 py-2 flex items-center gap-1.5 transition-colors duration-200 border-0 h-10 shadow-sm text-white w-full sm:w-auto justify-center"
-                    >
-                        <RefreshCw className="h-4 w-4" />
-                        Refresh
-                    </Button>
-                    <Button
-                        onClick={handleReset}
-                        className="bg-white hover:bg-zinc-50 text-sm font-semibold border border-zinc-200 rounded px-3.5 py-2 flex items-center gap-1.5 transition-colors duration-200 h-10 shadow-sm text-zinc-600 w-full sm:w-auto justify-center"
-                    >
-                        <RotateCcw className="h-4 w-4" />
-                        Reset
-                    </Button>
-                    <Button
-                        onClick={handleExport}
-                        className="bg-[#f26522] hover:bg-[#d45316] text-sm font-semibold rounded px-3.5 py-2 flex items-center gap-1.5 transition-colors duration-200 border-0 h-10 shadow-sm text-white w-full sm:w-auto justify-center"
-                        title="Export reconciliation report"
-                    >
-                        <Download className="h-4 w-4" />
-                        Export
-                    </Button>
+            {/* Filter bar container matching standard dashboard structure */}
+            <div className="mb-4 py-2.5 px-4 bg-[#eefcf2] border border-[#d6f2e1] rounded w-full shrink-0 relative z-20 overflow-visible">
+                <div className="flex flex-wrap items-end gap-3.5 overflow-visible">
+                    <div className="w-[150px] shrink-0">
+                        <DateRangePicker
+                            value={dateRange}
+                            onChange={(newRange) => {
+                                setDateRange(newRange);
+                                setPage(1);
+                            }}
+                            allRecords={allRecords as any}
+                        />
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                            variant="outline"
+                            onClick={handleReset}
+                            className="bg-white hover:bg-slate-50 text-xs font-semibold border border-slate-200 rounded px-3.5 h-8 shadow-xs text-slate-600 flex items-center justify-center gap-1.5 transition-colors duration-200 shrink-0"
+                        >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            Reset
+                        </Button>
+                        <Button
+                            onClick={handleExport}
+                            className="bg-[#f26522] hover:bg-[#d45316] text-xs font-semibold rounded px-3.5 h-8 border border-[#f26522] shadow-xs text-white flex items-center justify-center gap-1.5 transition-colors duration-200 shrink-0"
+                            title="Export reconciliation report"
+                        >
+                            <Download className="h-3.5 w-3.5" />
+                            Export
+                        </Button>
+                    </div>
                 </div>
             </div>
 
