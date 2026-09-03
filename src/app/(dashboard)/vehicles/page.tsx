@@ -97,6 +97,7 @@ export default function VehiclesPage() {
     const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
 
     const [total, setTotal] = useState(0);
+    const [totalFuelIssued, setTotalFuelIssued] = useState(0);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
@@ -139,16 +140,20 @@ export default function VehiclesPage() {
             setTotal(response.total);
             setTotalPages(response.totalPages);
 
-            if (allVehicles.length === 0 || currentRange.preset === 'all') {
-                const allResponse = await vehicleService.getVehicles({
-                    page: 1,
-                    pageSize: 100000,
-                    startDate: undefined,
-                    endDate: undefined,
-                });
+            const allFilteredResponse = await vehicleService.getVehicles({
+                page: 1,
+                pageSize: 100000,
+                search: currentSearch || undefined,
+                status: currentStatus || undefined,
+                vehicleType: currentVehicleType || undefined,
+                startDate: currentRange.startDate || undefined,
+                endDate: currentRange.endDate || undefined,
+            });
+            const fuelSum = allFilteredResponse.data.reduce((sum, v) => sum + (Number(v.fuelIssued) || 0), 0);
+            setTotalFuelIssued(fuelSum);
 
-                // Format objects with date property for DateRangePicker count logic
-                const formattedAll = allResponse.data.map(v => ({
+            if (allVehicles.length === 0 || currentRange.preset === 'all') {
+                const formattedAll = allFilteredResponse.data.map(v => ({
                     ...v,
                     date: v.lastDate || ''
                 }));
@@ -243,6 +248,16 @@ export default function VehiclesPage() {
                         <div className="flex flex-wrap items-end justify-between gap-2.5">
                             {/* Left Filters Group - All in 1 row */}
                             <div className="flex flex-wrap items-end gap-2 flex-1 min-w-0">
+                                {/* Total Fuel Issued Field */}
+                                <div className="flex flex-col gap-1 shrink-0">
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Total Fuel Issued</label>
+                                    <div className="flex items-center px-3 border border-slate-200 bg-white rounded h-8 shadow-xs">
+                                        <span className="text-xs font-bold text-[#138024] whitespace-nowrap">
+                                            {formatNumber(totalFuelIssued, 1)} L
+                                        </span>
+                                    </div>
+                                </div>
+
                                 {/* Compact Search Input Group */}
                                 <div className="flex flex-col gap-1 w-[160px] sm:w-[180px]">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Search vehicles</label>
@@ -262,7 +277,7 @@ export default function VehiclesPage() {
                                 </div>
 
                                 {/* Status Selector */}
-                                <div className="flex flex-col gap-1 w-[110px]">
+                                {/* <div className="flex flex-col gap-1 w-[110px]">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Status</label>
                                     <select
                                         value={selectedStatus}
@@ -273,7 +288,7 @@ export default function VehiclesPage() {
                                         <option value="Active">Active</option>
                                         <option value="Inactive">Inactive</option>
                                     </select>
-                                </div>
+                                </div> */}
 
                                 {/* Vehicle Type Selector */}
                                 <div className="flex flex-col gap-1 w-[115px]">

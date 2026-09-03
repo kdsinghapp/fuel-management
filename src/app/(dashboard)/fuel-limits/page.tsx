@@ -139,6 +139,8 @@ export default function FuelLimitsPage() {
         return matchesSearch && matchesDept && matchesLimitType;
     });
 
+    const totalFuelUsed = filteredData.reduce((sum, item) => sum + (Number(item.monthlyFuelUsed) || 0), 0);
+
     // Pagination calculations
     const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
     const paginatedData = filteredData.slice((page - 1) * pageSize, page * pageSize);
@@ -160,6 +162,7 @@ export default function FuelLimitsPage() {
                 typeof remaining === 'number' ? Number(remaining.toFixed(2)) : remaining
             ];
         });
+        rows.push(['TOTAL', '', '', '', '', '', Number(totalFuelUsed.toFixed(2)), '']);
         exportToCSV('fuel_limits.csv', headers, rows);
     };
 
@@ -181,9 +184,19 @@ export default function FuelLimitsPage() {
                 <CardContent className="p-0 overflow-visible">
                     {/* Filter bar container matching single horizontal row structure */}
                     <div className="mb-4 py-2.5 px-4 bg-[#eefcf2] border border-[#d6f2e1] rounded w-full shrink-0 relative z-20 overflow-visible">
-                        <div className="flex items-end justify-between gap-2.5">
+                        <div className="flex flex-wrap items-end justify-between gap-2.5">
                             {/* Left Filters Group - All in 1 line */}
-                            <div className="flex items-end gap-2 shrink-0">
+                            <div className="flex flex-wrap items-end gap-2.5 shrink-0">
+                                {/* Total Summary Field */}
+                                <div className="flex flex-col gap-1 shrink-0">
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Total Fuel Used</label>
+                                    <div className="flex items-center px-3 border border-slate-200 bg-white rounded h-8 shadow-xs">
+                                        <span className="text-xs font-bold text-[#138024] whitespace-nowrap">
+                                            {formatNumber(totalFuelUsed, 1)} L
+                                        </span>
+                                    </div>
+                                </div>
+
                                 {/* Search Input Group */}
                                 <div className="flex flex-col gap-1 w-[180px] sm:w-[210px] shrink-0">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Search vehicles or drivers</label>
@@ -201,25 +214,6 @@ export default function FuelLimitsPage() {
                                         />
                                     </div>
                                 </div>
-
-                                {/* Department Dropdown */}
-                                <div className="flex flex-col gap-1 w-[130px] shrink-0">
-                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Department</label>
-                                    <select
-                                        value={selectedDepartment}
-                                        onChange={(e) => {
-                                            setSelectedDepartment(e.target.value);
-                                            setPage(1);
-                                        }}
-                                        className="rounded border bg-white px-2 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 cursor-pointer w-full"
-                                    >
-                                        <option value="">All Departments</option>
-                                        {uniqueDepartments.map(dept => (
-                                            <option key={dept} value={dept}>{dept}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
                                 {/* Limit Type Dropdown */}
                                 <div className="flex flex-col gap-1 w-[115px] shrink-0">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Limit Type</label>

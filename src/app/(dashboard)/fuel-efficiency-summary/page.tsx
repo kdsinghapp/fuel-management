@@ -142,6 +142,8 @@ export default function FuelEfficiencySummaryPage() {
         return matchesSearch;
     });
 
+    const totalLtrs = filteredData.reduce((sum, item) => sum + (Number(item.ltrs) || 0), 0);
+
     // Pagination calculations
     const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
     const paginatedData = filteredData.slice((page - 1) * pageSize, page * pageSize);
@@ -189,9 +191,19 @@ export default function FuelEfficiencySummaryPage() {
                 <CardContent className="p-0 overflow-visible">
                     {/* Filter bar container matching single horizontal row structure */}
                     <div className="mb-4 py-2.5 px-4 bg-[#eefcf2] border border-[#d6f2e1] rounded w-full shrink-0 relative z-20 overflow-visible">
-                        <div className="flex items-end justify-between gap-2.5">
+                        <div className="flex flex-wrap items-end justify-between gap-2.5">
                             {/* Left Filters Group - All in 1 line */}
-                            <div className="flex items-end gap-2 shrink-0">
+                            <div className="flex flex-wrap items-end gap-2.5 shrink-0">
+                                {/* Total Ltrs Field */}
+                                <div className="flex flex-col gap-1 shrink-0">
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Total Ltrs</label>
+                                    <div className="flex items-center px-3 border border-slate-200 bg-white rounded h-8 shadow-xs">
+                                        <span className="text-xs font-bold text-[#138024] whitespace-nowrap">
+                                            {formatNumber(totalLtrs, 1)} L
+                                        </span>
+                                    </div>
+                                </div>
+
                                 {/* Search Input Group */}
                                 <div className="flex flex-col gap-1 w-[180px] sm:w-[210px] shrink-0">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Search vehicles</label>
