@@ -4,9 +4,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Calendar, Download, AlertTriangle, RefreshCw, RotateCcw } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { StatusBadge } from '@/components/common/StatusBadge';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { reconciliationService } from '@/services/reconciliationService';
@@ -92,11 +91,17 @@ export default function ReconciliationPage() {
             },
         },
         {
-            key: "status",
-            header: "Status",
-            headerClassName: "bg-[#555555] text-white",
-            cellClassName: "py-2 px-3 align-middle",
-            render: (record: Reconciliation) => <StatusBadge status={record.status} />,
+            key: "cumulativeVariance",
+            header: "Cumulative Variance",
+            headerClassName: "bg-[#137e19] text-white",
+            cellClassName: (record: Reconciliation) => {
+                const val = record.cumulativeVariance ?? 0;
+                return `py-2 px-3 font-bold align-middle ${val >= 0 ? 'text-green-600' : 'text-red-650'}`;
+            },
+            render: (record: Reconciliation) => {
+                const val = record.cumulativeVariance ?? 0;
+                return `${val >= 0 ? '+' : ''}${formatFuel(val)}`;
+            },
         },
     ];
     const [pageSize] = useState(30);
@@ -208,11 +213,12 @@ export default function ReconciliationPage() {
             csvLines.push('');
         }
         csvLines.push('"DETAILED DAILY RECONCILIATION & FUEL AUDIT LOG"');
-        const headers = ['Date', 'Opening Balance / Dip (L)', 'Deliveries / Receipts (+L)', 'Fuel Issues / Dispensed (-L)', 'Expected Closing (L)', 'Actual Closing Dip (L)', 'Variance (L)', 'Variance %', 'Status'];
+        const headers = ['Date', 'Opening Balance / Dip (L)', 'Deliveries / Receipts (+L)', 'Fuel Issues / Dispensed (-L)', 'Expected Closing (L)', 'Actual Closing Dip (L)', 'Variance (L)', 'Variance %', 'Cumulative Variance (L)'];
         csvLines.push(headers.map(h => `"${h}"`).join(','));
         records.forEach(record => {
             const vPercent = record.expectedClosing > 0 ? (record.variance / record.expectedClosing) * 100 : 0;
-            const row = [record.date, record.openingBalance, record.deliveries, record.fuelIssues, record.expectedClosing, record.actualClosing, record.variance, `${vPercent.toFixed(1)}%`, record.status];
+            const cVar = record.cumulativeVariance ?? 0;
+            const row = [record.date, record.openingBalance, record.deliveries, record.fuelIssues, record.expectedClosing, record.actualClosing, record.variance, `${vPercent.toFixed(1)}%`, `${cVar >= 0 ? '+' : ''}${cVar.toFixed(2)}`];
             csvLines.push(row.map(val => typeof val === 'string' ? `"${val}"` : val).join(','));
         });
         if (summaryData) {

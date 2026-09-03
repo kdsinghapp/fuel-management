@@ -43,10 +43,19 @@ export const fuelIssueService = {
     try {
       const response = await fmaApiRequest<any[]>('/api/fmacontrollertrans/GetTransactions', payload);
       
-      let data = response.map((item: any) => {
-        return {
-          id: item.TransactionId.toString(),
-          transactionId: item.TransactionId.toString(),
+      const seenTransactionIds = new Set<string>();
+      const rawData = Array.isArray(response) ? response : [];
+      let data = rawData.reduce((acc: any[], item: any) => {
+        const transId = (item.TransactionId ?? '').toString().trim();
+        if (transId) {
+          if (seenTransactionIds.has(transId)) {
+            return acc;
+          }
+          seenTransactionIds.add(transId);
+        }
+        acc.push({
+          id: transId || `${item.Date}-${item.Time}-${Math.random()}`,
+          transactionId: transId,
           date: item.Date,
           time: item.Time,
           vehicleId: item.RegistrationNo || '',
@@ -61,8 +70,9 @@ export const fuelIssueService = {
           status: item.DEM && item.DEM.toLowerCase().includes('matched') ? 'Matched' : 'Unmatched',
           createdAt: `${item.Date}T${item.Time}Z`,
           updatedAt: `${item.Date}T${item.Time}Z`,
-        };
-      });
+        });
+        return acc;
+      }, []);
 
       // Apply search filters if present
       if (params.search) {

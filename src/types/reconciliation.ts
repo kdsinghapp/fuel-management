@@ -9,6 +9,7 @@ export interface Reconciliation extends BaseEntity {
   expectedClosing: number;
   actualClosing: number;
   variance: number;
+  cumulativeVariance?: number;
   status: 'Reconciled' | 'Warning' | 'Exception';
 }
 

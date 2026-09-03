@@ -103,6 +103,14 @@ export const reconciliationService = {
         });
       }
 
+      // Sort by date ascending to compute cumulative variance chronologically
+      records.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      let runningCumulative = 0;
+      for (const record of records) {
+        runningCumulative += record.variance;
+        record.cumulativeVariance = Number(runningCumulative.toFixed(2));
+      }
+
       // Sort by date descending
       records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
