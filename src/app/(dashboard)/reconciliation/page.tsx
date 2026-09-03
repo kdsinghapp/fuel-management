@@ -19,7 +19,6 @@ import { DateRangePicker, DateRange, getDateRangeFromPreset } from '@/components
 export default function ReconciliationPage() {
     const router = useRouter();
     const selectedClient = useClientStore((state) => state.selectedClient);
-    const [allRecords, setAllRecords] = useState<Reconciliation[]>([]);
     const [records, setRecords] = useState<Reconciliation[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -122,6 +121,7 @@ export default function ReconciliationPage() {
     const loadData = async (overrideDateRange?: DateRange) => {
         try {
             setLoading(true);
+            setRecords([]);
             const currentRange = overrideDateRange || dateRange;
             const response = await reconciliationService.getReconciliationRecords({
                 page,
@@ -133,17 +133,6 @@ export default function ReconciliationPage() {
             setRecords(response.data);
             setTotal(response.total);
             setTotalPages(response.totalPages);
-
-            if (allRecords.length === 0 || currentRange.preset === 'all') {
-                const allResponse = await reconciliationService.getReconciliationRecords({
-                    page: 1,
-                    pageSize: 100000,
-                    startDate: undefined,
-                    endDate: undefined,
-                });
-                setAllRecords(allResponse.data);
-            }
-
             setError(null);
         } catch (err) {
             setError('Failed to load reconciliation records');
@@ -167,7 +156,7 @@ export default function ReconciliationPage() {
         const daysStock = avDailyCons > 0 ? Math.round(closingDip / avDailyCons) : 0;
         const today = new Date();
         const reorderDays = 7;
-        const minStock = 3000;
+        const minStock = Math.round(avDailyCons * reorderDays);
         const reorderDate = new Date(today);
         reorderDate.setDate(today.getDate() + Math.max(0, daysStock - reorderDays));
         const arrivalDate = new Date(today);
@@ -245,7 +234,7 @@ export default function ReconciliationPage() {
         loadData(defaultRange);
     };
 
-    if (loading && records.length === 0) {
+    if (loading) {
         return (
             <PageContainer>
                 <div className="flex items-center justify-center min-h-[400px]">
@@ -279,7 +268,7 @@ export default function ReconciliationPage() {
                                 setDateRange(newRange);
                                 setPage(1);
                             }}
-                            allRecords={allRecords as any}
+                            allRecords={records as any}
                         />
                     </div>
                     <div className="flex items-center gap-2 shrink-0">

@@ -21,9 +21,11 @@ export const reconciliationService = {
         return '2026-01-01';
       })();
 
-      const levelsRes = await fuelLevelService.getFuelLevels({ pageSize: 100000, startDate: rawStart, endDate: params.endDate });
-      const deliveriesRes = await deliveryService.getDeliveries({ pageSize: 100000, startDate: rawStart, endDate: params.endDate });
-      const issuesRes = await fuelIssueService.getFuelIssues({ pageSize: 100000, startDate: rawStart, endDate: params.endDate });
+      const [levelsRes, deliveriesRes, issuesRes] = await Promise.all([
+        fuelLevelService.getFuelLevels({ pageSize: 100000, startDate: rawStart, endDate: params.endDate }),
+        deliveryService.getDeliveries({ pageSize: 100000, startDate: rawStart, endDate: params.endDate }),
+        fuelIssueService.getFuelIssues({ pageSize: 100000, startDate: rawStart, endDate: params.endDate }),
+      ]);
 
       const levels = levelsRes.data;
       const deliveries = deliveriesRes.data;
