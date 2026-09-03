@@ -17,11 +17,11 @@ export default function DashboardLayout({
     const { selectedClient, isClientLoading } = useClientStore();
 
     return (
-        <div className="flex min-h-screen">
+        <div className="flex h-screen overflow-hidden bg-slate-50">
             <Sidebar />
-            <div className="flex-1 flex flex-col min-w-0">
+            <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
                 <Header />
-                <main className="flex-1 flex flex-col min-w-0 relative">
+                <main className="flex-1 flex flex-col min-w-0 relative overflow-y-auto">
                     {children}
 
                     {/* Backdrop blur & loader on client switch */}

@@ -1,7 +1,7 @@
 // src/app/(dashboard)/fuel-efficiency-summary/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Download, AlertTriangle, RefreshCw, RotateCcw, Sliders } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -37,9 +37,54 @@ export default function FuelEfficiencySummaryPage() {
     const [selectedEfficiency, setSelectedEfficiency] = useState('');
     const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
 
-    // Pagination state
+    // Pagination & Dynamic display size state
+    const tableContainerRef = useRef<HTMLDivElement>(null);
     const [page, setPage] = useState(1);
-    const [pageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(8);
+    const [pageSizeMode, setPageSizeMode] = useState<'auto' | number>('auto');
+
+    useEffect(() => {
+        if (pageSizeMode !== 'auto') {
+            setPageSize(pageSizeMode);
+            return;
+        }
+
+        const computeRows = () => {
+            if (tableContainerRef.current) {
+                const containerHeight = tableContainerRef.current.clientHeight;
+                const headerHeight = 34; // <thead> height
+                const scrollbarHeight = 10; // horizontal scrollbar allowance
+                const rowHeight = 33; // precise <tr> height with py-1.5
+                const availableForRows = containerHeight - headerHeight - scrollbarHeight;
+                if (availableForRows > 0) {
+                    const exactFit = Math.max(5, Math.floor(availableForRows / rowHeight));
+                    setPageSize(exactFit);
+                }
+            } else if (typeof window !== 'undefined') {
+                const overhead = 280;
+                const availableHeight = window.innerHeight - overhead;
+                const rowHeight = 33;
+                const calculatedRows = Math.max(5, Math.floor(availableHeight / rowHeight));
+                setPageSize(calculatedRows);
+            }
+        };
+
+        computeRows();
+
+        let observer: ResizeObserver | null = null;
+        if (typeof ResizeObserver !== 'undefined' && tableContainerRef.current) {
+            observer = new ResizeObserver(() => {
+                computeRows();
+            });
+            observer.observe(tableContainerRef.current);
+        }
+
+        window.addEventListener('resize', computeRows);
+        return () => {
+            if (observer) observer.disconnect();
+            window.removeEventListener('resize', computeRows);
+        };
+    }, [pageSizeMode, loading]);
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -186,11 +231,11 @@ export default function FuelEfficiencySummaryPage() {
     }
 
     return (
-        <PageContainer>
-            <Card className="rounded border border-slate-200 shadow-sm p-4 mb-4 overflow-visible">
-                <CardContent className="p-0 overflow-visible">
+        <PageContainer className="p-2 sm:p-3 space-y-0 h-full flex flex-col overflow-hidden">
+            <Card className="rounded border border-slate-200 shadow-sm p-2.5 mb-0 flex-1 flex flex-col overflow-hidden">
+                <CardContent className="p-0 flex-1 flex flex-col overflow-hidden justify-between">
                     {/* Filter bar container matching single horizontal row structure */}
-                    <div className="mb-4 py-2.5 px-4 bg-[#eefcf2] border border-[#d6f2e1] rounded w-full shrink-0 relative z-20 overflow-visible">
+                    <div className="mb-2 py-1.5 px-3 bg-[#eefcf2] border border-[#d6f2e1] rounded w-full shrink-0 relative z-20 overflow-visible">
                         <div className="flex flex-wrap items-end justify-between gap-2.5">
                             {/* Left Filters Group - All in 1 line */}
                             <div className="flex flex-wrap items-end gap-2.5 shrink-0">
@@ -288,16 +333,16 @@ export default function FuelEfficiencySummaryPage() {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto border border-slate-200 shadow-xs rounded mb-4">
+                    <div ref={tableContainerRef} className="overflow-x-auto overflow-y-auto border border-slate-200 shadow-xs rounded mb-1.5 flex-1 min-h-0">
                         <table className="w-full text-sm border-collapse whitespace-nowrap">
-                            <thead>
+                            <thead className="sticky top-0 z-10 shadow-xs">
                                 <tr>
-                                    <th className="bg-[#f26522] text-white py-2 px-3 text-left font-semibold">Vehicle Description</th>
-                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold">Ltrs</th>
-                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold">Date</th>
-                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold">Distance (KM)</th>
-                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold">Fuel Burn (Km/L)</th>
-                                    <th className="bg-[#555555] text-white py-2 px-3 text-left font-semibold">Fuel Burn (L/100Km)</th>
+                                    <th className="bg-[#f26522] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Vehicle Description</th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Ltrs</th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Date</th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Distance (KM)</th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Fuel Burn (Km/L)</th>
+                                    <th className="bg-[#555555] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Fuel Burn (L/100Km)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -310,12 +355,12 @@ export default function FuelEfficiencySummaryPage() {
                                 ) : (
                                     paginatedData.map((item, idx) => (
                                         <tr key={item.id || idx} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors odd:bg-white even:bg-[#fff9f5]">
-                                            <td className="py-2 px-3 font-semibold text-slate-800 align-middle">{item.description}</td>
-                                            <td className="py-2 px-3 font-semibold text-[#138024] align-middle">{formatNumber(item.ltrs)} L</td>
-                                            <td className="py-2 px-3 text-slate-500 align-middle">{item.date || '—'}</td>
-                                            <td className="py-2 px-3 text-slate-600 align-middle">{item.distance > 0 ? formatNumber(item.distance) : '—'}</td>
-                                            <td className="py-2 px-3 font-medium text-slate-600 align-middle">{item.kmPerLtr > 0 ? item.kmPerLtr.toFixed(2) : '—'}</td>
-                                            <td className={`py-2 px-3 font-bold align-middle ${item.ltrsPer100Km > 15 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                            <td className="py-1.5 px-3 font-semibold text-slate-800 align-middle">{item.description}</td>
+                                            <td className="py-1.5 px-3 font-semibold text-[#138024] align-middle">{formatNumber(item.ltrs)} L</td>
+                                            <td className="py-1.5 px-3 text-slate-500 align-middle">{item.date || '—'}</td>
+                                            <td className="py-1.5 px-3 text-slate-600 align-middle">{item.distance > 0 ? formatNumber(item.distance) : '—'}</td>
+                                            <td className="py-1.5 px-3 font-medium text-slate-600 align-middle">{item.kmPerLtr > 0 ? item.kmPerLtr.toFixed(2) : '—'}</td>
+                                            <td className={`py-1.5 px-3 font-bold align-middle ${item.ltrsPer100Km > 15 ? 'text-rose-600' : 'text-emerald-600'}`}>
                                                 {item.ltrsPer100Km > 0 ? `${item.ltrsPer100Km.toFixed(1)} L/100Km` : '—'}
                                             </td>
                                         </tr>
@@ -326,28 +371,56 @@ export default function FuelEfficiencySummaryPage() {
                     </div>
 
                     {/* Pagination */}
-                    {totalPages > 1 && (
-                        <div className="flex items-center justify-between mt-auto pt-4 px-6 shrink-0">
-                            <p className="text-sm text-muted-foreground">
-                                Showing {paginatedData.length} of {filteredData.length} transactions
-                            </p>
-                            <div className="flex gap-2">
+                    {filteredData.length > 0 && (
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 pb-0.5 px-2 shrink-0 border-t border-slate-100">
+                            <div className="flex items-center gap-4 flex-wrap">
+                                <p className="text-xs sm:text-sm text-slate-500">
+                                    Showing <span className="font-semibold text-slate-800">{paginatedData.length}</span> of <span className="font-semibold text-slate-800">{filteredData.length}</span> transactions
+                                </p>
+                                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                    <span>Rows:</span>
+                                    <select
+                                        value={pageSizeMode}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === 'auto') {
+                                                setPageSizeMode('auto');
+                                            } else {
+                                                setPageSizeMode(Number(val));
+                                            }
+                                            setPage(1);
+                                        }}
+                                        className="border border-slate-200 rounded px-2 py-1 bg-white text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#f26522] cursor-pointer"
+                                    >
+                                        <option value="auto">Auto ({pageSizeMode === 'auto' ? pageSize : 'Fit screen'})</option>
+                                        <option value={10}>10</option>
+                                        <option value={15}>15</option>
+                                        <option value={20}>20</option>
+                                        <option value={25}>25</option>
+                                        <option value={50}>50</option>
+                                        <option value={100}>100</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                                     disabled={page === 1}
+                                    className="h-8 px-3 text-xs"
                                 >
                                     Previous
                                 </Button>
-                                <span className="flex items-center px-3 text-sm">
+                                <span className="flex items-center px-2 text-xs font-medium text-slate-600">
                                     Page {page} of {totalPages}
                                 </span>
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                                    disabled={page === totalPages}
+                                    disabled={page === totalPages || totalPages === 0}
+                                    className="h-8 px-3 text-xs"
                                 >
                                     Next
                                 </Button>

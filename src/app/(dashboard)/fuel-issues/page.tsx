@@ -1,10 +1,10 @@
 // src/app/(dashboard)/fuel-issues/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Download, AlertTriangle, RefreshCw, RotateCcw, Sliders } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -13,9 +13,6 @@ import { vehicleService } from '@/services/vehicleService';
 import { authService } from '@/lib/auth';
 import { formatFuel, exportToCSV } from '@/lib/utils';
 import { useClientStore } from '@/services/api';
-
-import { CustomTable } from '@/components/ui/table';
-
 import { DateRangePicker, DateRange, getDateRangeFromPreset } from '@/components/common/DateRangePicker';
 
 export default function FuelIssuesPage() {
@@ -26,86 +23,6 @@ export default function FuelIssuesPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const columns = [
-        {
-            key: "dateTime",
-            header: "Date / Time",
-            headerClassName: "bg-primary text-white",
-            cellClassName: "text-slate-600 align-middle",
-            render: (issue: any) => `${issue.date} ${issue.time}`,
-        },
-        {
-            key: "transactionId",
-            header: "ID",
-            headerClassName: "bg-[#137e19] text-white",
-            cellClassName: "font-bold text-slate-900 align-middle",
-        },
-        {
-            key: "vehicleId",
-            header: "Vehicle Req",
-            headerClassName: "bg-[#137e19] text-white",
-            cellClassName: "font-bold text-green-600 align-middle",
-        },
-        {
-            key: "fleetId",
-            header: "Fleet Id",
-            headerClassName: "bg-[#137e19] text-white",
-            cellClassName: "text-slate-600 align-middle",
-        },
-        {
-            key: "driverAttendant",
-            header: "Vehicle Detail",
-            headerClassName: "bg-[#137e19] text-white",
-            cellClassName: "text-slate-600 align-middle",
-        },
-        {
-            key: "depot",
-            header: "Site",
-            headerClassName: "bg-[#137e19] text-white",
-            cellClassName: "text-slate-600 align-middle",
-        },
-        {
-            key: "fuelQuantity",
-            header: "Litres",
-            headerClassName: "bg-[#137e19] text-white",
-            cellClassName: "font-bold text-slate-900 align-middle",
-            render: (issue: any) => formatFuel(issue.fuelQuantity),
-        },
-        {
-            key: "pump",
-            header: "Pump",
-            headerClassName: "bg-[#137e19] text-white",
-            cellClassName: "text-slate-600 align-middle",
-        },
-        {
-            key: "odometer",
-            header: "Odo Meter",
-            headerClassName: "bg-[#137e19] text-white",
-            cellClassName: "text-slate-600 align-middle",
-        },
-        {
-            key: "engineHours",
-            header: "Hour Meter",
-            headerClassName: "bg-[#137e19] text-white",
-            cellClassName: "text-slate-600 align-middle",
-        },
-        {
-            key: "dem",
-            header: "DEM",
-            headerClassName: "bg-[#222] text-white",
-            cellClassName: "align-middle",
-            render: (issue: any) => (
-                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold border ${issue.status === 'Matched'
-                    ? 'bg-[#eefcf2] border-[#d6f2e1] text-[#138024]'
-                    : 'bg-[#fff6f0] border-[#ffe3d1] text-[#f26522]'
-                    }`}>
-                    <span className={`h-1.5 w-1.5 rounded-full bg-current`} />
-                    {issue.dem || issue.status}
-                </span>
-            ),
-        },
-    ];
-
     // Filter states
     const [search, setSearch] = useState('');
     const [selectedVehicle, setSelectedVehicle] = useState('');
@@ -113,9 +30,56 @@ export default function FuelIssuesPage() {
 
     const [vehicles, setVehicles] = useState<string[]>([]);
     const [total, setTotal] = useState(0);
+
+    // Pagination & Dynamic display size state
+    const tableContainerRef = useRef<HTMLDivElement>(null);
     const [page, setPage] = useState(1);
-    const [pageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(8);
+    const [pageSizeMode, setPageSizeMode] = useState<'auto' | number>('auto');
     const [totalPages, setTotalPages] = useState(1);
+
+    useEffect(() => {
+        if (pageSizeMode !== 'auto') {
+            setPageSize(pageSizeMode);
+            return;
+        }
+
+        const computeRows = () => {
+            if (tableContainerRef.current) {
+                const containerHeight = tableContainerRef.current.clientHeight;
+                const headerHeight = 34; // <thead> height
+                const scrollbarHeight = 10; // horizontal scrollbar allowance
+                const rowHeight = 33; // precise <tr> height with py-1.5
+                const availableForRows = containerHeight - headerHeight - scrollbarHeight;
+                if (availableForRows > 0) {
+                    const exactFit = Math.max(5, Math.floor(availableForRows / rowHeight));
+                    setPageSize(exactFit);
+                }
+            } else if (typeof window !== 'undefined') {
+                const overhead = 280;
+                const availableHeight = window.innerHeight - overhead;
+                const rowHeight = 33;
+                const calculatedRows = Math.max(5, Math.floor(availableHeight / rowHeight));
+                setPageSize(calculatedRows);
+            }
+        };
+
+        computeRows();
+
+        let observer: ResizeObserver | null = null;
+        if (typeof ResizeObserver !== 'undefined' && tableContainerRef.current) {
+            observer = new ResizeObserver(() => {
+                computeRows();
+            });
+            observer.observe(tableContainerRef.current);
+        }
+
+        window.addEventListener('resize', computeRows);
+        return () => {
+            if (observer) observer.disconnect();
+            window.removeEventListener('resize', computeRows);
+        };
+    }, [pageSizeMode]);
 
     // Initial load and reload on page/client change
     useEffect(() => {
@@ -129,7 +93,7 @@ export default function FuelIssuesPage() {
             loadVehicles();
         };
         checkAuth();
-    }, [router, page, selectedClient, dateRange.startDate, dateRange.endDate, dateRange.preset]);
+    }, [router, page, pageSize, selectedClient, dateRange.startDate, dateRange.endDate, dateRange.preset]);
 
     const loadData = async (
         overrideSearch?: string,
@@ -252,111 +216,188 @@ export default function FuelIssuesPage() {
     }
 
     return (
-        <PageContainer>
-            {/* Filters & Table Card wrapper */}
-            <div className="flex-1 flex flex-col bg-white border border-slate-200 shadow-sm rounded p-4 mb-4">
-                {/* Filter bar container matching the bootstrap grid structure */}
-                <div className="mb-4 py-2.5 px-4 bg-[#eefcf2] border border-[#d6f2e1] rounded w-full shrink-0">
-                    <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-3">
-                        <div className="flex flex-col sm:flex-row flex-wrap flex-1 gap-3 items-stretch sm:items-end">
-                            {/* Search Input Group */}
-                            <div className="flex-1 min-w-[200px] flex flex-col gap-1.5">
-                                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Search transactions</label>
-                                <div className="flex h-8">
-                                    <span className="flex items-center px-3 border border-r-0 border-slate-200 bg-slate-50 rounded-l text-slate-400">
-                                        <Search className="h-3 w-3" />
-                                    </span>
-                                    <input
-                                        type="text"
-                                        placeholder="Search by ID, vehicle..."
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                        className="flex-1 border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 rounded-r rounded-l-none"
+        <PageContainer className="p-2 sm:p-3 space-y-0 h-full flex flex-col overflow-hidden">
+            <Card className="rounded border border-slate-200 shadow-sm p-2.5 mb-0 flex-1 flex flex-col overflow-hidden">
+                <CardContent className="p-0 flex-1 flex flex-col overflow-hidden justify-between">
+                    {/* Filter bar container matching single horizontal row structure */}
+                    <div className="mb-2 py-1.5 px-3 bg-[#eefcf2] border border-[#d6f2e1] rounded w-full shrink-0 relative z-20 overflow-visible">
+                        <div className="flex flex-wrap items-end justify-between gap-2.5">
+                            {/* Left Filters Group - All in 1 line */}
+                            <div className="flex flex-wrap items-end gap-2.5 shrink-0">
+                                {/* Search Input Group */}
+                                <div className="flex flex-col gap-1 w-[200px] sm:w-[240px] shrink-0">
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Search transactions</label>
+                                    <div className="flex h-8">
+                                        <span className="flex items-center px-2.5 border border-r-0 border-slate-200 bg-slate-50 rounded-l text-slate-400">
+                                            <Search className="h-3 w-3" />
+                                        </span>
+                                        <input
+                                            type="text"
+                                            placeholder="Search by ID, vehicle..."
+                                            value={search}
+                                            onChange={(e) => setSearch(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                            className="w-full border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 rounded-r rounded-l-none"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Date Range Selector */}
+                                <div className="w-[130px] shrink-0">
+                                    <DateRangePicker
+                                        value={dateRange}
+                                        onChange={(newRange) => {
+                                            setDateRange(newRange);
+                                            setPage(1);
+                                        }}
+                                        allRecords={allIssues}
                                     />
                                 </div>
                             </div>
 
-                            {/* Date Range Selector */}
-                            <DateRangePicker
-                                value={dateRange}
-                                onChange={(newRange) => {
-                                    setDateRange(newRange);
-                                    setPage(1);
-                                }}
-                                allRecords={allIssues}
-                            />
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex gap-2 justify-start xl:justify-end h-8 shrink-0">
-                            <Button
-                                onClick={handleSearch}
-                                className="bg-[#f26522] hover:bg-[#d94f12] text-xs font-semibold text-white px-4 rounded h-8 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5"
-                            >
-                                <Sliders className="h-3.5 w-3.5" />
-                                Search
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleReset}
-                                className="h-8 px-4 rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-1.5 text-xs font-semibold"
-                                title="Reset filters"
-                            >
-                                <RotateCcw className="h-3.5 w-3.5" />
-                                Reset
-                            </Button>
-                            <Button
-                                onClick={handleExport}
-                                className="bg-[#f26522] hover:bg-[#d94f12] text-white text-xs font-semibold rounded h-8 px-4 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5"
-                                title="Export fuel levels"
-                            >
-                                <Download className="h-3.5 w-3.5" />
-                                Export
-                            </Button>
+                            {/* Right Action Buttons Group */}
+                            <div className="flex items-end gap-1.5 shrink-0">
+                                <Button
+                                    onClick={handleSearch}
+                                    className="bg-[#f26522] hover:bg-[#d94f12] text-xs font-semibold text-white px-3.5 rounded h-8 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5"
+                                >
+                                    <Sliders className="h-3.5 w-3.5" />
+                                    Search
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleReset}
+                                    className="h-8 px-3.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-1.5 text-xs font-semibold"
+                                    title="Reset filters"
+                                >
+                                    <RotateCcw className="h-3.5 w-3.5" />
+                                    Reset
+                                </Button>
+                                <Button
+                                    onClick={handleExport}
+                                    className="bg-[#f26522] hover:bg-[#d94f12] text-white text-xs font-semibold rounded h-8 px-3.5 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5"
+                                    title="Export transactions"
+                                >
+                                    <Download className="h-3.5 w-3.5" />
+                                    Export
+                                </Button>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <CustomTable
-                    data={issues}
-                    columns={columns}
-                    keyExtractor={(issue) => issue.id}
-                    emptyStateText="No transactions found"
-                    className="flex-1"
-                />
-
-                {/* Pagination */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-between mt-auto pt-4 px-6 shrink-0">
-                        <p className="text-sm text-muted-foreground">
-                            Showing {issues.length} of {total} transactions
-                        </p>
-                        <div className="flex gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPage(p => Math.max(1, p - 1))}
-                                disabled={page === 1}
-                            >
-                                Previous
-                            </Button>
-                            <span className="flex items-center px-3 text-sm">
-                                Page {page} of {totalPages}
-                            </span>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                disabled={page === totalPages}
-                            >
-                                Next
-                            </Button>
-                        </div>
+                    <div ref={tableContainerRef} className="overflow-x-auto overflow-y-auto border border-slate-200 shadow-xs rounded mb-1.5 flex-1 min-h-0">
+                        <table className="w-full text-sm border-collapse whitespace-nowrap">
+                            <thead className="sticky top-0 z-10 shadow-xs">
+                                <tr>
+                                    <th className="bg-[#f26522] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Date / Time</th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">ID</th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Vehicle Req</th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Fleet Id</th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Vehicle Detail</th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Site</th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Litres</th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Pump</th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Odo Meter</th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Hour Meter</th>
+                                    <th className="bg-[#222222] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">DEM</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {issues.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={11} className="p-8 text-center text-slate-400 bg-slate-50">
+                                            No transactions found
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    issues.map((issue, idx) => (
+                                        <tr key={issue.id || issue.transactionId || idx} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors odd:bg-white even:bg-[#fff9f5]">
+                                            <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.date} {issue.time}</td>
+                                            <td className="py-1.5 px-3 font-bold text-slate-900 align-middle">{issue.transactionId}</td>
+                                            <td className="py-1.5 px-3 font-bold text-green-600 align-middle">{issue.vehicleId}</td>
+                                            <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.fleetId || '—'}</td>
+                                            <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.driverAttendant || '—'}</td>
+                                            <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.depot || '—'}</td>
+                                            <td className="py-1.5 px-3 font-bold text-slate-900 align-middle">{formatFuel(issue.fuelQuantity)}</td>
+                                            <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.pump || '—'}</td>
+                                            <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.odometer || '—'}</td>
+                                            <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.engineHours || '—'}</td>
+                                            <td className="py-1.5 px-3 align-middle">
+                                                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold border ${issue.status === 'Matched'
+                                                    ? 'bg-[#eefcf2] border-[#d6f2e1] text-[#138024]'
+                                                    : 'bg-[#fff6f0] border-[#ffe3d1] text-[#f26522]'
+                                                    }`}>
+                                                    <span className={`h-1.5 w-1.5 rounded-full bg-current`} />
+                                                    {issue.dem || issue.status || '—'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
                     </div>
-                )}
-            </div>
+
+                    {/* Pagination */}
+                    {total > 0 && (
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 pb-0.5 px-2 shrink-0 border-t border-slate-100">
+                            <div className="flex items-center gap-4 flex-wrap">
+                                <p className="text-xs sm:text-sm text-slate-500">
+                                    Showing <span className="font-semibold text-slate-800">{issues.length}</span> of <span className="font-semibold text-slate-800">{total}</span> transactions
+                                </p>
+                                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                    <span>Rows:</span>
+                                    <select
+                                        value={pageSizeMode}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === 'auto') {
+                                                setPageSizeMode('auto');
+                                            } else {
+                                                setPageSizeMode(Number(val));
+                                            }
+                                            setPage(1);
+                                        }}
+                                        className="border border-slate-200 rounded px-2 py-1 bg-white text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#f26522] cursor-pointer"
+                                    >
+                                        <option value="auto">Auto ({pageSizeMode === 'auto' ? pageSize : 'Fit screen'})</option>
+                                        <option value={10}>10</option>
+                                        <option value={15}>15</option>
+                                        <option value={20}>20</option>
+                                        <option value={25}>25</option>
+                                        <option value={50}>50</option>
+                                        <option value={100}>100</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                    className="h-8 px-3 text-xs"
+                                >
+                                    Previous
+                                </Button>
+                                <span className="flex items-center px-2 text-xs font-medium text-slate-600">
+                                    Page {page} of {totalPages}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={page === totalPages || totalPages === 0}
+                                    className="h-8 px-3 text-xs"
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
         </PageContainer>
     );
 }
