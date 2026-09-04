@@ -61,6 +61,7 @@ export const fuelIssueService = {
           vehicleId: item.RegistrationNo || '',
           fleetId: item.FleetId || '',
           driverAttendant: item.DriverAttendant || '',
+          siteId: item.SiteId !== undefined && item.SiteId !== null ? item.SiteId.toString() : (item.Site || ''),
           depot: item.Depot || '',
           dem: item.DEM || '',
           fuelQuantity: item.Quantity,
@@ -82,6 +83,7 @@ export const fuelIssueService = {
           item.vehicleId.toLowerCase().includes(search) ||
           item.fleetId.toLowerCase().includes(search) ||
           item.driverAttendant.toLowerCase().includes(search) ||
+          item.siteId.toLowerCase().includes(search) ||
           item.depot.toLowerCase().includes(search)
         );
       }

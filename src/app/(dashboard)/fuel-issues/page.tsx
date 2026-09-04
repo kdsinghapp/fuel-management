@@ -180,7 +180,7 @@ export default function FuelIssuesPage() {
                 issue.vehicleId,
                 issue.fleetId,
                 issue.driverAttendant,
-                issue.depot,
+                issue.siteId || issue.depot,
                 issue.fuelQuantity,
                 issue.pump,
                 issue.odometer,
@@ -318,7 +318,7 @@ export default function FuelIssuesPage() {
                                             <td className="py-1.5 px-3 font-bold text-green-600 align-middle">{issue.vehicleId}</td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.fleetId || '—'}</td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.driverAttendant || '—'}</td>
-                                            <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.depot || '—'}</td>
+                                            <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.siteId || issue.depot || '—'}</td>
                                             <td className="py-1.5 px-3 font-bold text-slate-900 align-middle">{formatFuel(issue.fuelQuantity)}</td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.pump || '—'}</td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.odometer || '—'}</td>
