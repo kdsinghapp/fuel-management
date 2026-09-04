@@ -31,23 +31,26 @@ export const fuelLevelService = {
       divisionid: Number(client.divisionid),
       datefrom,
       dateto: apiDateTo,
-      tankno: 1
+      tankno: (params as any).tankno !== undefined ? (params as any).tankno : 0
     };
 
     try {
       const response = await fmaApiRequest<any[]>('/api/fmatanklevels/GetLevels', payload);
+      const rawList = Array.isArray(response) ? response : [];
       
-      let data = response.map((item: any) => {
+      let data = rawList.map((item: any) => {
         const percentage = Number(((item.Level / 20000) * 100).toFixed(1));
+        const dateStr = item.Date ? item.Date.split('T')[0] : '';
+        const timeStr = item.Time || (item.Date && item.Date.includes('T') ? item.Date.split('T')[1].slice(0, 8) : '00:00:00');
         return {
-          id: item.Id.toString(),
-          date: item.Date,
-          time: item.Time,
-          fuelLevel: item.Level,
+          id: (item.Id || item.pk || `${dateStr}-${timeStr}-${Math.random()}`).toString(),
+          date: dateStr,
+          time: timeStr,
+          fuelLevel: item.Level ?? 0,
           percentage: percentage,
           status: percentage < 15 ? 'Low' : 'Normal',
-          createdAt: `${item.Date}T${item.Time}Z`,
-          updatedAt: `${item.Date}T${item.Time}Z`,
+          createdAt: `${dateStr}T${timeStr}Z`,
+          updatedAt: `${dateStr}T${timeStr}Z`,
         };
       });
 

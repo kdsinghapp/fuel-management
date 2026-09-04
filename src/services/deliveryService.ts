@@ -40,7 +40,7 @@ export const deliveryService = {
       divisionid: Number(client.divisionid),
       datefrom: apiDateFrom,
       dateto: apiDateTo,
-      tankno: 1
+      tankno: (params as any).tankno !== undefined ? (params as any).tankno : 0
     };
 
     try {
