@@ -18,6 +18,7 @@ interface VehicleSummary {
     id: string;
     vehicleDetail: string;
     litres: number;
+    date: string;
     distance: number;
     consumption: number;
 }
@@ -114,6 +115,7 @@ export default function FuelEfficiencySummaryPage() {
             const vehicleMap = new Map<string, {
                 vehicleDetail: string;
                 litres: number;
+                lastDate: string;
                 odometers: { odo: number; date: string; time: string }[];
             }>();
 
@@ -131,12 +133,16 @@ export default function FuelEfficiencySummaryPage() {
                     vehicleMap.set(key, {
                         vehicleDetail,
                         litres: 0,
+                        lastDate: date,
                         odometers: []
                     });
                 }
 
                 const entry = vehicleMap.get(key)!;
                 entry.litres += qty;
+                if (date && (!entry.lastDate || date > entry.lastDate)) {
+                    entry.lastDate = date;
+                }
                 if (odo > 0) {
                     entry.odometers.push({ odo, date, time });
                 }
@@ -167,6 +173,7 @@ export default function FuelEfficiencySummaryPage() {
                     id: key,
                     vehicleDetail: val.vehicleDetail,
                     litres,
+                    date: val.lastDate,
                     distance: Number(distance.toFixed(2)),
                     consumption
                 });
@@ -205,7 +212,7 @@ export default function FuelEfficiencySummaryPage() {
 
     const filteredData = data.filter(item => {
         const query = search.toLowerCase();
-        return item.vehicleDetail.toLowerCase().includes(query);
+        return item.vehicleDetail.toLowerCase().includes(query) || (item.date && item.date.toLowerCase().includes(query));
     });
 
     const totalLtrs = filteredData.reduce((sum, item) => sum + (Number(item.litres) || 0), 0);
@@ -216,10 +223,11 @@ export default function FuelEfficiencySummaryPage() {
 
     const handleExport = () => {
         if (filteredData.length === 0) return;
-        const headers = ['Vehicle Detail', 'Litres', 'Distance', 'Consumption (km/l)'];
+        const headers = ['Vehicle Detail', 'Litres', 'Date', 'Distance', 'Consumption (km/l)'];
         const rows = filteredData.map(item => [
             item.vehicleDetail,
             item.litres,
+            item.date || '-',
             item.distance > 0 ? item.distance : '-',
             item.consumption > 0 ? item.consumption.toFixed(2) : '0.00'
         ]);
@@ -340,6 +348,7 @@ export default function FuelEfficiencySummaryPage() {
                                 <tr>
                                     <th className="bg-[#f26522] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Vehicle Detail</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Litres</th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Date</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Distance</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Consumption (km/l)</th>
                                 </tr>
@@ -347,7 +356,7 @@ export default function FuelEfficiencySummaryPage() {
                             <tbody>
                                 {paginatedData.length === 0 ? (
                                     <tr>
-                                        <td colSpan={4} className="p-8 text-center text-slate-400 bg-slate-50">
+                                        <td colSpan={5} className="p-8 text-center text-slate-400 bg-slate-50">
                                             No vehicle data found
                                         </td>
                                     </tr>
@@ -356,6 +365,7 @@ export default function FuelEfficiencySummaryPage() {
                                         <tr key={item.id || idx} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors odd:bg-white even:bg-[#fff9f5]">
                                             <td className="py-1.5 px-3 font-semibold text-slate-800 align-middle">{item.vehicleDetail}</td>
                                             <td className="py-1.5 px-3 font-semibold text-[#138024] align-middle">{formatNumber(item.litres, 2)}</td>
+                                            <td className="py-1.5 px-3 text-slate-600 align-middle">{item.date || '—'}</td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">{item.distance > 0 ? formatNumber(item.distance, 2) : '—'}</td>
                                             <td className="py-1.5 px-3 font-bold text-slate-900 align-middle">
                                                 {item.consumption > 0 ? item.consumption.toFixed(2) : '0.00'}
