@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Download, AlertTriangle, RefreshCw, RotateCcw, Sliders } from 'lucide-react';
+import { Search, Download, AlertTriangle, RotateCcw, Sliders } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
@@ -14,27 +14,23 @@ import { formatNumber, exportToCSV } from '@/lib/utils';
 import { useClientStore } from '@/services/api';
 import { DateRangePicker, DateRange, getDateRangeFromPreset } from '@/components/common/DateRangePicker';
 
-interface VehicleEfficiency {
+interface VehicleSummary {
     id: string;
-    description: string;
-    ltrs: number;
-    date: string;
-    time: string;
+    vehicleDetail: string;
+    litres: number;
     distance: number;
-    kmPerLtr: number;
-    ltrsPer100Km: number;
+    consumption: number;
 }
 
 export default function FuelEfficiencySummaryPage() {
     const router = useRouter();
     const selectedClient = useClientStore((state) => state.selectedClient);
     const [allRecords, setAllRecords] = useState<any[]>([]);
-    const [data, setData] = useState<VehicleEfficiency[]>([]);
+    const [data, setData] = useState<VehicleSummary[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [searchInput, setSearchInput] = useState('');
-    const [selectedEfficiency, setSelectedEfficiency] = useState('');
     const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
 
     // Pagination & Dynamic display size state
@@ -114,35 +110,70 @@ export default function FuelEfficiencySummaryPage() {
                 return;
             }
 
-            // Map each individual transaction without combining
-            const computed: VehicleEfficiency[] = response.data.map((tx: any, idx: number) => {
-                const vehicle = (tx.vehicleId && tx.vehicleId.trim() !== '' ? tx.vehicleId : (tx.driverAttendant || 'Unknown')).toUpperCase();
+            // Group transactions by Vehicle Detail
+            const vehicleMap = new Map<string, {
+                vehicleDetail: string;
+                litres: number;
+                odometers: { odo: number; date: string; time: string }[];
+            }>();
+
+            response.data.forEach((tx: any) => {
+                const vehicleDetail = (tx.driverAttendant || tx.vehicleId || tx.fleetId || 'Unknown Vehicle').toString().trim();
+                if (!vehicleDetail) return;
+
+                const key = vehicleDetail.toLowerCase();
                 const qty = Number(tx.fuelQuantity) || 0;
                 const odo = Number(tx.odometer) || 0;
-                const txDate = tx.date || tx.Date || tx.lastDate || (tx.createdAt ? tx.createdAt.split('T')[0] : '');
-                const txTime = tx.time || tx.Time || (tx.createdAt ? tx.createdAt.split('T')[1]?.replace('Z', '') : '');
+                const date = tx.date || '';
+                const time = tx.time || '';
 
-                const kmPerLtr = odo > 0 && qty > 0 ? Number((odo / qty).toFixed(2)) : 0;
-                const ltrsPer100Km = odo > 0 && qty > 0 ? Number(((qty / odo) * 100).toFixed(1)) : 0;
+                if (!vehicleMap.has(key)) {
+                    vehicleMap.set(key, {
+                        vehicleDetail,
+                        litres: 0,
+                        odometers: []
+                    });
+                }
 
-                return {
-                    id: `${tx.transactionId || idx}`,
-                    description: vehicle,
-                    ltrs: Number(qty.toFixed(2)),
-                    date: txDate,
-                    time: txTime,
-                    distance: odo,
-                    kmPerLtr,
-                    ltrsPer100Km,
-                };
+                const entry = vehicleMap.get(key)!;
+                entry.litres += qty;
+                if (odo > 0) {
+                    entry.odometers.push({ odo, date, time });
+                }
             });
 
-            // Sort by latest date/time descending
-            computed.sort((a, b) => {
-                const timeA = new Date(`${a.date}T${a.time || '00:00:00'}`).getTime() || 0;
-                const timeB = new Date(`${b.date}T${b.time || '00:00:00'}`).getTime() || 0;
-                return timeB - timeA;
+            const computed: VehicleSummary[] = [];
+
+            vehicleMap.forEach((val, key) => {
+                let distance = 0;
+                if (val.odometers.length >= 2) {
+                    val.odometers.sort((a, b) => {
+                        const timeA = new Date(`${a.date}T${a.time || '00:00:00'}`).getTime();
+                        const timeB = new Date(`${b.date}T${b.time || '00:00:00'}`).getTime();
+                        return timeA - timeB;
+                    });
+
+                    const minOdo = val.odometers[0].odo;
+                    const maxOdo = val.odometers[val.odometers.length - 1].odo;
+                    if (maxOdo > minOdo) {
+                        distance = maxOdo - minOdo;
+                    }
+                }
+
+                const litres = Number(val.litres.toFixed(2));
+                const consumption = distance > 0 && litres > 0 ? Number((distance / litres).toFixed(2)) : 0;
+
+                computed.push({
+                    id: key,
+                    vehicleDetail: val.vehicleDetail,
+                    litres,
+                    distance: Number(distance.toFixed(2)),
+                    consumption
+                });
             });
+
+            // Sort alphabetically by vehicle detail
+            computed.sort((a, b) => a.vehicleDetail.localeCompare(b.vehicleDetail));
 
             setData(computed);
 
@@ -168,26 +199,16 @@ export default function FuelEfficiencySummaryPage() {
         const defaultRange = getDateRangeFromPreset('30days');
         setSearchInput('');
         setSearch('');
-        setSelectedEfficiency('');
         setDateRange(defaultRange);
         setPage(1);
     };
 
     const filteredData = data.filter(item => {
         const query = search.toLowerCase();
-        const matchesSearch = item.description.toLowerCase().includes(query) ||
-            item.date.toLowerCase().includes(query);
-
-        if (selectedEfficiency === 'Normal') {
-            return matchesSearch && item.ltrsPer100Km > 0 && item.ltrsPer100Km <= 15;
-        }
-        if (selectedEfficiency === 'Poor') {
-            return matchesSearch && item.ltrsPer100Km > 15;
-        }
-        return matchesSearch;
+        return item.vehicleDetail.toLowerCase().includes(query);
     });
 
-    const totalLtrs = filteredData.reduce((sum, item) => sum + (Number(item.ltrs) || 0), 0);
+    const totalLtrs = filteredData.reduce((sum, item) => sum + (Number(item.litres) || 0), 0);
 
     // Pagination calculations
     const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
@@ -195,15 +216,12 @@ export default function FuelEfficiencySummaryPage() {
 
     const handleExport = () => {
         if (filteredData.length === 0) return;
-        const headers = ['Vehicle Description', 'Ltrs', 'Date', 'Time', 'Distance (KM)', 'KM per Ltr', 'Ltrs per 100KM'];
+        const headers = ['Vehicle Detail', 'Litres', 'Distance', 'Consumption (km/l)'];
         const rows = filteredData.map(item => [
-            item.description,
-            item.ltrs,
-            item.date,
-            item.time,
-            item.distance > 0 ? item.distance : '—',
-            item.kmPerLtr > 0 ? item.kmPerLtr : '—',
-            item.ltrsPer100Km > 0 ? item.ltrsPer100Km : '—'
+            item.vehicleDetail,
+            item.litres,
+            item.distance > 0 ? item.distance : '-',
+            item.consumption > 0 ? item.consumption.toFixed(2) : '0.00'
         ]);
         exportToCSV('fuel_efficiency_summary.csv', headers, rows);
     };
@@ -244,13 +262,13 @@ export default function FuelEfficiencySummaryPage() {
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Total Ltrs</label>
                                     <div className="flex items-center px-3 border border-slate-200 bg-white rounded h-8 shadow-xs">
                                         <span className="text-xs font-bold text-[#138024] whitespace-nowrap">
-                                            {formatNumber(totalLtrs, 1)} L
+                                            {formatNumber(totalLtrs, 2)} L
                                         </span>
                                     </div>
                                 </div>
 
                                 {/* Search Input Group */}
-                                <div className="flex flex-col gap-1 w-[180px] sm:w-[210px] shrink-0">
+                                <div className="flex flex-col gap-1 w-[200px] sm:w-[250px] shrink-0">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Search vehicles</label>
                                     <div className="flex h-8">
                                         <span className="flex items-center px-2.5 border border-r-0 border-slate-200 bg-slate-50 rounded-l text-slate-400">
@@ -265,23 +283,6 @@ export default function FuelEfficiencySummaryPage() {
                                             className="w-full border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 rounded-r rounded-l-none"
                                         />
                                     </div>
-                                </div>
-
-                                {/* Efficiency Result Selector */}
-                                <div className="flex flex-col gap-1 w-[190px] shrink-0">
-                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Efficiency Result</label>
-                                    <select
-                                        value={selectedEfficiency}
-                                        onChange={(e) => {
-                                            setSelectedEfficiency(e.target.value);
-                                            setPage(1);
-                                        }}
-                                        className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 cursor-pointer w-full"
-                                    >
-                                        <option value="">All results</option>
-                                        <option value="Normal">Normal Efficiency (&le; 15 L/100Km)</option>
-                                        <option value="Poor">Poor Efficiency (&gt; 15 L/100Km)</option>
-                                    </select>
                                 </div>
 
                                 {/* Date Range Selector */}
@@ -337,31 +338,27 @@ export default function FuelEfficiencySummaryPage() {
                         <table className="w-full text-sm border-collapse whitespace-nowrap">
                             <thead className="sticky top-0 z-10 shadow-xs">
                                 <tr>
-                                    <th className="bg-[#f26522] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Vehicle Description</th>
-                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Ltrs</th>
-                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Date</th>
-                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Distance (KM)</th>
-                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Fuel Burn (Km/L)</th>
-                                    <th className="bg-[#555555] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Fuel Burn (L/100Km)</th>
+                                    <th className="bg-[#f26522] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Vehicle Detail</th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Litres</th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Distance</th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Consumption (km/l)</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {paginatedData.length === 0 ? (
                                     <tr>
-                                        <td colSpan={6} className="p-8 text-center text-slate-400 bg-slate-50">
+                                        <td colSpan={4} className="p-8 text-center text-slate-400 bg-slate-50">
                                             No vehicle data found
                                         </td>
                                     </tr>
                                 ) : (
                                     paginatedData.map((item, idx) => (
                                         <tr key={item.id || idx} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors odd:bg-white even:bg-[#fff9f5]">
-                                            <td className="py-1.5 px-3 font-semibold text-slate-800 align-middle">{item.description}</td>
-                                            <td className="py-1.5 px-3 font-semibold text-[#138024] align-middle">{formatNumber(item.ltrs)} L</td>
-                                            <td className="py-1.5 px-3 text-slate-500 align-middle">{item.date || '—'}</td>
-                                            <td className="py-1.5 px-3 text-slate-600 align-middle">{item.distance > 0 ? formatNumber(item.distance) : '—'}</td>
-                                            <td className="py-1.5 px-3 font-medium text-slate-600 align-middle">{item.kmPerLtr > 0 ? item.kmPerLtr.toFixed(2) : '—'}</td>
-                                            <td className={`py-1.5 px-3 font-bold align-middle ${item.ltrsPer100Km > 15 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                                                {item.ltrsPer100Km > 0 ? `${item.ltrsPer100Km.toFixed(1)} L/100Km` : '—'}
+                                            <td className="py-1.5 px-3 font-semibold text-slate-800 align-middle">{item.vehicleDetail}</td>
+                                            <td className="py-1.5 px-3 font-semibold text-[#138024] align-middle">{formatNumber(item.litres, 2)}</td>
+                                            <td className="py-1.5 px-3 text-slate-600 align-middle">{item.distance > 0 ? formatNumber(item.distance, 2) : '—'}</td>
+                                            <td className="py-1.5 px-3 font-bold text-slate-900 align-middle">
+                                                {item.consumption > 0 ? item.consumption.toFixed(2) : '0.00'}
                                             </td>
                                         </tr>
                                     ))
@@ -375,7 +372,7 @@ export default function FuelEfficiencySummaryPage() {
                         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 pb-0.5 px-2 shrink-0 border-t border-slate-100">
                             <div className="flex items-center gap-4 flex-wrap">
                                 <p className="text-xs sm:text-sm text-slate-500">
-                                    Showing <span className="font-semibold text-slate-800">{paginatedData.length}</span> of <span className="font-semibold text-slate-800">{filteredData.length}</span> transactions
+                                    Showing <span className="font-semibold text-slate-800">{paginatedData.length}</span> of <span className="font-semibold text-slate-800">{filteredData.length}</span> vehicles
                                 </p>
                                 <div className="flex items-center gap-1.5 text-xs text-slate-500">
                                     <span>Rows:</span>
@@ -432,4 +429,5 @@ export default function FuelEfficiencySummaryPage() {
         </PageContainer>
     );
 }
+
 
