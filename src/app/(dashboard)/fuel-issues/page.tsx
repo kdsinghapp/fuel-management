@@ -172,7 +172,7 @@ export default function FuelIssuesPage() {
             });
             const exportIssues = response.data;
             if (exportIssues.length === 0) return;
-            const headers = ['Date', 'Time', 'ID', 'Vehicle Req', 'Fleet Id', 'Vehicle Detail', 'Site', 'Litres', 'Pump', 'Odo Meter', 'Hour Meter', 'DEM/Status'];
+            const headers = ['Date', 'Time', 'ID', 'Vehicle Req', 'Fleet Id', 'Vehicle Detail', 'Site', 'Litres', 'Pump', 'Odo Meter', 'DEM/Status'];
             const rows = exportIssues.map(issue => [
                 issue.date,
                 issue.time,
@@ -184,7 +184,6 @@ export default function FuelIssuesPage() {
                 issue.fuelQuantity,
                 issue.pump,
                 issue.odometer,
-                issue.engineHours,
                 issue.dem || issue.status
             ]);
             exportToCSV(`fuel_issues_${dateRange.preset}.csv`, headers, rows);
@@ -299,14 +298,13 @@ export default function FuelIssuesPage() {
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Litres</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Pump</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Odo Meter</th>
-                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Hour Meter</th>
                                     <th className="bg-[#222222] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">DEM</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {issues.length === 0 ? (
                                     <tr>
-                                        <td colSpan={11} className="p-8 text-center text-slate-400 bg-slate-50">
+                                        <td colSpan={10} className="p-8 text-center text-slate-400 bg-slate-50">
                                             No transactions found
                                         </td>
                                     </tr>
@@ -322,7 +320,6 @@ export default function FuelIssuesPage() {
                                             <td className="py-1.5 px-3 font-bold text-slate-900 align-middle">{formatFuel(issue.fuelQuantity)}</td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.pump || '—'}</td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.odometer || '—'}</td>
-                                            <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.engineHours || '—'}</td>
                                             <td className="py-1.5 px-3 align-middle">
                                                 <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold border ${issue.status === 'Matched'
                                                     ? 'bg-[#eefcf2] border-[#d6f2e1] text-[#138024]'
