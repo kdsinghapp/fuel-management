@@ -1,9 +1,114 @@
 // src/services/vehicleService.ts
-import { Vehicle, VehicleFuelUsage } from '@/types/vehicle';
+import { Vehicle, FuelEfficiencyTransaction, VehicleFuelUsage } from '@/types/vehicle';
 import { FilterParams, PaginatedResponse } from '@/types/common';
 import { fuelIssueService } from './fuelIssueService';
 
 export const vehicleService = {
+  async getFuelEfficiencyTransactions(params: FilterParams = {}): Promise<{
+    data: FuelEfficiencyTransaction[];
+    allTransactions: any[];
+  }> {
+    try {
+      // Fetch live transactions with date filters
+      const response = await fuelIssueService.getFuelIssues({
+        page: 1,
+        pageSize: 100000,
+        startDate: params.startDate,
+        endDate: params.endDate,
+      });
+
+      const rawTransactions = response.data || [];
+
+      // Group all transactions by vehicle registration / fleet id / detail
+      const vehicleMap = new Map<string, any[]>();
+      rawTransactions.forEach((tx: any) => {
+        const vehicleKey = (tx.vehicleId || tx.fleetId || tx.driverAttendant || 'Unknown').trim().toUpperCase();
+        if (!vehicleMap.has(vehicleKey)) {
+          vehicleMap.set(vehicleKey, []);
+        }
+        vehicleMap.get(vehicleKey)!.push(tx);
+      });
+
+      const calculated: FuelEfficiencyTransaction[] = [];
+
+      vehicleMap.forEach((txs) => {
+        // Sort chronologically ascending within each vehicle
+        txs.sort((a, b) => {
+          const timeA = new Date(`${a.date}T${a.time || '00:00:00'}`).getTime();
+          const timeB = new Date(`${b.date}T${b.time || '00:00:00'}`).getTime();
+          return timeA - timeB;
+        });
+
+        let prevOdo: number | null = null;
+
+        txs.forEach((tx) => {
+          const currentOdo = Number(tx.odometer) || 0;
+          const litres = Number(tx.fuelQuantity) || 0;
+
+          let distance: number | null = null;
+          let consumption: number | null = null;
+          let recordedPrevOdo: number | null = null;
+
+          if (prevOdo !== null && prevOdo > 0 && currentOdo > 0 && currentOdo >= prevOdo) {
+            distance = currentOdo - prevOdo;
+            recordedPrevOdo = prevOdo;
+            if (distance > 0 && litres > 0) {
+              consumption = Number((distance / litres).toFixed(2));
+            }
+          } else if (prevOdo !== null && prevOdo > 0) {
+            recordedPrevOdo = prevOdo;
+          }
+
+          if (currentOdo > 0) {
+            prevOdo = currentOdo;
+          }
+
+          calculated.push({
+            id: tx.id || tx.transactionId || `${tx.date}-${tx.time}-${Math.random()}`,
+            transactionId: tx.transactionId || '',
+            date: tx.date || '',
+            time: tx.time || '',
+            vehicleId: tx.vehicleId || '',
+            fleetId: tx.fleetId || '',
+            driverAttendant: tx.driverAttendant || '',
+            siteId: tx.siteId || '',
+            depot: tx.depot || '',
+            dem: tx.dem || '',
+            fuelQuantity: litres,
+            pump: tx.pump ? String(tx.pump) : '1',
+            odometer: currentOdo,
+            previousOdo: recordedPrevOdo,
+            distance: distance,
+            consumption: consumption,
+            status: tx.status || 'Matched',
+          });
+        });
+      });
+
+      // Sort by Vehicle Reg ascending, then Date/Time ascending (matching Excel reference grouping)
+      calculated.sort((a, b) => {
+        const regA = (a.vehicleId || a.fleetId || '').toString();
+        const regB = (b.vehicleId || b.fleetId || '').toString();
+        const regCompare = regA.localeCompare(regB);
+        if (regCompare !== 0) return regCompare;
+        const timeA = new Date(`${a.date}T${a.time || '00:00:00'}`).getTime();
+        const timeB = new Date(`${b.date}T${b.time || '00:00:00'}`).getTime();
+        return timeA - timeB;
+      });
+
+      return {
+        data: calculated,
+        allTransactions: rawTransactions,
+      };
+    } catch (err) {
+      console.error('Failed to get fuel efficiency transactions:', err);
+      return {
+        data: [],
+        allTransactions: [],
+      };
+    }
+  },
+
   async getVehicles(params: FilterParams = {}): Promise<PaginatedResponse<Vehicle>> {
     try {
       // Fetch live transactions to aggregate vehicles, forwarding date filters
@@ -111,3 +216,4 @@ export const vehicleService = {
     return usage;
   },
 };
+
