@@ -303,7 +303,7 @@ export default function FuelEfficiencySummaryPage() {
                                 </div>
 
                                 {/* Date Range Selector */}
-                                <div className="w-[130px] shrink-0">
+                                {/* <div className="w-[130px] shrink-0">
                                     <DateRangePicker
                                         value={dateRange}
                                         onChange={(newRange) => {
@@ -312,7 +312,7 @@ export default function FuelEfficiencySummaryPage() {
                                         }}
                                         allRecords={allRecords as any}
                                     />
-                                </div>
+                                </div> */}
                             </div>
 
                             {/* Right Action Buttons Group */}
@@ -357,7 +357,7 @@ export default function FuelEfficiencySummaryPage() {
                                 <tr>
                                     <th className="bg-[#f26522] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Vehicle Reg</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Litres</th>
-                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Date</th>
+                                    {/* <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Date</th> */}
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Distance</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Consumption (km/l)</th>
                                 </tr>
@@ -374,7 +374,7 @@ export default function FuelEfficiencySummaryPage() {
                                         <tr key={item.id || idx} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors odd:bg-white even:bg-[#fff9f5]">
                                             <td className="py-1.5 px-3 font-semibold text-[#138024] align-middle">{item.vehicleReg}</td>
                                             <td className="py-1.5 px-3 font-semibold text-slate-900 align-middle">{formatNumber(item.litres, 2)}</td>
-                                            <td className="py-1.5 px-3 text-slate-600 align-middle">{item.date || '—'}</td>
+                                            {/* <td className="py-1.5 px-3 text-slate-600 align-middle">{item.date || '—'}</td> */}
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">{item.distance > 0 ? formatNumber(item.distance, 2) : '—'}</td>
                                             <td className="py-1.5 px-3 font-bold text-slate-900 align-middle">
                                                 {item.consumption > 0 ? item.consumption.toFixed(2) : '0.00'}
