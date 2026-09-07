@@ -16,7 +16,7 @@ import { DateRangePicker, DateRange, getDateRangeFromPreset } from '@/components
 
 interface VehicleSummary {
     id: string;
-    vehicleDetail: string;
+    vehicleReg: string;
     litres: number;
     date: string;
     distance: number;
@@ -111,19 +111,19 @@ export default function FuelEfficiencySummaryPage() {
                 return;
             }
 
-            // Group transactions by Vehicle Detail
+            // Group transactions by Vehicle Reg (RegistrationNo)
             const vehicleMap = new Map<string, {
-                vehicleDetail: string;
+                vehicleReg: string;
                 litres: number;
                 lastDate: string;
                 odometers: { odo: number; date: string; time: string }[];
             }>();
 
             response.data.forEach((tx: any) => {
-                const vehicleDetail = (tx.driverAttendant || tx.vehicleId || tx.fleetId || 'Unknown Vehicle').toString().trim();
-                if (!vehicleDetail) return;
+                const vehicleReg = (tx.vehicleId || tx.registrationNo || tx.fleetId || 'Unassigned').toString().trim();
+                if (!vehicleReg) return;
 
-                const key = vehicleDetail.toLowerCase();
+                const key = vehicleReg.toLowerCase();
                 const qty = Number(tx.fuelQuantity) || 0;
                 const odo = Number(tx.odometer) || 0;
                 const date = tx.date || '';
@@ -131,7 +131,7 @@ export default function FuelEfficiencySummaryPage() {
 
                 if (!vehicleMap.has(key)) {
                     vehicleMap.set(key, {
-                        vehicleDetail,
+                        vehicleReg,
                         litres: 0,
                         lastDate: date,
                         odometers: []
@@ -173,7 +173,7 @@ export default function FuelEfficiencySummaryPage() {
 
                 computed.push({
                     id: key,
-                    vehicleDetail: val.vehicleDetail,
+                    vehicleReg: val.vehicleReg,
                     litres,
                     date: val.lastDate,
                     distance: Number(distance.toFixed(2)),
@@ -181,14 +181,14 @@ export default function FuelEfficiencySummaryPage() {
                 });
             });
 
-            // Sort by Date descending (latest first), then vehicleDetail
+            // Sort by Date descending (latest first), then vehicleReg
             computed.sort((a, b) => {
                 const timeA = new Date(a.date ? `${a.date}T00:00:00` : '1970-01-01').getTime();
                 const timeB = new Date(b.date ? `${b.date}T00:00:00` : '1970-01-01').getTime();
                 if (timeB !== timeA) {
                     return timeB - timeA;
                 }
-                return a.vehicleDetail.localeCompare(b.vehicleDetail);
+                return a.vehicleReg.localeCompare(b.vehicleReg);
             });
 
             setData(computed);
@@ -221,7 +221,7 @@ export default function FuelEfficiencySummaryPage() {
 
     const filteredData = data.filter(item => {
         const query = search.toLowerCase();
-        return item.vehicleDetail.toLowerCase().includes(query) || (item.date && item.date.toLowerCase().includes(query));
+        return item.vehicleReg.toLowerCase().includes(query) || (item.date && item.date.toLowerCase().includes(query));
     });
 
     const totalLtrs = filteredData.reduce((sum, item) => sum + (Number(item.litres) || 0), 0);
@@ -232,9 +232,9 @@ export default function FuelEfficiencySummaryPage() {
 
     const handleExport = () => {
         if (filteredData.length === 0) return;
-        const headers = ['Vehicle Detail', 'Litres', 'Date', 'Distance', 'Consumption (km/l)'];
+        const headers = ['Vehicle Reg', 'Litres', 'Date', 'Distance', 'Consumption (km/l)'];
         const rows = filteredData.map(item => [
-            item.vehicleDetail,
+            item.vehicleReg,
             item.litres,
             item.date || '-',
             item.distance > 0 ? item.distance : '-',
@@ -293,7 +293,7 @@ export default function FuelEfficiencySummaryPage() {
                                         </span>
                                         <input
                                             type="text"
-                                            placeholder="Search by vehicle..."
+                                            placeholder="Search by vehicle reg..."
                                             value={searchInput}
                                             onChange={(e) => setSearchInput(e.target.value)}
                                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -355,7 +355,7 @@ export default function FuelEfficiencySummaryPage() {
                         <table className="w-full text-sm border-collapse whitespace-nowrap">
                             <thead className="sticky top-0 z-10 shadow-xs">
                                 <tr>
-                                    <th className="bg-[#f26522] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Vehicle Detail</th>
+                                    <th className="bg-[#f26522] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Vehicle Reg</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Litres</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Date</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Distance</th>
@@ -372,8 +372,8 @@ export default function FuelEfficiencySummaryPage() {
                                 ) : (
                                     paginatedData.map((item, idx) => (
                                         <tr key={item.id || idx} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors odd:bg-white even:bg-[#fff9f5]">
-                                            <td className="py-1.5 px-3 font-semibold text-slate-800 align-middle">{item.vehicleDetail}</td>
-                                            <td className="py-1.5 px-3 font-semibold text-[#138024] align-middle">{formatNumber(item.litres, 2)}</td>
+                                            <td className="py-1.5 px-3 font-semibold text-[#138024] align-middle">{item.vehicleReg}</td>
+                                            <td className="py-1.5 px-3 font-semibold text-slate-900 align-middle">{formatNumber(item.litres, 2)}</td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">{item.date || '—'}</td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">{item.distance > 0 ? formatNumber(item.distance, 2) : '—'}</td>
                                             <td className="py-1.5 px-3 font-bold text-slate-900 align-middle">
@@ -448,5 +448,3 @@ export default function FuelEfficiencySummaryPage() {
         </PageContainer>
     );
 }
-
-
