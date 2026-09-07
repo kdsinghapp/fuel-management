@@ -18,8 +18,6 @@ interface FuelLimitRecord {
     asset: string; // RegistrationNo
     vehicleName: string; // DriverAttendant or Depot
     department: string;
-    date: string;
-    time: string;
     limitType: 'No Limit' | 'Limit';
     fuelLimit: number | 'No Limit';
     monthlyFuelUsed: number;
@@ -93,7 +91,7 @@ export default function FuelLimitsPage() {
         try {
             setLoading(true);
 
-            // Fetch live transactions from API (similar to Fuel Efficiency)
+            // Fetch live transactions from API
             const response = await fuelIssueService.getFuelIssues({
                 page: 1,
                 pageSize: 100000,
@@ -114,33 +112,52 @@ export default function FuelLimitsPage() {
                 }
             }
 
-            // Map each individual transaction without combining
-            const records: FuelLimitRecord[] = response.data.map((tx: any, idx: number) => {
-                const vehicleId = (tx.vehicleId && tx.vehicleId.trim() !== '' ? tx.vehicleId : (tx.driverAttendant || 'UNKNOWN')).toUpperCase();
-                const custom = savedConfig[vehicleId] || { limitType: 'No Limit', fuelLimit: 'No Limit' };
+            // Group transactions by vehicle / asset
+            const usageMap: Record<string, { ltrs: number; name: string; dept: string; lastDateTime: string }> = {};
+            response.data.forEach((tx: any) => {
+                const vehicleId = (tx.vehicleId && tx.vehicleId.trim() !== '' ? tx.vehicleId : (tx.registrationNo || tx.driverAttendant || 'UNKNOWN')).toString().trim().toUpperCase();
+                if (!vehicleId) return;
+
                 const qty = Number(tx.fuelQuantity) || 0;
                 const txDate = tx.date || tx.Date || tx.lastDate || (tx.createdAt ? tx.createdAt.split('T')[0] : '');
                 const txTime = tx.time || tx.Time || (tx.createdAt ? tx.createdAt.split('T')[1]?.replace('Z', '') : '');
+                const fullDateTime = `${txDate}T${txTime || '00:00:00'}`;
+
+                if (!usageMap[vehicleId]) {
+                    usageMap[vehicleId] = {
+                        ltrs: 0,
+                        name: tx.driverAttendant || tx.depot || 'Fleet Vehicle',
+                        dept: tx.depot || 'General',
+                        lastDateTime: fullDateTime
+                    };
+                }
+
+                usageMap[vehicleId].ltrs += qty;
+                if (fullDateTime && fullDateTime > usageMap[vehicleId].lastDateTime) {
+                    usageMap[vehicleId].lastDateTime = fullDateTime;
+                    usageMap[vehicleId].name = tx.driverAttendant || tx.depot || usageMap[vehicleId].name;
+                    usageMap[vehicleId].dept = tx.depot || usageMap[vehicleId].dept;
+                }
+            });
+
+            // Map grouped vehicles to FuelLimitRecord
+            const records: FuelLimitRecord[] = Object.keys(usageMap).map((vehicleId, idx) => {
+                const live = usageMap[vehicleId];
+                const custom = savedConfig[vehicleId] || { limitType: 'No Limit', fuelLimit: 'No Limit' };
 
                 return {
-                    id: `${tx.transactionId || idx}`,
+                    id: `${vehicleId}-${idx}`,
                     asset: vehicleId,
-                    vehicleName: tx.driverAttendant || tx.depot || 'Fleet Vehicle',
-                    department: tx.depot || 'General',
-                    date: txDate,
-                    time: txTime,
+                    vehicleName: live.name,
+                    department: live.dept,
                     limitType: custom.limitType,
                     fuelLimit: custom.fuelLimit,
-                    monthlyFuelUsed: Number(qty.toFixed(2)),
+                    monthlyFuelUsed: Number(live.ltrs.toFixed(2)),
                 };
             });
 
-            // Sort by latest date/time descending (matching Fuel Efficiency)
-            records.sort((a, b) => {
-                const timeA = new Date(`${a.date}T${a.time || '00:00:00'}`).getTime();
-                const timeB = new Date(`${b.date}T${b.time || '00:00:00'}`).getTime();
-                return timeB - timeA;
-            });
+            // Sort by Monthly Fuel Used descending
+            records.sort((a, b) => b.monthlyFuelUsed - a.monthlyFuelUsed);
 
             setLimits(records);
 
@@ -175,8 +192,7 @@ export default function FuelLimitsPage() {
         const query = search.toLowerCase();
         const matchesSearch = item.asset.toLowerCase().includes(query) ||
             item.vehicleName.toLowerCase().includes(query) ||
-            item.department.toLowerCase().includes(query) ||
-            item.date.toLowerCase().includes(query);
+            item.department.toLowerCase().includes(query);
 
         const matchesDept = selectedDepartment ? item.department === selectedDepartment : true;
         const matchesLimitType = selectedLimitType ? item.limitType === selectedLimitType : true;
@@ -192,7 +208,7 @@ export default function FuelLimitsPage() {
 
     const handleExport = () => {
         if (filteredData.length === 0) return;
-        const headers = ['Asset (Rego)', 'Vehicle Name', 'Department', 'Date', 'Limit Type', 'Fuel Limit (L)', 'Monthly Fuel Used (L)', 'Fuel Balance Remaining'];
+        const headers = ['Asset (Rego)', 'Vehicle Name', 'Department', 'Limit Type', 'Fuel Limit (L)', 'Monthly Fuel Used (L)', 'Fuel Balance Remaining'];
         const rows = filteredData.map(item => {
             const limitVal = item.fuelLimit;
             const remaining = limitVal === 'No Limit' ? 'No Limit' : limitVal - item.monthlyFuelUsed;
@@ -200,15 +216,14 @@ export default function FuelLimitsPage() {
                 item.asset,
                 item.vehicleName,
                 item.department,
-                item.date,
                 item.limitType,
                 item.fuelLimit,
                 item.monthlyFuelUsed,
                 typeof remaining === 'number' ? Number(remaining.toFixed(2)) : remaining
             ];
         });
-        rows.push(['TOTAL', '', '', '', '', '', Number(totalFuelUsed.toFixed(2)), '']);
-        exportToCSV('fuel_limits.csv', headers, rows);
+        rows.push(['TOTAL', '', '', '', '', Number(totalFuelUsed.toFixed(2)), '']);
+        exportToCSV('fuel_limits_summary.csv', headers, rows);
     };
 
     const uniqueDepartments = Array.from(new Set(limits.map(l => l.department))).filter(Boolean);
@@ -332,7 +347,6 @@ export default function FuelLimitsPage() {
                                     <th className="bg-[#f26522] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Asset (Rego)</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Vehicle Name</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Department</th>
-                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Date</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Limit Type</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">FUEL LIMIT (L)</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">MONTHLY FUEL USED (L)</th>
@@ -342,7 +356,7 @@ export default function FuelLimitsPage() {
                             <tbody>
                                 {paginatedData.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8} className="p-8 text-center text-slate-400 bg-slate-50">
+                                        <td colSpan={7} className="p-8 text-center text-slate-400 bg-slate-50">
                                             No limits configuration found.
                                         </td>
                                     </tr>
@@ -355,7 +369,6 @@ export default function FuelLimitsPage() {
                                                 <td className="py-1.5 px-3 font-semibold text-slate-800 align-middle">{item.asset}</td>
                                                 <td className="py-1.5 px-3 text-slate-600 align-middle">{item.vehicleName}</td>
                                                 <td className="py-1.5 px-3 text-slate-500 align-middle">{item.department}</td>
-                                                <td className="py-1.5 px-3 text-slate-500 align-middle">{item.date || '—'}</td>
                                                 <td className="py-1.5 px-3 text-slate-600 align-middle">{item.limitType}</td>
                                                 <td className="py-1.5 px-3 font-semibold text-slate-800 align-middle">
                                                     {typeof limitVal === 'number' ? `${formatNumber(limitVal)} L` : limitVal}
@@ -377,7 +390,7 @@ export default function FuelLimitsPage() {
                         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 pb-0.5 px-2 shrink-0 border-t border-slate-100">
                             <div className="flex items-center gap-4 flex-wrap">
                                 <p className="text-xs sm:text-sm text-slate-500">
-                                    Showing <span className="font-semibold text-slate-800">{paginatedData.length}</span> of <span className="font-semibold text-slate-800">{filteredData.length}</span> transactions
+                                    Showing <span className="font-semibold text-slate-800">{paginatedData.length}</span> of <span className="font-semibold text-slate-800">{filteredData.length}</span> vehicles
                                 </p>
                                 <div className="flex items-center gap-1.5 text-xs text-slate-500">
                                     <span>Rows:</span>
