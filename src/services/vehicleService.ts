@@ -85,15 +85,11 @@ export const vehicleService = {
         });
       });
 
-      // Sort by Vehicle Reg ascending, then Date/Time ascending (matching Excel reference grouping)
+      // Sort by Date / Time descending (latest first, matching Transactions)
       calculated.sort((a, b) => {
-        const regA = (a.vehicleId || a.fleetId || '').toString();
-        const regB = (b.vehicleId || b.fleetId || '').toString();
-        const regCompare = regA.localeCompare(regB);
-        if (regCompare !== 0) return regCompare;
         const timeA = new Date(`${a.date}T${a.time || '00:00:00'}`).getTime();
         const timeB = new Date(`${b.date}T${b.time || '00:00:00'}`).getTime();
-        return timeA - timeB;
+        return timeB - timeA;
       });
 
       return {
