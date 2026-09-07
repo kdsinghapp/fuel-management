@@ -140,7 +140,9 @@ export default function FuelEfficiencySummaryPage() {
 
                 const entry = vehicleMap.get(key)!;
                 entry.litres += qty;
-                if (date && (!entry.lastDate || date > entry.lastDate)) {
+                const fullDateTime = `${date}T${time || '00:00:00'}`;
+                if (fullDateTime && (!entry.lastDate || fullDateTime > (entry as any).lastDateTime)) {
+                    (entry as any).lastDateTime = fullDateTime;
                     entry.lastDate = date;
                 }
                 if (odo > 0) {
@@ -179,8 +181,15 @@ export default function FuelEfficiencySummaryPage() {
                 });
             });
 
-            // Sort alphabetically by vehicle detail
-            computed.sort((a, b) => a.vehicleDetail.localeCompare(b.vehicleDetail));
+            // Sort by Date descending (latest first), then vehicleDetail
+            computed.sort((a, b) => {
+                const timeA = new Date(a.date ? `${a.date}T00:00:00` : '1970-01-01').getTime();
+                const timeB = new Date(b.date ? `${b.date}T00:00:00` : '1970-01-01').getTime();
+                if (timeB !== timeA) {
+                    return timeB - timeA;
+                }
+                return a.vehicleDetail.localeCompare(b.vehicleDetail);
+            });
 
             setData(computed);
 
