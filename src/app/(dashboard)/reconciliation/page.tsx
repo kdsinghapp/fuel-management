@@ -89,19 +89,6 @@ export default function ReconciliationPage() {
                 return `${vPercent >= 0 ? '+' : ''}${vPercent.toFixed(1)}%`;
             },
         },
-        {
-            key: "cumulativeVariance",
-            header: "Cumulative Variance",
-            headerClassName: "bg-[#137e19] text-white",
-            cellClassName: (record: Reconciliation) => {
-                const val = record.cumulativeVariance ?? 0;
-                return `py-2 px-3 font-bold align-middle ${val >= 0 ? 'text-green-600' : 'text-red-650'}`;
-            },
-            render: (record: Reconciliation) => {
-                const val = record.cumulativeVariance ?? 0;
-                return `${val >= 0 ? '+' : ''}${formatFuel(val)}`;
-            },
-        },
     ];
     const [pageSize] = useState(30);
     const [totalPages, setTotalPages] = useState(1);
@@ -202,16 +189,15 @@ export default function ReconciliationPage() {
             csvLines.push('');
         }
         csvLines.push('"DETAILED DAILY RECONCILIATION & FUEL AUDIT LOG"');
-        const headers = ['Date', 'Opening Balance / Dip (L)', 'Deliveries / Receipts (+L)', 'Fuel Issues / Dispensed (-L)', 'Expected Closing (L)', 'Actual Closing Dip (L)', 'Variance (L)', 'Variance %', 'Cumulative Variance (L)'];
+        const headers = ['Date', 'Opening Balance / Dip (L)', 'Deliveries / Receipts (+L)', 'Fuel Issues / Dispensed (-L)', 'Expected Closing (L)', 'Actual Closing Dip (L)', 'Variance (L)', 'Variance %'];
         csvLines.push(headers.map(h => `"${h}"`).join(','));
         records.forEach(record => {
             const vPercent = record.expectedClosing > 0 ? (record.variance / record.expectedClosing) * 100 : 0;
-            const cVar = record.cumulativeVariance ?? 0;
-            const row = [record.date, record.openingBalance, record.deliveries, record.fuelIssues, record.expectedClosing, record.actualClosing, record.variance, `${vPercent.toFixed(1)}%`, `${cVar >= 0 ? '+' : ''}${cVar.toFixed(2)}`];
+            const row = [record.date, record.openingBalance, record.deliveries, record.fuelIssues, record.expectedClosing, record.actualClosing, record.variance, `${vPercent.toFixed(1)}%`];
             csvLines.push(row.map(val => typeof val === 'string' ? `"${val}"` : val).join(','));
         });
         if (summaryData) {
-            const totalsRow = ['"TOTALS / NET"', '""', `"+${summaryData.totalDeliveries}"`, `"-${summaryData.totalIssues}"`, '""', '""', `"${summaryData.variance >= 0 ? '+' : ''}${summaryData.variance.toFixed(2)}"`, `"${summaryData.variancePercent.toFixed(1)}%"`, '""'];
+            const totalsRow = ['"TOTALS / NET"', '""', `"+${summaryData.totalDeliveries}"`, `"-${summaryData.totalIssues}"`, '""', '""', `"${summaryData.variance >= 0 ? '+' : ''}${summaryData.variance.toFixed(2)}"`, `"${summaryData.variancePercent.toFixed(1)}%"`];
             csvLines.push(totalsRow.join(','));
         }
         const csvContent = csvLines.join('\n');
