@@ -172,14 +172,13 @@ export default function FuelIssuesPage() {
             });
             const exportIssues = response.data;
             if (exportIssues.length === 0) return;
-            const headers = ['Date', 'Time', 'ID', 'Vehicle Req', 'Fleet Id', 'Vehicle Detail', 'Site', 'Litres', 'Pump', 'Odo Meter', 'DEM/Status'];
+            const headers = ['Date', 'Time', 'ID', 'Vehicle Req', 'Fleet Id', 'Site', 'Litres', 'Pump', 'Odo Meter', 'DEM/Status'];
             const rows = exportIssues.map(issue => [
                 issue.date,
                 issue.time,
                 issue.transactionId,
                 issue.vehicleId,
                 issue.fleetId,
-                issue.driverAttendant,
                 issue.siteId || issue.depot,
                 issue.fuelQuantity,
                 issue.pump,
@@ -293,7 +292,6 @@ export default function FuelIssuesPage() {
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">ID</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Vehicle Req</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Fleet Id</th>
-                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Vehicle Detail</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Site</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Litres</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Pump</th>
@@ -304,7 +302,7 @@ export default function FuelIssuesPage() {
                             <tbody>
                                 {issues.length === 0 ? (
                                     <tr>
-                                        <td colSpan={10} className="p-8 text-center text-slate-400 bg-slate-50">
+                                        <td colSpan={9} className="p-8 text-center text-slate-400 bg-slate-50">
                                             No transactions found
                                         </td>
                                     </tr>
@@ -315,7 +313,6 @@ export default function FuelIssuesPage() {
                                             <td className="py-1.5 px-3 font-bold text-slate-900 align-middle">{issue.transactionId}</td>
                                             <td className="py-1.5 px-3 font-bold text-green-600 align-middle">{issue.vehicleId}</td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.fleetId || '—'}</td>
-                                            <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.driverAttendant || '—'}</td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.siteId || issue.depot || '—'}</td>
                                             <td className="py-1.5 px-3 font-bold text-slate-900 align-middle">{formatFuel(issue.fuelQuantity)}</td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.pump || '—'}</td>
