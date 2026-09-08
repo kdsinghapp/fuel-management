@@ -1,16 +1,16 @@
 // src/app/(dashboard)/reconciliation/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Calendar, Download, AlertTriangle, RefreshCw, RotateCcw } from 'lucide-react';
+import { Search, Calendar, Download, AlertTriangle, RefreshCw, RotateCcw, ChevronDown, FileSpreadsheet, FileText, FileDown } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { reconciliationService } from '@/services/reconciliationService';
 import { authService } from '@/lib/auth';
-import { formatFuel, formatNumber } from '@/lib/utils';
+import { formatFuel, formatNumber, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils';
 import { Reconciliation } from '@/types/reconciliation';
 import { useClientStore, CLIENTS } from '@/services/api';
 import { CustomTable } from '@/components/ui/table';
@@ -26,6 +26,19 @@ export default function ReconciliationPage() {
     const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
+    const [exportOpen, setExportOpen] = useState(false);
+    const [isExporting, setIsExporting] = useState<string | null>(null);
+    const exportRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+                setExportOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const columns = [
         {
@@ -158,59 +171,54 @@ export default function ReconciliationPage() {
 
     const filteredRecords = records.filter(record => selectedStatus ? record.status === selectedStatus : true);
 
-    const handleExport = () => {
-        if (records.length === 0) return;
-        const clientName = selectedClient?.name || 'Client';
-        const dateRangeStr = dateRange.label || 'All Dates';
-        const generatedDate = new Date().toLocaleString();
-        const csvLines: string[] = [];
-        csvLines.push('"RECONCILIATION AUDIT REPORT"');
-        csvLines.push(`"Client:","${clientName}"`);
-        csvLines.push(`"Date Range:","${dateRangeStr}"`);
-        csvLines.push(`"Generated At:","${generatedDate}"`);
-        csvLines.push('');
-        if (summaryData) {
-            csvLines.push('"STOCK RECONCILIATION SUMMARY"');
-            csvLines.push(`"Opening Dip (L)","${summaryData.openingDip}"`);
-            csvLines.push(`"Total Fuel Receipts / Deliveries (L)","+${summaryData.totalDeliveries}"`);
-            csvLines.push(`"Total Fuel Issues / Dispensed (L)","-${summaryData.totalIssues}"`);
-            csvLines.push(`"Expected Closing Stock (L)","${summaryData.closingStock}"`);
-            csvLines.push(`"Actual Closing Dip (L)","${summaryData.closingDip}"`);
-            csvLines.push(`"Net Variance (L)","${summaryData.variance >= 0 ? '+' : ''}${summaryData.variance.toFixed(2)}"`);
-            csvLines.push(`"Variance %","${summaryData.variancePercent.toFixed(1)}%"`);
-            csvLines.push('');
-            csvLines.push('"STOCK DEMAND PLAN & REORDER FORECAST"');
-            csvLines.push(`"Current Tank Stock (L)","${summaryData.closingDip}","Balance remaining in the Tank"`);
-            csvLines.push(`"Average Daily Consumption (L)","${Math.round(summaryData.avDailyCons)}","Average Fuel Consumption/Day MTD"`);
-            csvLines.push(`"Days Stock Remaining","${summaryData.daysStock} Days","Days left before Stock run Out based on Rated Use"`);
-            csvLines.push(`"Min Buffer Stock (L)","${summaryData.minStock}","Critical Tank Level for Main Tank"`);
-            csvLines.push(`"Re-Order Lead Time","${summaryData.reorderDays} Days","Days to prepare for New Purchase"`);
-            csvLines.push(`"Target Re-Order Date","${summaryData.reorderDate}","Placing Of order Date"`);
-            csvLines.push(`"Expected Stock Arrival Date","${summaryData.arrivalDate}","Delivery of stock Date"`);
-            csvLines.push('');
+    const handleExport = (format: 'csv' | 'excel' | 'pdf') => {
+        if (records.length === 0) {
+            setExportOpen(false);
+            return;
         }
-        csvLines.push('"DETAILED DAILY RECONCILIATION & FUEL AUDIT LOG"');
-        const headers = ['Date', 'Opening Balance / Dip (L)', 'Deliveries / Receipts (+L)', 'Fuel Issues / Dispensed (-L)', 'Expected Closing (L)', 'Actual Closing Dip (L)', 'Variance (L)', 'Variance %'];
-        csvLines.push(headers.map(h => `"${h}"`).join(','));
-        records.forEach(record => {
-            const vPercent = record.expectedClosing > 0 ? (record.variance / record.expectedClosing) * 100 : 0;
-            const row = [record.date, record.openingBalance, record.deliveries, record.fuelIssues, record.expectedClosing, record.actualClosing, record.variance, `${vPercent.toFixed(1)}%`];
-            csvLines.push(row.map(val => typeof val === 'string' ? `"${val}"` : val).join(','));
-        });
-        if (summaryData) {
-            const totalsRow = ['"TOTALS / NET"', '""', `"+${summaryData.totalDeliveries}"`, `"-${summaryData.totalIssues}"`, '""', '""', `"${summaryData.variance >= 0 ? '+' : ''}${summaryData.variance.toFixed(2)}"`, `"${summaryData.variancePercent.toFixed(1)}%"`];
-            csvLines.push(totalsRow.join(','));
+        setIsExporting(format);
+        try {
+            const dateLabel = dateRange.preset || 'custom';
+            const headers = ['Date', 'Opening Balance (L)', 'Deliveries (+L)', 'Fuel Issues (-L)', 'Expected Closing (L)', 'Actual Closing (L)', 'Variance (L)', 'Variance %'];
+            const rows = records.map(record => {
+                const vPercent = record.expectedClosing > 0 ? (record.variance / record.expectedClosing) * 100 : 0;
+                return [
+                    record.date,
+                    record.openingBalance,
+                    `+${record.deliveries}`,
+                    `-${record.fuelIssues}`,
+                    record.expectedClosing,
+                    record.actualClosing,
+                    `${record.variance >= 0 ? '+' : ''}${record.variance}`,
+                    `${vPercent >= 0 ? '+' : ''}${vPercent.toFixed(1)}%`
+                ];
+            });
+            if (summaryData) {
+                rows.push([
+                    'TOTALS / NET',
+                    '',
+                    `+${summaryData.totalDeliveries}`,
+                    `-${summaryData.totalIssues}`,
+                    '',
+                    '',
+                    `${summaryData.variance >= 0 ? '+' : ''}${summaryData.variance.toFixed(2)}`,
+                    `${summaryData.variancePercent.toFixed(1)}%`
+                ]);
+            }
+
+            if (format === 'csv') {
+                exportToCSV(`reconciliation_${dateLabel}.csv`, headers, rows);
+            } else if (format === 'excel') {
+                exportToExcel(`reconciliation_${dateLabel}.xls`, headers, rows, 'Reconciliation');
+            } else if (format === 'pdf') {
+                exportToPDF('Reconciliation Report', headers, rows);
+            }
+        } catch (err) {
+            console.error('Failed to export reconciliation report:', err);
+        } finally {
+            setIsExporting(null);
+            setExportOpen(false);
         }
-        const csvContent = csvLines.join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.setAttribute('href', url);
-        link.setAttribute('download', `reconciliation_report_${dateRange.preset}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
     };
 
     const handleReset = () => {
@@ -267,14 +275,69 @@ export default function ReconciliationPage() {
                             <RotateCcw className="h-3.5 w-3.5" />
                             Reset
                         </Button>
-                        <Button
-                            onClick={handleExport}
-                            className="bg-[#f26522] hover:bg-[#d45316] text-xs font-semibold rounded px-3.5 h-8 border border-[#f26522] shadow-xs text-white flex items-center justify-center gap-1.5 transition-colors duration-200 shrink-0"
-                            title="Export reconciliation report"
-                        >
-                            <Download className="h-3.5 w-3.5" />
-                            Export
-                        </Button>
+                        {/* Export with 3 options: Excel, CSV, PDF */}
+                        <div className="relative" ref={exportRef}>
+                            <Button
+                                type="button"
+                                onClick={() => setExportOpen((prev) => !prev)}
+                                className="bg-[#f26522] hover:bg-[#d45316] text-white text-xs font-semibold rounded h-8 px-3.5 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+                                title="Export Options"
+                            >
+                                <Download className="h-3.5 w-3.5" />
+                                <span>Export</span>
+                                <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${exportOpen ? 'rotate-180' : ''}`} />
+                            </Button>
+
+                            {exportOpen && (
+                                <div className="absolute right-0 mt-1.5 w-52 bg-white rounded-lg shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                                    <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
+                                        Export Format
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleExport('excel')}
+                                        disabled={!!isExporting}
+                                        className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2.5 transition-colors cursor-pointer disabled:opacity-50"
+                                    >
+                                        <div className="p-1.5 rounded bg-emerald-100 text-emerald-700">
+                                            <FileSpreadsheet className="h-4 w-4" />
+                                        </div>
+                                        <div>
+                                            <div className="font-semibold text-slate-800">Excel</div>
+                                            <div className="text-[10px] text-slate-400">Spreadsheet (.xls)</div>
+                                        </div>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleExport('csv')}
+                                        disabled={!!isExporting}
+                                        className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-sky-50 hover:text-sky-700 flex items-center gap-2.5 transition-colors cursor-pointer disabled:opacity-50"
+                                    >
+                                        <div className="p-1.5 rounded bg-sky-100 text-sky-700">
+                                            <FileText className="h-4 w-4" />
+                                        </div>
+                                        <div>
+                                            <div className="font-semibold text-slate-800">CSV</div>
+                                            <div className="text-[10px] text-slate-400">Comma-separated (.csv)</div>
+                                        </div>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleExport('pdf')}
+                                        disabled={!!isExporting}
+                                        className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-rose-50 hover:text-rose-700 flex items-center gap-2.5 transition-colors cursor-pointer disabled:opacity-50"
+                                    >
+                                        <div className="p-1.5 rounded bg-rose-100 text-rose-700">
+                                            <FileDown className="h-4 w-4" />
+                                        </div>
+                                        <div>
+                                            <div className="font-semibold text-slate-800">PDF</div>
+                                            <div className="text-[10px] text-slate-400">Printable Document (.pdf)</div>
+                                        </div>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

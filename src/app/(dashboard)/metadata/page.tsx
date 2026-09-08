@@ -10,12 +10,16 @@ import {
     Edit2,
     X,
     Car,
-    Save
+    Save,
+    ChevronDown,
+    FileSpreadsheet,
+    FileText,
+    FileDown
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { formatNumber, exportToCSV } from '@/lib/utils';
+import { formatNumber, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils';
 import { useClientStore } from '@/services/api';
 
 export interface VehicleMetadataRecord {
@@ -199,6 +203,19 @@ export default function MetadataPage() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingRecord, setEditingRecord] = useState<VehicleMetadataRecord | null>(null);
     const [formData, setFormData] = useState<Partial<VehicleMetadataRecord>>({});
+    const [exportOpen, setExportOpen] = useState(false);
+    const [isExporting, setIsExporting] = useState<string | null>(null);
+    const exportRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+                setExportOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // Pagination & Dynamic display size state
     const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -329,37 +346,57 @@ export default function MetadataPage() {
     const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
     const paginatedData = filteredData.slice((page - 1) * pageSize, page * pageSize);
 
-    const handleExport = () => {
-        if (filteredData.length === 0) return;
-        const headers = [
-            'Asset',
-            'Fleet ID',
-            'Dept',
-            'Year',
-            'Make',
-            'Model',
-            'Class',
-            'Mode of Use',
-            'MONTHLY MILEAGE ALLOWANCE(KM)',
-            'BURN RATE (L/100KM)',
-            'FUEL LIMIT (L)',
-            'Standard B/Rate',
-        ];
-        const rows = filteredData.map((item) => [
-            item.asset,
-            item.fleetId,
-            item.dept,
-            item.year,
-            item.make,
-            item.model,
-            item.classType,
-            item.modeOfUse,
-            item.monthlyMileageAllowance,
-            item.burnRate,
-            item.fuelLimit,
-            item.standardBRate,
-        ]);
-        exportToCSV(`vehicle_metadata_${selectedClient.clientid}.csv`, headers, rows);
+    const handleExport = (format: 'csv' | 'excel' | 'pdf') => {
+        if (filteredData.length === 0) {
+            setExportOpen(false);
+            return;
+        }
+        setIsExporting(format);
+        try {
+            const headers = [
+                'Asset',
+                'Fleet ID',
+                'Dept',
+                'Year',
+                'Make',
+                'Model',
+                'Class',
+                'Mode of Use',
+                'MONTHLY MILEAGE ALLOWANCE(KM)',
+                'BURN RATE (L/100KM)',
+                'FUEL LIMIT (L)',
+                'Standard B/Rate',
+            ];
+            const rows = filteredData.map((item) => [
+                item.asset,
+                item.fleetId,
+                item.dept,
+                item.year,
+                item.make,
+                item.model,
+                item.classType,
+                item.modeOfUse,
+                item.monthlyMileageAllowance,
+                item.burnRate,
+                item.fuelLimit,
+                item.standardBRate,
+            ]);
+
+            const clientLabel = selectedClient?.clientid || 'metadata';
+
+            if (format === 'csv') {
+                exportToCSV(`vehicle_metadata_${clientLabel}.csv`, headers, rows);
+            } else if (format === 'excel') {
+                exportToExcel(`vehicle_metadata_${clientLabel}.xls`, headers, rows, 'Vehicle Metadata');
+            } else if (format === 'pdf') {
+                exportToPDF('Vehicle Metadata Report', headers, rows);
+            }
+        } catch (err) {
+            console.error('Failed to export vehicle metadata:', err);
+        } finally {
+            setIsExporting(null);
+            setExportOpen(false);
+        }
     };
 
     return (
@@ -471,15 +508,69 @@ export default function MetadataPage() {
                                     Reset
                                 </Button>
 
-                                {/* Export Button */}
-                                <Button
-                                    onClick={handleExport}
-                                    className="bg-[#f26522] hover:bg-[#d94f12] text-white text-xs font-semibold rounded h-8 px-3.5 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5"
-                                    title="Export"
-                                >
-                                    <Download className="h-3.5 w-3.5" />
-                                    Export
-                                </Button>
+                                {/* Export with 3 options: Excel, CSV, PDF */}
+                                <div className="relative" ref={exportRef}>
+                                    <Button
+                                        type="button"
+                                        onClick={() => setExportOpen((prev) => !prev)}
+                                        className="bg-[#f26522] hover:bg-[#d94f12] text-white text-xs font-semibold rounded h-8 px-3 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                                        title="Export Options"
+                                    >
+                                        <Download className="h-3.5 w-3.5" />
+                                        <span>Export</span>
+                                        <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${exportOpen ? 'rotate-180' : ''}`} />
+                                    </Button>
+
+                                    {exportOpen && (
+                                        <div className="absolute right-0 mt-1.5 w-52 bg-white rounded-lg shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                                            <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
+                                                Export Format
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleExport('excel')}
+                                                disabled={!!isExporting}
+                                                className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2.5 transition-colors cursor-pointer disabled:opacity-50"
+                                            >
+                                                <div className="p-1.5 rounded bg-emerald-100 text-emerald-700">
+                                                    <FileSpreadsheet className="h-4 w-4" />
+                                                </div>
+                                                <div>
+                                                    <div className="font-semibold text-slate-800">Excel</div>
+                                                    <div className="text-[10px] text-slate-400">Spreadsheet (.xls)</div>
+                                                </div>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleExport('csv')}
+                                                disabled={!!isExporting}
+                                                className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-sky-50 hover:text-sky-700 flex items-center gap-2.5 transition-colors cursor-pointer disabled:opacity-50"
+                                            >
+                                                <div className="p-1.5 rounded bg-sky-100 text-sky-700">
+                                                    <FileText className="h-4 w-4" />
+                                                </div>
+                                                <div>
+                                                    <div className="font-semibold text-slate-800">CSV</div>
+                                                    <div className="text-[10px] text-slate-400">Comma-separated (.csv)</div>
+                                                </div>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleExport('pdf')}
+                                                disabled={!!isExporting}
+                                                className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-rose-50 hover:text-rose-700 flex items-center gap-2.5 transition-colors cursor-pointer disabled:opacity-50"
+                                            >
+                                                <div className="p-1.5 rounded bg-rose-100 text-rose-700">
+                                                    <FileDown className="h-4 w-4" />
+                                                </div>
+                                                <div>
+                                                    <div className="font-semibold text-slate-800">PDF</div>
+                                                    <div className="text-[10px] text-slate-400">Printable Document (.pdf)</div>
+                                                </div>
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>

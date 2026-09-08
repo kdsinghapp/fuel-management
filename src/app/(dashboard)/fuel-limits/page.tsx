@@ -3,13 +3,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Download, RefreshCw, RotateCcw, Sliders } from 'lucide-react';
+import { Search, Download, RefreshCw, RotateCcw, Sliders, ChevronDown, FileSpreadsheet, FileText, FileDown } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { fuelIssueService } from '@/services/fuelIssueService';
-import { formatNumber, exportToCSV } from '@/lib/utils';
+import { formatNumber, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils';
 import { useClientStore } from '@/services/api';
 import { DateRangePicker, DateRange, getDateRangeFromPreset } from '@/components/common/DateRangePicker';
 
@@ -33,12 +33,25 @@ export default function FuelLimitsPage() {
     const [selectedDepartment, setSelectedDepartment] = useState('');
     const [selectedLimitType, setSelectedLimitType] = useState('');
     const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
+    const [exportOpen, setExportOpen] = useState(false);
+    const [isExporting, setIsExporting] = useState<string | null>(null);
+    const exportRef = useRef<HTMLDivElement>(null);
 
     // Pagination & Dynamic display size state
     const tableContainerRef = useRef<HTMLDivElement>(null);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(8);
     const [pageSizeMode, setPageSizeMode] = useState<'auto' | number>('auto');
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+                setExportOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     useEffect(() => {
         if (pageSizeMode !== 'auto') {
@@ -206,24 +219,43 @@ export default function FuelLimitsPage() {
     const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
     const paginatedData = filteredData.slice((page - 1) * pageSize, page * pageSize);
 
-    const handleExport = () => {
-        if (filteredData.length === 0) return;
-        const headers = ['Asset (Rego)', 'Vehicle Name', 'Department', 'Limit Type', 'Fuel Limit (L)', 'Monthly Fuel Used (L)', 'Fuel Balance Remaining'];
-        const rows = filteredData.map(item => {
-            const limitVal = item.fuelLimit;
-            const remaining = limitVal === 'No Limit' ? 'No Limit' : limitVal - item.monthlyFuelUsed;
-            return [
-                item.asset,
-                item.vehicleName,
-                item.department,
-                item.limitType,
-                item.fuelLimit,
-                item.monthlyFuelUsed,
-                typeof remaining === 'number' ? Number(remaining.toFixed(2)) : remaining
-            ];
-        });
-        rows.push(['TOTAL', '', '', '', '', Number(totalFuelUsed.toFixed(2)), '']);
-        exportToCSV('fuel_limits_summary.csv', headers, rows);
+    const handleExport = (format: 'csv' | 'excel' | 'pdf') => {
+        if (filteredData.length === 0) {
+            setExportOpen(false);
+            return;
+        }
+        setIsExporting(format);
+        try {
+            const headers = ['Asset (Rego)', 'Vehicle Name', 'Department', 'Limit Type', 'Fuel Limit (L)', 'Monthly Fuel Used (L)', 'Fuel Balance Remaining'];
+            const rows = filteredData.map(item => {
+                const limitVal = item.fuelLimit;
+                const remaining = limitVal === 'No Limit' ? 'No Limit' : limitVal - item.monthlyFuelUsed;
+                return [
+                    item.asset,
+                    item.vehicleName,
+                    item.department,
+                    item.limitType,
+                    item.fuelLimit,
+                    item.monthlyFuelUsed,
+                    typeof remaining === 'number' ? Number(remaining.toFixed(2)) : remaining
+                ];
+            });
+            rows.push(['TOTAL', '', '', '', '', Number(totalFuelUsed.toFixed(2)), '']);
+            const dateLabel = dateRange.preset || 'custom';
+
+            if (format === 'csv') {
+                exportToCSV(`fuel_limits_summary_${dateLabel}.csv`, headers, rows);
+            } else if (format === 'excel') {
+                exportToExcel(`fuel_limits_summary_${dateLabel}.xls`, headers, rows, 'Fuel Limits');
+            } else if (format === 'pdf') {
+                exportToPDF('Fuel Limits Summary Report', headers, rows);
+            }
+        } catch (err) {
+            console.error('Failed to export fuel limits:', err);
+        } finally {
+            setIsExporting(null);
+            setExportOpen(false);
+        }
     };
 
     const uniqueDepartments = Array.from(new Set(limits.map(l => l.department))).filter(Boolean);
@@ -327,15 +359,69 @@ export default function FuelLimitsPage() {
                                     Reset
                                 </Button>
 
-                                {/* Export Button */}
-                                <Button
-                                    onClick={handleExport}
-                                    className="bg-[#f26522] hover:bg-[#d94f12] text-white text-xs font-semibold rounded h-8 px-3.5 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5"
-                                    title="Export"
-                                >
-                                    <Download className="h-3.5 w-3.5" />
-                                    Export
-                                </Button>
+                                {/* Export with 3 options: Excel, CSV, PDF */}
+                                <div className="relative" ref={exportRef}>
+                                    <Button
+                                        type="button"
+                                        onClick={() => setExportOpen((prev) => !prev)}
+                                        className="bg-[#f26522] hover:bg-[#d94f12] text-white text-xs font-semibold rounded h-8 px-3 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                                        title="Export Options"
+                                    >
+                                        <Download className="h-3.5 w-3.5" />
+                                        <span>Export</span>
+                                        <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${exportOpen ? 'rotate-180' : ''}`} />
+                                    </Button>
+
+                                    {exportOpen && (
+                                        <div className="absolute right-0 mt-1.5 w-52 bg-white rounded-lg shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                                            <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
+                                                Export Format
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleExport('excel')}
+                                                disabled={!!isExporting}
+                                                className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2.5 transition-colors cursor-pointer disabled:opacity-50"
+                                            >
+                                                <div className="p-1.5 rounded bg-emerald-100 text-emerald-700">
+                                                    <FileSpreadsheet className="h-4 w-4" />
+                                                </div>
+                                                <div>
+                                                    <div className="font-semibold text-slate-800">Excel</div>
+                                                    <div className="text-[10px] text-slate-400">Spreadsheet (.xls)</div>
+                                                </div>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleExport('csv')}
+                                                disabled={!!isExporting}
+                                                className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-sky-50 hover:text-sky-700 flex items-center gap-2.5 transition-colors cursor-pointer disabled:opacity-50"
+                                            >
+                                                <div className="p-1.5 rounded bg-sky-100 text-sky-700">
+                                                    <FileText className="h-4 w-4" />
+                                                </div>
+                                                <div>
+                                                    <div className="font-semibold text-slate-800">CSV</div>
+                                                    <div className="text-[10px] text-slate-400">Comma-separated (.csv)</div>
+                                                </div>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleExport('pdf')}
+                                                disabled={!!isExporting}
+                                                className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-rose-50 hover:text-rose-700 flex items-center gap-2.5 transition-colors cursor-pointer disabled:opacity-50"
+                                            >
+                                                <div className="p-1.5 rounded bg-rose-100 text-rose-700">
+                                                    <FileDown className="h-4 w-4" />
+                                                </div>
+                                                <div>
+                                                    <div className="font-semibold text-slate-800">PDF</div>
+                                                    <div className="text-[10px] text-slate-400">Printable Document (.pdf)</div>
+                                                </div>
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
