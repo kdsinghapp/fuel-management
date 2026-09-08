@@ -2,10 +2,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import {
-    Search,
-    Download,
-    RotateCcw,
+import { 
+    Search, 
+    Download, 
+    RotateCcw, 
     Sliders,
     Edit2,
     X,
@@ -203,7 +203,7 @@ export default function MetadataPage() {
     // Pagination & Dynamic display size state
     const tableContainerRef = useRef<HTMLDivElement>(null);
     const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(8);
     const [pageSizeMode, setPageSizeMode] = useState<'auto' | number>('auto');
 
     // Load from LocalStorage or initialize
@@ -241,9 +241,9 @@ export default function MetadataPage() {
         const computeRows = () => {
             if (tableContainerRef.current) {
                 const containerHeight = tableContainerRef.current.clientHeight;
-                const headerHeight = 34;
-                const scrollbarHeight = 10;
-                const rowHeight = 33;
+                const headerHeight = 34; // <thead> height
+                const scrollbarHeight = 10; // horizontal scrollbar allowance
+                const rowHeight = 33; // precise <tr> height with py-1.5
                 const availableForRows = containerHeight - headerHeight - scrollbarHeight;
                 if (availableForRows > 0) {
                     const exactFit = Math.max(5, Math.floor(availableForRows / rowHeight));
@@ -484,7 +484,7 @@ export default function MetadataPage() {
                         </div>
                     </div>
 
-                    {/* Metadata Table matching the provided screenshot design */}
+                    {/* Metadata Table matching the Transactions page design */}
                     <div
                         ref={tableContainerRef}
                         className="overflow-x-auto overflow-y-auto border border-slate-200 shadow-xs rounded mb-1.5 flex-1 min-h-0"
@@ -492,43 +492,43 @@ export default function MetadataPage() {
                         <table className="w-full text-sm border-collapse whitespace-nowrap">
                             <thead className="sticky top-0 z-10 shadow-xs">
                                 <tr>
-                                    <th className="bg-[#f59e0b] text-slate-900 py-2.5 px-3 text-left font-bold border-r border-amber-600/20">
+                                    <th className="bg-[#f26522] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">
                                         Asset
                                     </th>
-                                    <th className="bg-[#f59e0b] text-slate-900 py-2.5 px-3 text-left font-bold border-r border-amber-600/20">
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">
                                         Fleet ID
                                     </th>
-                                    <th className="bg-[#f59e0b] text-slate-900 py-2.5 px-3 text-left font-bold border-r border-amber-600/20">
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">
                                         Dept
                                     </th>
-                                    <th className="bg-[#f59e0b] text-slate-900 py-2.5 px-3 text-center font-bold border-r border-amber-600/20">
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-center font-semibold sticky top-0 z-10">
                                         Year
                                     </th>
-                                    <th className="bg-[#f59e0b] text-slate-900 py-2.5 px-3 text-left font-bold border-r border-amber-600/20">
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">
                                         Make
                                     </th>
-                                    <th className="bg-[#f59e0b] text-slate-900 py-2.5 px-3 text-left font-bold border-r border-amber-600/20">
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">
                                         Model
                                     </th>
-                                    <th className="bg-[#f59e0b] text-slate-900 py-2.5 px-3 text-left font-bold border-r border-amber-600/20">
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">
                                         Class
                                     </th>
-                                    <th className="bg-[#f59e0b] text-slate-900 py-2.5 px-3 text-left font-bold border-r border-amber-600/20">
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">
                                         Mode of Use
                                     </th>
-                                    <th className="bg-[#f59e0b] text-slate-900 py-2.5 px-3 text-right font-bold border-r border-amber-600/20">
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-right font-semibold sticky top-0 z-10">
                                         MONTHLY MILEAGE ALLOWANCE(KM)
                                     </th>
-                                    <th className="bg-[#f59e0b] text-slate-900 py-2.5 px-3 text-right font-bold border-r border-amber-600/20">
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-right font-semibold sticky top-0 z-10">
                                         BURN RATE (L/100KM)
                                     </th>
-                                    <th className="bg-[#f59e0b] text-slate-900 py-2.5 px-3 text-right font-bold border-r border-amber-600/20">
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-right font-semibold sticky top-0 z-10">
                                         FUEL LIMIT (L)
                                     </th>
-                                    <th className="bg-[#f59e0b] text-slate-900 py-2.5 px-3 text-right font-bold border-r border-amber-600/20">
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-right font-semibold sticky top-0 z-10">
                                         Standard B/Rate
                                     </th>
-                                    <th className="bg-[#f59e0b] text-slate-900 py-2.5 px-3 text-center font-bold">
+                                    <th className="bg-[#222222] text-white py-2 px-3 text-center font-semibold sticky top-0 z-10">
                                         Action
                                     </th>
                                 </tr>
@@ -544,38 +544,38 @@ export default function MetadataPage() {
                                     paginatedData.map((item, idx) => (
                                         <tr
                                             key={item.id || idx}
-                                            className="border-b border-slate-200 last:border-0 hover:bg-amber-50/50 transition-colors odd:bg-white even:bg-[#fffdf8]"
+                                            className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors odd:bg-white even:bg-[#fff9f5]"
                                         >
                                             <td className="py-1.5 px-3 font-bold text-slate-900 align-middle">
                                                 {item.asset}
                                             </td>
-                                            <td className="py-1.5 px-3 font-semibold text-amber-700 align-middle">
+                                            <td className="py-1.5 px-3 text-slate-600 align-middle font-medium">
                                                 {item.fleetId}
                                             </td>
-                                            <td className="py-1.5 px-3 text-slate-700 align-middle">
+                                            <td className="py-1.5 px-3 text-slate-600 align-middle">
                                                 {item.dept}
                                             </td>
-                                            <td className="py-1.5 px-3 text-center text-slate-700 align-middle">
+                                            <td className="py-1.5 px-3 text-center text-slate-600 align-middle">
                                                 {item.year}
                                             </td>
-                                            <td className="py-1.5 px-3 text-slate-700 font-medium align-middle">
+                                            <td className="py-1.5 px-3 text-slate-600 align-middle">
                                                 {item.make}
                                             </td>
-                                            <td className="py-1.5 px-3 text-slate-700 align-middle">
+                                            <td className="py-1.5 px-3 text-slate-600 align-middle">
                                                 {item.model}
                                             </td>
-                                            <td className="py-1.5 px-3 text-slate-700 align-middle">
+                                            <td className="py-1.5 px-3 text-slate-600 align-middle">
                                                 {item.classType}
                                             </td>
-                                            <td className="py-1.5 px-3 text-slate-700 align-middle text-xs">
+                                            <td className="py-1.5 px-3 text-slate-600 align-middle text-xs">
                                                 {item.modeOfUse}
                                             </td>
-                                            <td className="py-1.5 px-3 text-right font-medium text-slate-800 align-middle">
+                                            <td className="py-1.5 px-3 text-right font-bold text-slate-900 align-middle">
                                                 {typeof item.monthlyMileageAllowance === 'number'
                                                     ? formatNumber(item.monthlyMileageAllowance)
                                                     : item.monthlyMileageAllowance}
                                             </td>
-                                            <td className="py-1.5 px-3 text-right font-medium text-slate-800 align-middle">
+                                            <td className="py-1.5 px-3 text-right text-slate-600 align-middle">
                                                 {item.burnRate}
                                             </td>
                                             <td className="py-1.5 px-3 text-right font-bold text-slate-900 align-middle">
@@ -583,7 +583,7 @@ export default function MetadataPage() {
                                                     ? `${formatNumber(item.fuelLimit)} L`
                                                     : item.fuelLimit}
                                             </td>
-                                            <td className="py-1.5 px-3 text-right font-medium text-slate-800 align-middle">
+                                            <td className="py-1.5 px-3 text-right text-slate-600 align-middle">
                                                 {item.standardBRate}
                                             </td>
                                             <td className="py-1.5 px-3 text-center align-middle">
@@ -592,7 +592,7 @@ export default function MetadataPage() {
                                                     size="sm"
                                                     onClick={() => handleOpenEdit(item)}
                                                     className="h-7 px-2.5 text-xs text-[#f26522] border-[#f26522]/30 hover:bg-orange-50 hover:text-[#d45316] font-semibold flex items-center gap-1 rounded shadow-2xs mx-auto"
-                                                    title="Edit in Center Popup"
+                                                    title="Edit Vehicle"
                                                 >
                                                     <Edit2 className="h-3 w-3" />
                                                     Edit
@@ -605,71 +605,77 @@ export default function MetadataPage() {
                         </table>
                     </div>
 
-                    {/* Footer / Pagination controls */}
-                    <div className="flex items-center justify-between pt-1 px-1 text-xs text-slate-500 shrink-0">
-                        <div className="flex items-center gap-2">
-                            <span>
-                                Showing {filteredData.length === 0 ? 0 : (page - 1) * pageSize + 1} to{' '}
-                                {Math.min(page * pageSize, filteredData.length)} of {filteredData.length} entries
-                            </span>
-                            <div className="flex items-center gap-1 ml-4">
-                                <span className="text-slate-400">Rows:</span>
-                                <select
-                                    value={pageSizeMode}
-                                    onChange={(e) => {
-                                        const val = e.target.value === 'auto' ? 'auto' : Number(e.target.value);
-                                        setPageSizeMode(val);
-                                        setPage(1);
-                                    }}
-                                    className="border border-slate-200 rounded px-1.5 py-0.5 text-xs bg-white text-slate-700"
+                    {/* Pagination */}
+                    {filteredData.length > 0 && (
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 pb-0.5 px-2 shrink-0 border-t border-slate-100">
+                            <div className="flex items-center gap-4 flex-wrap">
+                                <p className="text-xs sm:text-sm text-slate-500">
+                                    Showing <span className="font-semibold text-slate-800">{paginatedData.length}</span> of <span className="font-semibold text-slate-800">{filteredData.length}</span> entries
+                                </p>
+                                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                    <span>Rows:</span>
+                                    <select
+                                        value={pageSizeMode}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === 'auto') {
+                                                setPageSizeMode('auto');
+                                            } else {
+                                                setPageSizeMode(Number(val));
+                                            }
+                                            setPage(1);
+                                        }}
+                                        className="border border-slate-200 rounded px-2 py-1 bg-white text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#f26522] cursor-pointer"
+                                    >
+                                        <option value="auto">Auto ({pageSizeMode === 'auto' ? pageSize : 'Fit screen'})</option>
+                                        <option value={8}>8</option>
+                                        <option value={10}>10</option>
+                                        <option value={15}>15</option>
+                                        <option value={25}>25</option>
+                                        <option value={50}>50</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                    className="h-7 px-2.5 text-xs border-slate-200 bg-white"
                                 >
-                                    <option value="auto">Auto-fit</option>
-                                    <option value={8}>8</option>
-                                    <option value={15}>15</option>
-                                    <option value={25}>25</option>
-                                    <option value={50}>50</option>
-                                </select>
+                                    Previous
+                                </Button>
+                                <span className="px-2 font-medium text-slate-700 text-xs">
+                                    Page {page} of {totalPages}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                    disabled={page >= totalPages}
+                                    className="h-7 px-2.5 text-xs border-slate-200 bg-white"
+                                >
+                                    Next
+                                </Button>
                             </div>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                                disabled={page === 1}
-                                className="h-7 px-2 text-xs border-slate-200"
-                            >
-                                Previous
-                            </Button>
-                            <span className="px-2 font-medium text-slate-700">
-                                Page {page} of {totalPages}
-                            </span>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                                disabled={page >= totalPages}
-                                className="h-7 px-2 text-xs border-slate-200"
-                            >
-                                Next
-                            </Button>
-                        </div>
-                    </div>
+                    )}
                 </CardContent>
             </Card>
 
-            {/* Centered Modal Popup for Editing Vehicle Metadata */}
+            {/* Centered Modal Popup for Editing Vehicle */}
             {isEditModalOpen && editingRecord && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs transition-opacity duration-200">
-                    <div
+                    <div 
                         className="fixed inset-0"
                         onClick={() => setIsEditModalOpen(false)}
                     />
                     <div className="relative w-full max-w-xl bg-white shadow-2xl rounded-2xl z-10 border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
                         {/* Modal Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-linear-to-r from-amber-500/15 via-orange-500/10 to-transparent">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-linear-to-r from-orange-500/15 via-green-500/10 to-transparent">
                             <div className="flex items-center gap-3">
-                                <div className="p-2.5 bg-[#f59e0b] text-slate-900 rounded-lg shadow-xs">
+                                <div className="p-2.5 bg-[#f26522] text-white rounded-lg shadow-xs">
                                     <Car className="h-5 w-5" />
                                 </div>
                                 <div>
