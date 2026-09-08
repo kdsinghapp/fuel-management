@@ -147,8 +147,8 @@ export default function ReconciliationPage() {
         const minStock = matchedClient?.minStock ?? selectedClient?.minStock ?? Math.round(avDailyCons * reorderDays);
         const reorderDate = new Date(today);
         reorderDate.setDate(today.getDate() + Math.max(0, daysStock - reorderDays));
-        const arrivalDate = new Date(today);
-        arrivalDate.setDate(today.getDate() + daysStock);
+        const arrivalDate = new Date(reorderDate);
+        arrivalDate.setDate(reorderDate.getDate() + 1);
         const formatDateStr = (date: Date) => {
             const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
             return `${date.getDate()}-${months[date.getMonth()]}-${date.getFullYear().toString().slice(-2)}`;
