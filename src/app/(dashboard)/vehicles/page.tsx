@@ -26,6 +26,7 @@ export default function VehiclesPage() {
     // Filter states
     const [search, setSearch] = useState('');
     const [searchInput, setSearchInput] = useState('');
+    const [selectedDepartment, setSelectedDepartment] = useState('');
     const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
     const [exportOpen, setExportOpen] = useState(false);
     const [isExporting, setIsExporting] = useState<string | null>(null);
@@ -140,19 +141,28 @@ export default function VehiclesPage() {
         const defaultRange = getDateRangeFromPreset('30days');
         setSearchInput('');
         setSearch('');
+        setSelectedDepartment('');
         setDateRange(defaultRange);
         setPage(1);
         loadData('', defaultRange);
     };
 
-    // Filter by search query
+    const uniqueDepartments = Array.from(
+        new Set(transactions.map((item) => item.department).filter(Boolean))
+    ) as string[];
+
+    // Filter by search query & department
     const filteredData = transactions.filter((item) => {
+        const matchesDept = selectedDepartment ? item.department === selectedDepartment : true;
+        if (!matchesDept) return false;
+
         if (!search.trim()) return true;
         const q = search.trim().toLowerCase();
         return (
             (item.transactionId && item.transactionId.toLowerCase().includes(q)) ||
             (item.vehicleId && item.vehicleId.toLowerCase().includes(q)) ||
             (item.fleetId && item.fleetId.toLowerCase().includes(q)) ||
+            (item.department && item.department.toLowerCase().includes(q)) ||
             (item.driverAttendant && item.driverAttendant.toLowerCase().includes(q)) ||
             (item.siteId && item.siteId.toLowerCase().includes(q)) ||
             (item.depot && item.depot.toLowerCase().includes(q)) ||
@@ -177,6 +187,7 @@ export default function VehiclesPage() {
                 'ID',
                 'Vehicle Reg',
                 'FleetId',
+                'Department',
                 'Site',
                 'DEM',
                 'Litres',
@@ -185,20 +196,29 @@ export default function VehiclesPage() {
                 'Previous Odo',
                 'Distance',
                 'Consumption (km/l)',
+                'Ltr/100Km',
+                'Standard Burn Rate',
+                'Variance',
+                'Variance %',
             ];
             const rows = filteredData.map((item) => [
                 `${item.date} ${item.time}`,
                 item.transactionId,
-                item.vehicleId || '—',
-                item.fleetId || '—',
-                item.siteId || item.depot || '—',
-                item.dem || item.status || '—',
+                item.vehicleId || '-',
+                item.fleetId || '-',
+                item.department || item.depot || '-',
+                item.siteId || item.depot || '-',
+                item.dem || item.status || '-',
                 item.fuelQuantity,
                 item.pump || '1',
-                item.odometer > 0 ? item.odometer : '—',
-                item.previousOdo != null && item.previousOdo > 0 ? item.previousOdo.toFixed(2) : '—',
-                item.distance != null && item.distance > 0 ? item.distance.toFixed(2) : '—',
-                item.consumption != null && item.consumption > 0 ? item.consumption.toFixed(2) : '—',
+                item.odometer > 0 ? item.odometer : '-',
+                item.previousOdo != null && item.previousOdo > 0 ? Number(item.previousOdo.toFixed(2)) : '-',
+                item.distance != null && item.distance > 0 ? Number(item.distance.toFixed(2)) : '-',
+                item.consumption != null && item.consumption > 0 ? Number(item.consumption.toFixed(2)) : '-',
+                item.ltrPer100Km != null && item.ltrPer100Km > 0 ? Number(item.ltrPer100Km.toFixed(2)) : '-',
+                item.standardBurnRate != null && item.standardBurnRate > 0 ? Number(item.standardBurnRate.toFixed(2)) : '-',
+                item.variance != null ? (item.variance > 0 ? `+${item.variance.toFixed(2)}` : Number(item.variance.toFixed(2))) : '-',
+                item.variancePercentage != null ? (item.variancePercentage > 0 ? `+${item.variancePercentage.toFixed(1)}%` : `${item.variancePercentage.toFixed(1)}%`) : '-',
             ]);
             const dateLabel = dateRange.preset || 'custom';
 
@@ -261,7 +281,7 @@ export default function VehiclesPage() {
                                 </div>
 
                                 {/* Search Input Group */}
-                                <div className="flex flex-col gap-1 w-[200px] sm:w-[240px] shrink-0">
+                                <div className="flex flex-col gap-1 w-[180px] sm:w-[220px] shrink-0">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                                         Search vehicles
                                     </label>
@@ -278,6 +298,28 @@ export default function VehiclesPage() {
                                             className="w-full border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 rounded-r rounded-l-none"
                                         />
                                     </div>
+                                </div>
+
+                                {/* Department Selector */}
+                                <div className="flex flex-col gap-1 w-[130px] shrink-0">
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                                        Department
+                                    </label>
+                                    <select
+                                        value={selectedDepartment}
+                                        onChange={(e) => {
+                                            setSelectedDepartment(e.target.value);
+                                            setPage(1);
+                                        }}
+                                        className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-8 cursor-pointer w-full"
+                                    >
+                                        <option value="">All Departments</option>
+                                        {uniqueDepartments.map((dept) => (
+                                            <option key={dept} value={dept}>
+                                                {dept}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
 
                                 {/* Date Range Selector */}
@@ -392,6 +434,7 @@ export default function VehiclesPage() {
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">ID</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Vehicle Reg</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">FleetId</th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Department</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Site</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">DEM</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Litres</th>
@@ -400,12 +443,16 @@ export default function VehiclesPage() {
                                     <th className="bg-[#0070c0] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Previous Odo</th>
                                     <th className="bg-[#0070c0] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Distance</th>
                                     <th className="bg-[#0070c0] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Consumption (km/l)</th>
+                                    <th className="bg-[#0070c0] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Ltr/100Km</th>
+                                    <th className="bg-[#0070c0] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Standard Burn Rate</th>
+                                    <th className="bg-[#0070c0] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Variance</th>
+                                    <th className="bg-[#0070c0] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Variance %</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {paginatedData.length === 0 ? (
                                     <tr>
-                                        <td colSpan={12} className="p-8 text-center text-slate-400 bg-slate-50">
+                                        <td colSpan={17} className="p-8 text-center text-slate-400 bg-slate-50">
                                             No vehicle fuel efficiency records found
                                         </td>
                                     </tr>
@@ -426,6 +473,9 @@ export default function VehiclesPage() {
                                             </td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">
                                                 {item.fleetId || '—'}
+                                            </td>
+                                            <td className="py-1.5 px-3 text-slate-600 font-medium align-middle">
+                                                {item.department || item.depot || '—'}
                                             </td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">
                                                 {item.siteId || item.depot || '—'}
@@ -459,6 +509,22 @@ export default function VehiclesPage() {
                                             </td>
                                             <td className="py-1.5 px-3 font-bold text-[#0070c0] align-middle">
                                                 {item.consumption != null && item.consumption > 0 ? item.consumption.toFixed(2) : '—'}
+                                            </td>
+                                            <td className="py-1.5 px-3 font-semibold text-slate-800 align-middle">
+                                                {item.ltrPer100Km != null && item.ltrPer100Km > 0 ? item.ltrPer100Km.toFixed(2) : '—'}
+                                            </td>
+                                            <td className="py-1.5 px-3 text-slate-700 font-medium align-middle">
+                                                {item.standardBurnRate != null && item.standardBurnRate > 0 ? item.standardBurnRate.toFixed(2) : '—'}
+                                            </td>
+                                            <td className={`py-1.5 px-3 font-bold align-middle ${
+                                                item.variance == null ? 'text-slate-400' : item.variance > 0 ? 'text-[#138024]' : item.variance < 0 ? 'text-rose-600' : 'text-slate-700'
+                                            }`}>
+                                                {item.variance != null ? (item.variance > 0 ? `+${item.variance.toFixed(2)}` : item.variance.toFixed(2)) : '—'}
+                                            </td>
+                                            <td className={`py-1.5 px-3 font-bold align-middle ${
+                                                item.variancePercentage == null ? 'text-slate-400' : item.variancePercentage > 0 ? 'text-[#138024]' : item.variancePercentage < 0 ? 'text-rose-600' : 'text-slate-700'
+                                            }`}>
+                                                {item.variancePercentage != null ? (item.variancePercentage > 0 ? `+${item.variancePercentage.toFixed(1)}%` : `${item.variancePercentage.toFixed(1)}%`) : '—'}
                                             </td>
                                         </tr>
                                     ))

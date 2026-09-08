@@ -3,6 +3,88 @@ import { Vehicle, FuelEfficiencyTransaction, VehicleFuelUsage } from '@/types/ve
 import { FilterParams, PaginatedResponse } from '@/types/common';
 import { fuelIssueService } from './fuelIssueService';
 
+const DEFAULT_METADATA_MAP: Record<string, { dept: string; standardBRate: number }> = {
+  'BFE131': { dept: 'Security', standardBRate: 9 },
+  'BGZ364': { dept: '(10) TV', standardBRate: 6 },
+  'BHA990': { dept: '(2) SMT', standardBRate: 7 },
+  'BGW537': { dept: '(2) SMT', standardBRate: 7 },
+  'BEF900': { dept: '(14) FOUNDATION', standardBRate: 6 },
+  'BGA411': { dept: '(19) POOL', standardBRate: 6 },
+  'BFR347': { dept: '(15) MFS', standardBRate: 6 },
+  'BGV702': { dept: '(2) SMT', standardBRate: 6 },
+  'BGM794': { dept: '(10) TV', standardBRate: 6 },
+  'BGV703': { dept: '(8) TECHNICAL', standardBRate: 6 },
+  'BGU167': { dept: 'Operations', standardBRate: 9.5 },
+  'BHB744': { dept: 'Logistics', standardBRate: 6.5 },
+  'BGU152': { dept: 'Transport', standardBRate: 7.0 },
+  'BFZ143': { dept: 'Commercial', standardBRate: 8.5 },
+  'BGX465': { dept: 'Security', standardBRate: 7.0 },
+  'BFR447': { dept: 'Engineering', standardBRate: 7.0 },
+  'BHA964': { dept: 'Admin', standardBRate: 6.0 },
+  'OAC924': { dept: 'Field Ops', standardBRate: 7.5 },
+  'BGB042': { dept: 'Maintenance', standardBRate: 6.0 },
+  'BFR595': { dept: 'Transport', standardBRate: 8.0 },
+  'BHA965': { dept: 'Admin', standardBRate: 6.5 },
+  'BGW155': { dept: 'Operations', standardBRate: 7.0 },
+  'BGM793': { dept: '(10) TV', standardBRate: 6.5 },
+  'WAI269': { dept: 'Operations', standardBRate: 7.0 },
+  'BFS871': { dept: 'Security', standardBRate: 7.5 },
+  'BGA232': { dept: '(19) POOL', standardBRate: 7.5 },
+  'BGU177': { dept: 'Logistics', standardBRate: 8.0 },
+  'BFR093': { dept: '(15) MFS', standardBRate: 7.0 },
+  'BGP175': { dept: 'Commercial', standardBRate: 6.5 },
+  'BGZ311': { dept: '(10) TV', standardBRate: 8.0 },
+  'BHJ945': { dept: 'Field Ops', standardBRate: 6.5 },
+  'BGB043': { dept: 'Maintenance', standardBRate: 7.0 },
+  'BHA967': { dept: 'Admin', standardBRate: 11.0 },
+  'BHK109': { dept: 'Operations', standardBRate: 7.0 },
+  'BGT008': { dept: 'Logistics', standardBRate: 7.0 },
+  'BGT826': { dept: 'Logistics', standardBRate: 7.5 },
+  'BGK079': { dept: 'Transport', standardBRate: 6.5 },
+  'BGU154': { dept: 'Transport', standardBRate: 7.5 },
+};
+
+function getVehicleMetadataLookup(): Map<string, { dept: string; standardBRate: number }> {
+  const map = new Map<string, { dept: string; standardBRate: number }>();
+  
+  // 1. Base defaults
+  Object.entries(DEFAULT_METADATA_MAP).forEach(([key, val]) => {
+    map.set(key.trim().toUpperCase(), val);
+  });
+
+  // 2. Load from localStorage if present
+  if (typeof window !== 'undefined') {
+    try {
+      const storedKeys = Object.keys(localStorage).filter(k => k.startsWith('vehicle_metadata_'));
+      storedKeys.forEach(k => {
+        const item = localStorage.getItem(k);
+        if (item) {
+          const records = JSON.parse(item);
+          if (Array.isArray(records)) {
+            records.forEach((r: any) => {
+              const assetKey = (r.asset || r.fleetId || '').toString().trim().toUpperCase();
+              if (assetKey) {
+                const sRate = r.standardBRate != null && !isNaN(Number(r.standardBRate)) && Number(r.standardBRate) > 0
+                  ? Number(r.standardBRate)
+                  : (r.burnRate != null && !isNaN(Number(r.burnRate)) && Number(r.burnRate) > 0 ? Number(r.burnRate) : (map.get(assetKey)?.standardBRate || 7.0));
+
+                map.set(assetKey, {
+                  dept: r.dept || map.get(assetKey)?.dept || 'General',
+                  standardBRate: sRate
+                });
+              }
+            });
+          }
+        }
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  return map;
+}
+
 export const vehicleService = {
   async getFuelEfficiencyTransactions(params: FilterParams = {}): Promise<{
     data: FuelEfficiencyTransaction[];
@@ -18,6 +100,7 @@ export const vehicleService = {
       });
 
       const rawTransactions = response.data || [];
+      const metaLookup = getVehicleMetadataLookup();
 
       // Group all transactions by vehicle registration / fleet id / detail
       const vehicleMap = new Map<string, any[]>();
@@ -48,12 +131,17 @@ export const vehicleService = {
           let distance: number | null = null;
           let consumption: number | null = null;
           let recordedPrevOdo: number | null = null;
+          let ltrPer100Km: number | null = null;
+          let standardBurnRate: number | null = null;
+          let variance: number | null = null;
+          let variancePercentage: number | null = null;
 
           if (prevOdo !== null && prevOdo > 0 && currentOdo > 0 && currentOdo >= prevOdo) {
             distance = currentOdo - prevOdo;
             recordedPrevOdo = prevOdo;
             if (distance > 0 && litres > 0) {
               consumption = Number((distance / litres).toFixed(2));
+              ltrPer100Km = Number(((litres / distance) * 100).toFixed(2));
             }
           } else if (prevOdo !== null && prevOdo > 0) {
             recordedPrevOdo = prevOdo;
@@ -63,6 +151,28 @@ export const vehicleService = {
             prevOdo = currentOdo;
           }
 
+          const vehicleLookupKey = (tx.vehicleId || tx.fleetId || '').toString().trim().toUpperCase();
+          const fleetLookupKey = (tx.fleetId || '').toString().trim().toUpperCase();
+          const meta = metaLookup.get(vehicleLookupKey) || metaLookup.get(fleetLookupKey);
+
+          const department = meta?.dept || tx.depot || tx.department || 'General';
+
+          if (meta?.standardBRate != null && meta.standardBRate > 0) {
+            standardBurnRate = Number(meta.standardBRate);
+          } else if (consumption != null && consumption > 0) {
+            // Default baseline standard burn rate if not set in metadata
+            standardBurnRate = 7.0;
+          }
+
+          // Variance = Standard Burn Rate - Consumption
+          if (standardBurnRate != null && consumption != null) {
+            variance = Number((standardBurnRate - consumption).toFixed(2));
+            if (standardBurnRate > 0) {
+              // Variance % = Variance / Standard Burn Rate
+              variancePercentage = Number(((variance / standardBurnRate) * 100).toFixed(1));
+            }
+          }
+
           calculated.push({
             id: tx.id || tx.transactionId || `${tx.date}-${tx.time}-${Math.random()}`,
             transactionId: tx.transactionId || '',
@@ -70,6 +180,7 @@ export const vehicleService = {
             time: tx.time || '',
             vehicleId: tx.vehicleId || '',
             fleetId: tx.fleetId || '',
+            department: department,
             driverAttendant: tx.driverAttendant || '',
             siteId: tx.siteId || '',
             depot: tx.depot || '',
@@ -80,6 +191,10 @@ export const vehicleService = {
             previousOdo: recordedPrevOdo,
             distance: distance,
             consumption: consumption,
+            ltrPer100Km: ltrPer100Km,
+            standardBurnRate: standardBurnRate,
+            variance: variance,
+            variancePercentage: variancePercentage,
             status: tx.status || 'Matched',
           });
         });

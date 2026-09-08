@@ -19,6 +19,7 @@ export interface FuelEfficiencyTransaction {
   time: string;
   vehicleId: string;
   fleetId: string;
+  department?: string;
   driverAttendant: string;
   siteId: string;
   depot: string;
@@ -29,6 +30,10 @@ export interface FuelEfficiencyTransaction {
   previousOdo: number | null;
   distance: number | null;
   consumption: number | null;
+  ltrPer100Km?: number | null;
+  standardBurnRate?: number | null;
+  variance?: number | null;
+  variancePercentage?: number | null;
   status: string;
 }
 

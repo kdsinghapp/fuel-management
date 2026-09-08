@@ -21,6 +21,8 @@ interface VehicleSummary {
     date: string;
     distance: number;
     consumption: number;
+    transactionCount: number;
+    fuelBurn: number;
 }
 
 export default function FuelEfficiencySummaryPage() {
@@ -130,6 +132,7 @@ export default function FuelEfficiencySummaryPage() {
                 litres: number;
                 lastDate: string;
                 odometers: { odo: number; date: string; time: string }[];
+                transactionCount: number;
             }>();
 
             response.data.forEach((tx: any) => {
@@ -147,12 +150,14 @@ export default function FuelEfficiencySummaryPage() {
                         vehicleReg,
                         litres: 0,
                         lastDate: date,
-                        odometers: []
+                        odometers: [],
+                        transactionCount: 0,
                     });
                 }
 
                 const entry = vehicleMap.get(key)!;
                 entry.litres += qty;
+                entry.transactionCount += 1;
                 const fullDateTime = `${date}T${time || '00:00:00'}`;
                 if (fullDateTime && (!entry.lastDate || fullDateTime > (entry as any).lastDateTime)) {
                     (entry as any).lastDateTime = fullDateTime;
@@ -183,6 +188,7 @@ export default function FuelEfficiencySummaryPage() {
 
                 const litres = Number(val.litres.toFixed(2));
                 const consumption = distance > 0 && litres > 0 ? Number((distance / litres).toFixed(2)) : 0;
+                const fuelBurn = distance > 0 && litres > 0 ? Number(((litres / distance) * 100).toFixed(2)) : 0;
 
                 computed.push({
                     id: key,
@@ -190,7 +196,9 @@ export default function FuelEfficiencySummaryPage() {
                     litres,
                     date: val.lastDate,
                     distance: Number(distance.toFixed(2)),
-                    consumption
+                    consumption,
+                    transactionCount: val.transactionCount,
+                    fuelBurn,
                 });
             });
 
@@ -250,13 +258,14 @@ export default function FuelEfficiencySummaryPage() {
         }
         setIsExporting(format);
         try {
-            const headers = ['Vehicle Reg', 'Litres', 'Date', 'Distance', 'Consumption (km/l)'];
+            const headers = ['Vehicle Reg', 'Litres', 'Distance', 'Consumption (km/l)', 'No of Transaction', 'Fuel Burn (L/100Km)'];
             const rows = filteredData.map(item => [
                 item.vehicleReg,
                 item.litres,
-                item.date || '-',
                 item.distance > 0 ? item.distance : '-',
-                item.consumption > 0 ? item.consumption.toFixed(2) : '0.00'
+                item.consumption > 0 ? Number(item.consumption.toFixed(2)) : '0.00',
+                item.transactionCount,
+                item.fuelBurn > 0 ? Number(item.fuelBurn.toFixed(2)) : '0.00',
             ]);
             const dateLabel = dateRange.preset || 'custom';
 
@@ -443,15 +452,16 @@ export default function FuelEfficiencySummaryPage() {
                                 <tr>
                                     <th className="bg-[#f26522] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Vehicle Reg</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Litres</th>
-                                    {/* <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Date</th> */}
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Distance</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Consumption (km/l)</th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-center font-semibold sticky top-0 z-10">No of Transaction</th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Fuel Burn (L/100Km)</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {paginatedData.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="p-8 text-center text-slate-400 bg-slate-50">
+                                        <td colSpan={6} className="p-8 text-center text-slate-400 bg-slate-50">
                                             No vehicle data found
                                         </td>
                                     </tr>
@@ -460,10 +470,15 @@ export default function FuelEfficiencySummaryPage() {
                                         <tr key={item.id || idx} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors odd:bg-white even:bg-[#fff9f5]">
                                             <td className="py-1.5 px-3 font-semibold text-[#138024] align-middle">{item.vehicleReg}</td>
                                             <td className="py-1.5 px-3 font-semibold text-slate-900 align-middle">{formatNumber(item.litres, 2)}</td>
-                                            {/* <td className="py-1.5 px-3 text-slate-600 align-middle">{item.date || '—'}</td> */}
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">{item.distance > 0 ? formatNumber(item.distance, 2) : '—'}</td>
                                             <td className="py-1.5 px-3 font-bold text-slate-900 align-middle">
                                                 {item.consumption > 0 ? item.consumption.toFixed(2) : '0.00'}
+                                            </td>
+                                            <td className="py-1.5 px-3 font-semibold text-center text-slate-800 align-middle">
+                                                {item.transactionCount}
+                                            </td>
+                                            <td className="py-1.5 px-3 font-bold text-[#0070c0] align-middle">
+                                                {item.fuelBurn > 0 ? item.fuelBurn.toFixed(2) : '0.00'}
                                             </td>
                                         </tr>
                                     ))
