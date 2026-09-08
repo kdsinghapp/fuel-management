@@ -42,6 +42,10 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
         title: 'Reconciliation',
         subtitle: 'Reconcile daily fuel usage, deliveries and tank levels'
     },
+    '/metadata': {
+        title: 'Vehicle',
+        subtitle: 'Manage fleet vehicle specifications, allowances and fuel limits'
+    },
     '/admin/users': {
         title: 'User Management',
         subtitle: 'Manage system users and access'

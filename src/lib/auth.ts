@@ -182,6 +182,7 @@ export function canAccessRoute(user: AuthUser | null, route: string): boolean {
     '/vehicles': PERMISSIONS.VEHICLES.VIEW,
     '/fuel-efficiency-summary': PERMISSIONS.VEHICLES.VIEW,
     '/fuel-limits': PERMISSIONS.VEHICLES.VIEW,
+    '/metadata': PERMISSIONS.VEHICLES.VIEW,
     '/reconciliation': PERMISSIONS.RECONCILIATION.VIEW,
     '/reports': PERMISSIONS.REPORTS.VIEW,
     '/admin/users': PERMISSIONS.USERS.VIEW,

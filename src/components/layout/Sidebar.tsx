@@ -25,6 +25,7 @@ import {
     RefreshCw,
     Gauge,
     Smartphone,
+    Database,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { authService } from '@/lib/auth';
@@ -40,6 +41,7 @@ const navigationItems = [
     { name: 'Fuel Efficiency Summary', href: '/fuel-efficiency-summary', icon: FileBarChart },
     { name: 'Fuel Limits', href: '/fuel-limits', icon: Sliders },
     { name: 'Reconciliation', href: '/reconciliation', icon: RefreshCw },
+    { name: 'Vehicle', href: '/metadata', icon: Database },
 ];
 
 const adminItems = [
