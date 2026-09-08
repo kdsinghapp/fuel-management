@@ -1,16 +1,15 @@
-// src/app/(dashboard)/deliveries/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Calendar, Download, AlertTriangle, RefreshCw, RotateCcw, Sliders } from 'lucide-react';
+import { Search, Calendar, Download, AlertTriangle, RefreshCw, RotateCcw, Sliders, ChevronDown, FileSpreadsheet, FileText, FileDown } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { deliveryService } from '@/services/deliveryService';
 import { authService } from '@/lib/auth';
-import { formatDate, formatFuel, exportToCSV } from '@/lib/utils';
+import { formatDate, formatFuel, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils';
 import { FuelDelivery } from '@/types/fuel';
 import { useClientStore } from '@/services/api';
 
@@ -31,6 +30,20 @@ export default function DeliveriesPage() {
     const [pageSize] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
     const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
+    const [exportOpen, setExportOpen] = useState(false);
+    const [isExporting, setIsExporting] = useState<string | null>(null);
+    const exportRef = useRef<HTMLDivElement>(null);
+
+    // Close export dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (exportRef.current && !exportRef.current.contains(event.target as Node)) {
+                setExportOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const columns = [
         {
@@ -139,8 +152,9 @@ export default function DeliveriesPage() {
         loadData('', defaultRange);
     };
 
-    const handleExport = async () => {
+    const handleExport = async (format: 'excel' | 'csv' | 'pdf') => {
         try {
+            setIsExporting(format);
             const response = await deliveryService.getDeliveries({
                 page: 1,
                 pageSize: 100000,
@@ -149,7 +163,10 @@ export default function DeliveriesPage() {
                 endDate: dateRange.endDate || undefined,
             });
             const exportDeliveries = response.data;
-            if (exportDeliveries.length === 0) return;
+            if (exportDeliveries.length === 0) {
+                setExportOpen(false);
+                return;
+            }
             const headers = ['Delivery ID', 'Date', 'Time', 'Quantity (L)', 'Name', 'Acronym'];
             const rows = exportDeliveries.map(d => [
                 d.deliveryId,
@@ -159,9 +176,21 @@ export default function DeliveriesPage() {
                 d.name || 'Calculated Delivery',
                 d.acronym || 'CD',
             ]);
-            exportToCSV(`deliveries_${dateRange.preset}.csv`, headers, rows);
+
+            const dateLabel = dateRange.preset || 'custom';
+
+            if (format === 'csv') {
+                exportToCSV(`deliveries_${dateLabel}.csv`, headers, rows);
+            } else if (format === 'excel') {
+                exportToExcel(`deliveries_${dateLabel}.xls`, headers, rows, 'Deliveries');
+            } else if (format === 'pdf') {
+                exportToPDF('Fuel Deliveries Report', headers, rows);
+            }
         } catch (err) {
             console.error('Failed to export deliveries:', err);
+        } finally {
+            setIsExporting(null);
+            setExportOpen(false);
         }
     };
 
@@ -228,7 +257,7 @@ export default function DeliveriesPage() {
                         <div className="flex gap-2 justify-start md:justify-end h-8 shrink-0">
                             <Button
                                 onClick={handleSearch}
-                                className="bg-[#f26522] hover:bg-[#d94f12] text-xs font-semibold text-white px-4 rounded h-8 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5"
+                                className="bg-[#f26522] hover:bg-[#d94f12] text-xs font-semibold text-white px-4 rounded h-8 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5 cursor-pointer"
                             >
                                 <Sliders className="h-3.5 w-3.5" />
                                 Search
@@ -237,20 +266,76 @@ export default function DeliveriesPage() {
                                 variant="outline"
                                 size="sm"
                                 onClick={handleReset}
-                                className="h-8 px-4 rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-1.5 text-xs font-semibold"
+                                className="h-8 px-4 rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-1.5 text-xs font-semibold cursor-pointer"
                                 title="Reset filters"
                             >
                                 <RotateCcw className="h-3.5 w-3.5" />
                                 Reset
                             </Button>
-                            <Button
-                                onClick={handleExport}
-                                className="bg-[#f26522] hover:bg-[#d94f12] text-white text-xs font-semibold rounded h-8 px-4 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5"
-                                title="Export fuel levels"
-                            >
-                                <Download className="h-3.5 w-3.5" />
-                                Export
-                            </Button>
+
+                            {/* Export with 3 options: Excel, CSV, PDF */}
+                            <div className="relative" ref={exportRef}>
+                                <Button
+                                    type="button"
+                                    onClick={() => setExportOpen((prev) => !prev)}
+                                    className="bg-[#f26522] hover:bg-[#d94f12] text-white text-xs font-semibold rounded h-8 px-3 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                                    title="Export Options"
+                                >
+                                    <Download className="h-3.5 w-3.5" />
+                                    <span>Export</span>
+                                    <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${exportOpen ? 'rotate-180' : ''}`} />
+                                </Button>
+
+                                {exportOpen && (
+                                    <div className="absolute right-0 mt-1.5 w-52 bg-white rounded-lg shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                                        <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
+                                            Export Format
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleExport('excel')}
+                                            disabled={!!isExporting}
+                                            className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2.5 transition-colors cursor-pointer disabled:opacity-50"
+                                        >
+                                            <div className="p-1.5 rounded bg-emerald-100 text-emerald-700">
+                                                <FileSpreadsheet className="h-4 w-4" />
+                                            </div>
+                                            <div>
+                                                <div className="font-semibold text-slate-800">Excel</div>
+                                                <div className="text-[10px] text-slate-400">Spreadsheet (.xls)</div>
+                                            </div>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleExport('csv')}
+                                            disabled={!!isExporting}
+                                            className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-sky-50 hover:text-sky-700 flex items-center gap-2.5 transition-colors cursor-pointer disabled:opacity-50"
+                                        >
+                                            <div className="p-1.5 rounded bg-sky-100 text-sky-700">
+                                                <FileText className="h-4 w-4" />
+                                            </div>
+                                            <div>
+                                                <div className="font-semibold text-slate-800">CSV</div>
+                                                <div className="text-[10px] text-slate-400">Comma-separated (.csv)</div>
+                                            </div>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleExport('pdf')}
+                                            disabled={!!isExporting}
+                                            className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-rose-50 hover:text-rose-700 flex items-center gap-2.5 transition-colors cursor-pointer disabled:opacity-50"
+                                        >
+                                            <div className="p-1.5 rounded bg-rose-100 text-rose-700">
+                                                <FileDown className="h-4 w-4" />
+                                            </div>
+                                            <div>
+                                                <div className="font-semibold text-slate-800">PDF</div>
+                                                <div className="text-[10px] text-slate-400">Printable Document (.pdf)</div>
+                                            </div>
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
