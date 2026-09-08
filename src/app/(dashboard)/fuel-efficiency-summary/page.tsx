@@ -303,7 +303,7 @@ export default function FuelEfficiencySummaryPage() {
                                 </div>
 
                                 {/* Date Range Selector */}
-                                {/* <div className="w-[130px] shrink-0">
+                                <div className="w-[130px] shrink-0">
                                     <DateRangePicker
                                         value={dateRange}
                                         onChange={(newRange) => {
@@ -312,7 +312,7 @@ export default function FuelEfficiencySummaryPage() {
                                         }}
                                         allRecords={allRecords as any}
                                     />
-                                </div> */}
+                                </div>
                             </div>
 
                             {/* Right Action Buttons Group */}
