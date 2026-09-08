@@ -93,7 +93,8 @@ export function exportToCSV(filename: string, headers: string[], rows: any[][]) 
     }).join(','))
   ].join('\n');
 
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  // Prepend UTF-8 BOM (\uFEFF) so Excel opens CSV in UTF-8 properly without garbled characters (â€“, â€", etc.)
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);

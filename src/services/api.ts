@@ -24,7 +24,8 @@ export const CLIENTS: ClientConfig[] = [
   { name: 'TWL Pom Transport', clientid: '2394', userid: 2094, divisionid: 816, minStock: 2500 },
   { name: 'Golden Valley Enterprises', clientid: '2005', userid: 2094, divisionid: 789, minStock: 1000 },
   { name: 'IPI Lae Bowser', clientid: '2035', userid: 2094, divisionid: 792, minStock: 5000 },
-  { name: 'IPI Hagen Bowser', clientid: '2036', userid: 2094, divisionid: 793, minStock: 5000 }
+  { name: 'IPI Hagen Bowser', clientid: '2036', userid: 2094, divisionid: 793, minStock: 5000 },
+  { name: 'Peuna - NFS Bowser', clientid: '1963', userid: 2094, divisionid: 788, minStock: 1500 }
 ];
 
 interface ClientStore {
