@@ -117,6 +117,18 @@ function escapeXml(str: string): string {
 }
 
 export function exportToExcel(filename: string, headers: string[], rows: any[][], sheetName = 'Sheet1') {
+  // Calculate column widths based on longest content
+  const colWidths = headers.map((h, colIdx) => {
+    let maxLen = h.length;
+    for (let i = 0; i < Math.min(rows.length, 100); i++) {
+      const valStr = String(rows[i]?.[colIdx] ?? '');
+      if (valStr.length > maxLen) {
+        maxLen = valStr.length;
+      }
+    }
+    return Math.min(Math.max(maxLen * 7.5 + 16, 70), 220);
+  });
+
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <?mso-application progid="Excel.Sheet"?>
 <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
@@ -125,30 +137,61 @@ export function exportToExcel(filename: string, headers: string[], rows: any[][]
  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
  xmlns:html="http://www.w3.org/TR/REC-html40">
  <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Center"/>
+   <Borders/>
+   <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#000000"/>
+   <Interior/>
+   <NumberFormat/>
+   <Protection/>
+  </Style>
   <Style ss:ID="Header">
-   <Font ss:Bold="1" ss:Color="#FFFFFF"/>
+   <Font ss:FontName="Calibri" ss:Bold="1" ss:Color="#FFFFFF" ss:Size="11"/>
    <Interior ss:Color="#F26522" ss:Pattern="Solid"/>
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Borders>
+     <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#EA580C"/>
+     <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#EA580C"/>
+     <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#EA580C"/>
+     <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#EA580C"/>
+   </Borders>
   </Style>
   <Style ss:ID="RowEven">
+   <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#1E293B"/>
    <Interior ss:Color="#FFFFFF" ss:Pattern="Solid"/>
+   <Alignment ss:Vertical="Center"/>
+   <Borders>
+     <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+     <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+     <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+     <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+   </Borders>
   </Style>
   <Style ss:ID="RowOdd">
+   <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#1E293B"/>
    <Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/>
+   <Alignment ss:Vertical="Center"/>
+   <Borders>
+     <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+     <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+     <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+     <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+   </Borders>
   </Style>
  </Styles>
  <Worksheet ss:Name="${escapeXml(sheetName)}">
-  <Table>
-   <Row ss:Height="24" ss:StyleID="Header">
-    ${headers.map(h => `<Cell><Data ss:Type="String">${escapeXml(h)}</Data></Cell>`).join('')}
+  <Table ss:ExpandedColumnCount="${headers.length}" ss:ExpandedRowCount="${rows.length + 1}">
+   ${colWidths.map(w => `<Column ss:Width="${w}"/>`).join('\n   ')}
+   <Row ss:Height="24">
+    ${headers.map(h => `<Cell ss:StyleID="Header"><Data ss:Type="String">${escapeXml(h)}</Data></Cell>`).join('')}
    </Row>
    ${rows.map((row, idx) => `
-    <Row ss:StyleID="${idx % 2 === 0 ? 'RowEven' : 'RowOdd'}">
-     ${row.map(val => {
-       const isNum = typeof val === 'number' && !isNaN(val);
-       return `<Cell><Data ss:Type="${isNum ? 'Number' : 'String'}">${escapeXml(String(val ?? ''))}</Data></Cell>`;
-     }).join('')}
-    </Row>
+   <Row ss:Height="20">
+    ${row.map(val => {
+      const isNum = typeof val === 'number' && !isNaN(val);
+      return `<Cell ss:StyleID="${idx % 2 === 0 ? 'RowEven' : 'RowOdd'}"><Data ss:Type="${isNum ? 'Number' : 'String'}">${escapeXml(String(val ?? ''))}</Data></Cell>`;
+    }).join('')}
+   </Row>
    `).join('')}
   </Table>
  </Worksheet>
