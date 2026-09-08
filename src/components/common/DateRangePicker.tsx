@@ -28,6 +28,7 @@ interface DateRangePickerProps {
   value: DateRange;
   onChange: (range: DateRange) => void;
   allRecords?: FuelLevel[];
+  align?: 'left' | 'right';
 }
 
 export function getDateRangeFromPreset(preset: DateRangePreset, customStart?: string, customEnd?: string): DateRange {
@@ -100,7 +101,7 @@ export function getDateRangeFromPreset(preset: DateRangePreset, customStart?: st
   }
 }
 
-export function DateRangePicker({ value, onChange, allRecords = [] }: DateRangePickerProps) {
+export function DateRangePicker({ value, onChange, allRecords = [], align = 'left' }: DateRangePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [customStart, setCustomStart] = useState(value.startDate || '');
   const [customEnd, setCustomEnd] = useState(value.endDate || '');
@@ -183,7 +184,7 @@ export function DateRangePicker({ value, onChange, allRecords = [] }: DateRangeP
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-1 w-64 bg-white rounded-lg shadow-xl border border-slate-200 z-50 py-2 text-xs">
+        <div className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} mt-1 w-64 bg-white rounded-lg shadow-xl border border-slate-200 z-50 py-2 text-xs`}>
           <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
             PREDEFINED RANGES
           </div>

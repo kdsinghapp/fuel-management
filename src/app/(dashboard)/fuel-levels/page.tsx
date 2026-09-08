@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Download, AlertTriangle, RefreshCw, RotateCcw } from 'lucide-react';
+import { Search, Download, AlertTriangle, RefreshCw, RotateCcw, ChevronDown, FileSpreadsheet, FileText, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { fuelLevelService } from '@/services/fuelLevelService';
 import { authService } from '@/lib/auth';
-import { formatNumber, exportToCSV } from '@/lib/utils';
+import { formatNumber, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils';
 import { FuelLevel } from '@/types/fuel';
 import { useClientStore } from '@/services/api';
 import {
@@ -32,6 +32,19 @@ export default function FuelLevelsPage() {
     const [error, setError] = useState<string | null>(null);
     const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
     const [search, setSearch] = useState('');
+    const [exportOpen, setExportOpen] = useState(false);
+    const [isExporting, setIsExporting] = useState<string | null>(null);
+    const exportRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+                setExportOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -104,17 +117,36 @@ export default function FuelLevelsPage() {
 
     const chartData = filteredLevels;
 
-    const handleExport = () => {
-        if (filteredLevels.length === 0) return;
-        const headers = ['Date', 'Time', 'Fuel Level (L)', 'Percentage (%)', 'Status'];
-        const rows = filteredLevels.map(level => [
-            level.date,
-            level.time,
-            level.fuelLevel,
-            `${level.percentage}%`,
-            level.status
-        ]);
-        exportToCSV(`fuel_levels_${dateRange.preset}.csv`, headers, rows);
+    const handleExport = (format: 'csv' | 'excel' | 'pdf') => {
+        if (filteredLevels.length === 0) {
+            setExportOpen(false);
+            return;
+        }
+        setIsExporting(format);
+        try {
+            const headers = ['Date', 'Time', 'Fuel Level (L)', 'Percentage (%)', 'Status'];
+            const rows = filteredLevels.map(level => [
+                level.date,
+                level.time,
+                level.fuelLevel,
+                `${level.percentage}%`,
+                level.status
+            ]);
+            const dateLabel = dateRange.preset || 'custom';
+
+            if (format === 'csv') {
+                exportToCSV(`fuel_levels_${dateLabel}.csv`, headers, rows);
+            } else if (format === 'excel') {
+                exportToExcel(`fuel_levels_${dateLabel}.xls`, headers, rows, 'Fuel Levels');
+            } else if (format === 'pdf') {
+                exportToPDF('Fuel Levels Report', headers, rows);
+            }
+        } catch (err) {
+            console.error('Failed to export fuel levels:', err);
+        } finally {
+            setIsExporting(null);
+            setExportOpen(false);
+        }
     };
 
     const formatTimeTick = (timeStr: string) => {
@@ -202,14 +234,69 @@ export default function FuelLevelsPage() {
                                 <RotateCcw className="h-3.5 w-3.5" />
                                 Reset
                             </Button>
-                            <Button
-                                onClick={handleExport}
-                                className="bg-[#f26522] hover:bg-[#d94f12] text-white text-xs font-semibold rounded h-8 px-4 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5"
-                                title="Export fuel levels"
-                            >
-                                <Download className="h-3.5 w-3.5" />
-                                Export
-                            </Button>
+                            {/* Export with 3 options: Excel, CSV, PDF */}
+                            <div className="relative" ref={exportRef}>
+                                <Button
+                                    type="button"
+                                    onClick={() => setExportOpen((prev) => !prev)}
+                                    className="bg-[#f26522] hover:bg-[#d94f12] text-white text-xs font-semibold rounded h-8 px-3 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                                    title="Export Options"
+                                >
+                                    <Download className="h-3.5 w-3.5" />
+                                    <span>Export</span>
+                                    <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${exportOpen ? 'rotate-180' : ''}`} />
+                                </Button>
+
+                                {exportOpen && (
+                                    <div className="absolute right-0 mt-1.5 w-52 bg-white rounded-lg shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                                        <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
+                                            Export Format
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleExport('excel')}
+                                            disabled={!!isExporting}
+                                            className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2.5 transition-colors cursor-pointer disabled:opacity-50"
+                                        >
+                                            <div className="p-1.5 rounded bg-emerald-100 text-emerald-700">
+                                                <FileSpreadsheet className="h-4 w-4" />
+                                            </div>
+                                            <div>
+                                                <div className="font-semibold text-slate-800">Excel</div>
+                                                <div className="text-[10px] text-slate-400">Spreadsheet (.xls)</div>
+                                            </div>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleExport('csv')}
+                                            disabled={!!isExporting}
+                                            className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-sky-50 hover:text-sky-700 flex items-center gap-2.5 transition-colors cursor-pointer disabled:opacity-50"
+                                        >
+                                            <div className="p-1.5 rounded bg-sky-100 text-sky-700">
+                                                <FileText className="h-4 w-4" />
+                                            </div>
+                                            <div>
+                                                <div className="font-semibold text-slate-800">CSV</div>
+                                                <div className="text-[10px] text-slate-400">Comma-separated (.csv)</div>
+                                            </div>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleExport('pdf')}
+                                            disabled={!!isExporting}
+                                            className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-rose-50 hover:text-rose-700 flex items-center gap-2.5 transition-colors cursor-pointer disabled:opacity-50"
+                                        >
+                                            <div className="p-1.5 rounded bg-rose-100 text-rose-700">
+                                                <FileDown className="h-4 w-4" />
+                                            </div>
+                                            <div>
+                                                <div className="font-semibold text-slate-800">PDF</div>
+                                                <div className="text-[10px] text-slate-400">Printable Document (.pdf)</div>
+                                            </div>
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
