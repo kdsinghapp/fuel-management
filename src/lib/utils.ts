@@ -1,6 +1,8 @@
 // src/lib/utils.ts
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -170,147 +172,104 @@ export function exportToPDF(
   rows: any[][],
   metadata?: Record<string, string | number>
 ) {
-  const metaHtml = metadata && Object.keys(metadata).length > 0
-    ? `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; padding: 12px 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 12px;">
-        ${Object.entries(metadata)
-          .map(
-            ([key, val]) =>
-              `<div><span style="color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 600; display: block;">${key}</span><span style="color: #0f172a; font-weight: 700; font-size: 13px;">${val}</span></div>`
-          )
-          .join('')}
-      </div>`
-    : '';
+  const isLandscape = headers.length > 5;
+  const doc = new jsPDF({
+    orientation: isLandscape ? 'landscape' : 'portrait',
+    unit: 'pt',
+    format: 'a4',
+  });
 
-  const tableRows = rows
-    .map(
-      (row, idx) =>
-        `<tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-          ${row
-            .map(
-              (cell) =>
-                `<td style="padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 11px; color: #334155;">${cell ?? ''}</td>`
-            )
-            .join('')}
-        </tr>`
-    )
-    .join('');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <title>${title}</title>
-        <style>
-          @page {
-            size: landscape;
-            margin: 10mm;
-          }
-          * { box-sizing: border-box; }
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            color: #0f172a;
-            margin: 0;
-            padding: 24px;
-            background: #ffffff;
-          }
-          .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            border-bottom: 2px solid #f26522;
-            padding-bottom: 12px;
-            margin-bottom: 16px;
-          }
-          .brand {
-            font-size: 16px;
-            font-weight: 800;
-            color: #f26522;
-            letter-spacing: -0.5px;
-          }
-          .title {
-            font-size: 20px;
-            font-weight: 700;
-            color: #0f172a;
-            margin-top: 4px;
-          }
-          .date {
-            font-size: 11px;
-            color: #64748b;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 8px;
-          }
-          th {
-            background-color: #f26522;
-            color: #ffffff;
-            font-size: 11px;
-            font-weight: 700;
-            text-align: left;
-            padding: 9px 12px;
-            border: 1px solid #ea580c;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-          }
-          td {
-            padding: 8px 12px;
-            border: 1px solid #e2e8f0;
-            font-size: 11px;
-            color: #334155;
-          }
-          .footer {
-            margin-top: 24px;
-            font-size: 10px;
-            color: #94a3b8;
-            text-align: right;
-            border-top: 1px solid #e2e8f0;
-            padding-top: 8px;
-          }
-          @media print {
-            body { padding: 0; }
-            button { display: none; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div>
-            <div class="brand">FUEL MANAGEMENT</div>
-            <div class="title">${title}</div>
-          </div>
-          <div style="text-align: right;">
-            <div class="date">Export Date: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-            <div class="date">Total Records: ${rows.length}</div>
-          </div>
-        </div>
-        ${metaHtml}
-        <table>
-          <thead>
-            <tr>
-              ${headers.map((h) => `<th>${h}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${tableRows}
-          </tbody>
-        </table>
-        <div class="footer">
-          Fuel Management System • Generated automatically
-        </div>
-      </body>
-    </html>
-  `;
+  // Header Brand & Title
+  doc.setFontSize(14);
+  doc.setTextColor(242, 101, 34); // Primary Orange #F26522
+  doc.setFont('helvetica', 'bold');
+  doc.text('FUEL MANAGEMENT SYSTEM', 40, 36);
 
-  const printWindow = window.open('', '_blank');
-  if (printWindow) {
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-    }, 400);
+  doc.setFontSize(16);
+  doc.setTextColor(15, 23, 42); // Slate 900
+  doc.text(title, 40, 56);
+
+  doc.setFontSize(9);
+  doc.setTextColor(100, 116, 139); // Slate 500
+  doc.setFont('helvetica', 'normal');
+  const dateStr = `Export Date: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
+  doc.text(dateStr, pageWidth - 40, 36, { align: 'right' });
+  doc.text(`Total Records: ${rows.length}`, pageWidth - 40, 50, { align: 'right' });
+
+  // Divider line
+  doc.setDrawColor(242, 101, 34);
+  doc.setLineWidth(1.5);
+  doc.line(40, 66, pageWidth - 40, 66);
+
+  let startY = 80;
+
+  // Metadata block if present
+  if (metadata && Object.keys(metadata).length > 0) {
+    const metaEntries = Object.entries(metadata);
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(40, startY, pageWidth - 80, 28, 4, 4, 'FD');
+
+    const colWidth = (pageWidth - 80) / metaEntries.length;
+    metaEntries.forEach(([key, val], idx) => {
+      const x = 50 + idx * colWidth;
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.setFont('helvetica', 'bold');
+      doc.text(String(key).toUpperCase(), x, startY + 11);
+
+      doc.setFontSize(10);
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.text(String(val), x, startY + 22);
+    });
+
+    startY += 38;
   }
+
+  // Generate Table
+  autoTable(doc, {
+    head: [headers],
+    body: rows.map(r => r.map(c => (c === null || c === undefined ? '' : String(c)))),
+    startY: startY,
+    margin: { left: 40, right: 40, top: 40, bottom: 40 },
+    theme: 'grid',
+    headStyles: {
+      fillColor: [242, 101, 34],
+      textColor: [255, 255, 255],
+      fontSize: 8.5,
+      fontStyle: 'bold',
+      halign: 'left',
+      cellPadding: 5,
+    },
+    styles: {
+      fontSize: 8,
+      cellPadding: 4.5,
+      textColor: [51, 65, 85],
+      lineColor: [226, 232, 240],
+      lineWidth: 0.5,
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
+    },
+    didDrawPage: (data) => {
+      // Footer page numbering
+      const totalPages = (doc as any).internal.getNumberOfPages();
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      doc.text(
+        `Page ${data.pageNumber} of ${totalPages}  •  Fuel Management System`,
+        pageWidth - 40,
+        pageHeight - 20,
+        { align: 'right' }
+      );
+    },
+  });
+
+  // Direct download
+  const cleanFilename = `${title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`;
+  doc.save(cleanFilename);
 }
