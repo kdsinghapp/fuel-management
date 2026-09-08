@@ -12,7 +12,7 @@ import { reconciliationService } from '@/services/reconciliationService';
 import { authService } from '@/lib/auth';
 import { formatFuel, formatNumber } from '@/lib/utils';
 import { Reconciliation } from '@/types/reconciliation';
-import { useClientStore } from '@/services/api';
+import { useClientStore, CLIENTS } from '@/services/api';
 import { CustomTable } from '@/components/ui/table';
 import { DateRangePicker, DateRange, getDateRangeFromPreset } from '@/components/common/DateRangePicker';
 
@@ -143,7 +143,8 @@ export default function ReconciliationPage() {
         const daysStock = avDailyCons > 0 ? Math.round(closingDip / avDailyCons) : 0;
         const today = new Date();
         const reorderDays = 7;
-        const minStock = Math.round(avDailyCons * reorderDays);
+        const matchedClient = CLIENTS.find(c => c.clientid === selectedClient?.clientid || c.name === selectedClient?.name);
+        const minStock = matchedClient?.minStock ?? selectedClient?.minStock ?? Math.round(avDailyCons * reorderDays);
         const reorderDate = new Date(today);
         reorderDate.setDate(today.getDate() + Math.max(0, daysStock - reorderDays));
         const arrivalDate = new Date(today);

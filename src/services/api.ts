@@ -7,23 +7,24 @@ export interface ClientConfig {
   clientid: string;
   userid: number;
   divisionid: number;
+  minStock?: number;
 }
 
 export const CLIENTS: ClientConfig[] = [
-    { name: 'St Johns Pom', clientid: '2591', userid: 2094, divisionid: 845 },
-  { name: 'Digicel POM', clientid: '843', userid: 2094, divisionid: 586 },
-  { name: 'Digicel Hagen', clientid: '797', userid: 2094, divisionid: 586 },
-  { name: 'PNG Biomass - Zifasing Field Base', clientid: '2042', userid: 2094, divisionid: 653 },
-  { name: 'Paradise Foods Hanta', clientid: '2003', userid: 2094, divisionid: 744 },
-  { name: 'Paradise Foods HQ', clientid: '2004', userid: 2094, divisionid: 744 },
-  { name: 'Laga Industries Taraka', clientid: '2008', userid: 2094, divisionid: 757 },
-  { name: 'Laga Industries Gabaka', clientid: '1967', userid: 2094, divisionid: 757 },
-  { name: 'TWL Lae', clientid: '2023', userid: 2094, divisionid: 753 },
-  { name: 'TWL Hagen', clientid: '2006', userid: 2094, divisionid: 829 },
-  { name: 'TWL Pom Transport', clientid: '2394', userid: 2094, divisionid: 816 },
-  { name: 'Golden Valley Enterprises', clientid: '2005', userid: 2094, divisionid: 789 },
-  { name: 'IPI Lae Bowser', clientid: '2035', userid: 2094, divisionid: 792 },
-  { name: 'IPI Hagen Bowser', clientid: '2036', userid: 2094, divisionid: 793 }
+  { name: 'St Johns Pom', clientid: '2591', userid: 2094, divisionid: 845, minStock: 5000 },
+  { name: 'Digicel POM', clientid: '843', userid: 2094, divisionid: 586, minStock: 5000 },
+  { name: 'Digicel Hagen', clientid: '797', userid: 2094, divisionid: 586, minStock: 5000 },
+  { name: 'PNG Biomass - Zifasing Field Base', clientid: '2042', userid: 2094, divisionid: 653, minStock: 5000 },
+  { name: 'Paradise Foods Hanta', clientid: '2003', userid: 2094, divisionid: 744, minStock: 2500 },
+  { name: 'Paradise Foods HQ', clientid: '2004', userid: 2094, divisionid: 744, minStock: 5000 },
+  { name: 'Laga Industries Taraka', clientid: '2008', userid: 2094, divisionid: 757, minStock: 5000 },
+  { name: 'Laga Industries Gabaka', clientid: '1967', userid: 2094, divisionid: 757, minStock: 5000 },
+  { name: 'TWL Lae', clientid: '2023', userid: 2094, divisionid: 753, minStock: 5000 },
+  { name: 'TWL Hagen', clientid: '2006', userid: 2094, divisionid: 829, minStock: 5000 },
+  { name: 'TWL Pom Transport', clientid: '2394', userid: 2094, divisionid: 816, minStock: 2500 },
+  { name: 'Golden Valley Enterprises', clientid: '2005', userid: 2094, divisionid: 789, minStock: 1000 },
+  { name: 'IPI Lae Bowser', clientid: '2035', userid: 2094, divisionid: 792, minStock: 5000 },
+  { name: 'IPI Hagen Bowser', clientid: '2036', userid: 2094, divisionid: 793, minStock: 5000 }
 ];
 
 interface ClientStore {
