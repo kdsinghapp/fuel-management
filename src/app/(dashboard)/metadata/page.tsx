@@ -2,10 +2,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { 
-    Search, 
-    Download, 
-    RotateCcw, 
+import {
+    Search,
+    Download,
+    RotateCcw,
     Sliders,
     Edit2,
     X,
@@ -22,18 +22,20 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PageContainer } from '@/components/layout/PageContainer';
+import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { formatNumber, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils';
 import { useClientStore } from '@/services/api';
+import { fuelIssueService } from '@/services/fuelIssueService';
 
 export interface VehicleMetadataRecord {
     id: string;
-    asset: string; // Vehicle Rego (e.g., BFE131)
-    fleetId: string; // Fleet ID (e.g., FL-101)
-    dept: string; // Department (e.g., Security, (10) TV, (2) SMT)
+    asset: string; // Vehicle Rego (e.g., BFE131, BGU152)
+    fleetId: string; // Fleet ID (e.g., 1161, 1180, FL-101)
+    dept: string; // Department (e.g., Digicel POM, Security, etc.)
     year: number | string;
     make: string; // TOYOTA, FORD, etc.
     model: string; // HI-ACE, RANGER, etc.
-    classType: string; // 15 SEAT, DBLCAB, LSUV, etc.
+    classType: string; // 15 SEAT, DBLCAB, etc.
     modeOfUse: string; // On-Duty Operational (24/7), Personal (24/7), etc.
     monthlyMileageAllowance: number | string; // KM
     burnRate: number | string; // L/100KM
@@ -41,162 +43,10 @@ export interface VehicleMetadataRecord {
     standardBRate: number | string;
 }
 
-const INITIAL_DEMO_DATA: VehicleMetadataRecord[] = [
-    {
-        id: '1',
-        asset: 'BFE131',
-        fleetId: 'FL-101',
-        dept: 'Security',
-        year: 2025,
-        make: 'TOYOTA',
-        model: 'HI-ACE',
-        classType: '15 SEAT',
-        modeOfUse: 'On-Duty Operational (24/7)',
-        monthlyMileageAllowance: '-',
-        burnRate: 12,
-        fuelLimit: 'No Limit',
-        standardBRate: 9,
-    },
-    {
-        id: '2',
-        asset: 'BGZ364',
-        fleetId: 'FL-102',
-        dept: '(10) TV',
-        year: 2023,
-        make: 'FORD',
-        model: 'RANGER',
-        classType: 'DBLCAB',
-        modeOfUse: 'On-Duty Operational (24/7)',
-        monthlyMileageAllowance: 400,
-        burnRate: 17,
-        fuelLimit: 70,
-        standardBRate: 6,
-    },
-    {
-        id: '3',
-        asset: 'BHA990',
-        fleetId: 'FL-103',
-        dept: '(2) SMT',
-        year: 2023,
-        make: 'TOYOTA',
-        model: 'FORTUNER',
-        classType: 'LSUV',
-        modeOfUse: 'Personal (24/7)',
-        monthlyMileageAllowance: 1500,
-        burnRate: 15,
-        fuelLimit: 225,
-        standardBRate: 7,
-    },
-    {
-        id: '4',
-        asset: 'BGW537',
-        fleetId: 'FL-104',
-        dept: '(2) SMT',
-        year: 2023,
-        make: 'HYUNDAI',
-        model: 'TUCSON',
-        classType: 'MSUV',
-        modeOfUse: 'Personal (24/7)',
-        monthlyMileageAllowance: 1500,
-        burnRate: 14,
-        fuelLimit: 210,
-        standardBRate: 7,
-    },
-    {
-        id: '5',
-        asset: 'BEF900',
-        fleetId: 'FL-105',
-        dept: '(14) FOUNDATION',
-        year: 2013,
-        make: 'ISUZU',
-        model: 'D-MAX',
-        classType: 'DBLCAB',
-        modeOfUse: 'Regular Operational Hours',
-        monthlyMileageAllowance: 700,
-        burnRate: 17,
-        fuelLimit: 120,
-        standardBRate: 6,
-    },
-    {
-        id: '6',
-        asset: 'BGA411',
-        fleetId: 'FL-106',
-        dept: '(19) POOL',
-        year: 2021,
-        make: 'MAZDA',
-        model: 'BT-50',
-        classType: 'SGLCAB',
-        modeOfUse: 'Upon Request',
-        monthlyMileageAllowance: 3100,
-        burnRate: 17,
-        fuelLimit: 530,
-        standardBRate: 6,
-    },
-    {
-        id: '7',
-        asset: 'BFR347',
-        fleetId: 'FL-107',
-        dept: '(15) MFS',
-        year: 2019,
-        make: 'FORD',
-        model: 'RANGER',
-        classType: 'DBLCAB',
-        modeOfUse: 'Personal (24/7)',
-        monthlyMileageAllowance: 1000,
-        burnRate: 17,
-        fuelLimit: 170,
-        standardBRate: 6,
-    },
-    {
-        id: '8',
-        asset: 'BGV702',
-        fleetId: 'FL-108',
-        dept: '(2) SMT',
-        year: 2023,
-        make: 'FORD',
-        model: 'RANGER',
-        classType: 'DBLCAB',
-        modeOfUse: 'Personal (24/7)',
-        monthlyMileageAllowance: 1500,
-        burnRate: 17,
-        fuelLimit: 255,
-        standardBRate: 6,
-    },
-    {
-        id: '9',
-        asset: 'BGM794',
-        fleetId: 'FL-109',
-        dept: '(10) TV',
-        year: 2022,
-        make: 'FORD',
-        model: 'RANGER',
-        classType: 'DBLCAB',
-        modeOfUse: 'Personal (24/7)',
-        monthlyMileageAllowance: 1000,
-        burnRate: 17,
-        fuelLimit: 170,
-        standardBRate: 6,
-    },
-    {
-        id: '10',
-        asset: 'BGV703',
-        fleetId: 'FL-110',
-        dept: '(8) TECHNICAL',
-        year: 2023,
-        make: 'FORD',
-        model: 'RANGER',
-        classType: 'DBLCAB',
-        modeOfUse: 'Personal (24/7)',
-        monthlyMileageAllowance: 1000,
-        burnRate: 17,
-        fuelLimit: 170,
-        standardBRate: 6,
-    }
-];
-
 export default function MetadataPage() {
     const selectedClient = useClientStore((state) => state.selectedClient);
-    const [records, setRecords] = useState<VehicleMetadataRecord[]>(INITIAL_DEMO_DATA);
+    const [records, setRecords] = useState<VehicleMetadataRecord[]>([]);
+    const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [searchInput, setSearchInput] = useState('');
     const [selectedDept, setSelectedDept] = useState('');
@@ -211,8 +61,7 @@ export default function MetadataPage() {
     const [isExporting, setIsExporting] = useState<string | null>(null);
     const exportRef = useRef<HTMLDivElement>(null);
 
-    // Row action dropdown and delete confirmation states
-    const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+    // Delete confirmation state
     const [deleteConfirmRecord, setDeleteConfirmRecord] = useState<VehicleMetadataRecord | null>(null);
 
     useEffect(() => {
@@ -220,7 +69,6 @@ export default function MetadataPage() {
             if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
                 setExportOpen(false);
             }
-            setOpenDropdownId(null);
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -232,22 +80,164 @@ export default function MetadataPage() {
     const [pageSize, setPageSize] = useState(8);
     const [pageSizeMode, setPageSizeMode] = useState<'auto' | number>('auto');
 
-    // Load from LocalStorage or initialize
+    // Fetch live vehicles and overlay stored metadata from LocalStorage
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const storageKey = `vehicle_metadata_${selectedClient.clientid}`;
-            const stored = localStorage.getItem(storageKey);
-            if (stored) {
-                try {
-                    setRecords(JSON.parse(stored));
-                } catch {
-                    setRecords(INITIAL_DEMO_DATA);
-                }
-            } else {
-                setRecords(INITIAL_DEMO_DATA);
-            }
-        }
+        loadMetadata();
     }, [selectedClient]);
+
+    const loadMetadata = async () => {
+        try {
+            setLoading(true);
+            const response = await fuelIssueService.getFuelIssues({
+                page: 1,
+                pageSize: 100000,
+            });
+
+            const rawTransactions = response.data || [];
+
+            // Load saved customizations from localStorage
+            let storedRecords: VehicleMetadataRecord[] = [];
+            if (typeof window !== 'undefined') {
+                const storageKey = `vehicle_metadata_${selectedClient.clientid}`;
+                const stored = localStorage.getItem(storageKey);
+                if (stored) {
+                    try {
+                        storedRecords = JSON.parse(stored);
+                    } catch {
+                        storedRecords = [];
+                    }
+                }
+            }
+
+            const storedMap = new Map<string, VehicleMetadataRecord>();
+            storedRecords.forEach((rec) => {
+                if (rec.asset) {
+                    storedMap.set(rec.asset.trim().toUpperCase(), rec);
+                }
+            });
+
+            // Group transactions by vehicle / asset
+            const vehicleMap = new Map<string, {
+                asset: string;
+                fleetId: string;
+                dept: string;
+                litres: number;
+                odometers: { odo: number; date: string; time: string }[];
+            }>();
+
+            rawTransactions.forEach((tx: any) => {
+                const assetKey = (tx.vehicleId || tx.registrationNo || tx.fleetId || tx.driverAttendant || '').toString().trim().toUpperCase();
+                if (!assetKey) return;
+
+                if (!vehicleMap.has(assetKey)) {
+                    vehicleMap.set(assetKey, {
+                        asset: assetKey,
+                        fleetId: tx.fleetId || '',
+                        dept: tx.depot || tx.department || 'General',
+                        litres: 0,
+                        odometers: [],
+                    });
+                }
+
+                const entry = vehicleMap.get(assetKey)!;
+                if (tx.fleetId && (!entry.fleetId || entry.fleetId === '-')) {
+                    entry.fleetId = tx.fleetId;
+                }
+                if (tx.depot && (!entry.dept || entry.dept === 'General')) {
+                    entry.dept = tx.depot;
+                }
+
+                const qty = Number(tx.fuelQuantity) || 0;
+                const odo = Number(tx.odometer) || 0;
+                entry.litres += qty;
+
+                if (odo > 0) {
+                    entry.odometers.push({
+                        odo,
+                        date: tx.date || '',
+                        time: tx.time || '',
+                    });
+                }
+            });
+
+            const mergedRecords: VehicleMetadataRecord[] = [];
+            const seenAssets = new Set<string>();
+
+            // 1. Process vehicles derived from live transactions
+            vehicleMap.forEach((v, assetKey) => {
+                seenAssets.add(assetKey);
+
+                let calculatedBurnRate: number | string = '-';
+                if (v.odometers.length >= 2) {
+                    v.odometers.sort((a, b) => {
+                        const timeA = new Date(`${a.date}T${a.time || '00:00:00'}`).getTime();
+                        const timeB = new Date(`${b.date}T${b.time || '00:00:00'}`).getTime();
+                        return timeA - timeB;
+                    });
+                    const minOdo = v.odometers[0].odo;
+                    const maxOdo = v.odometers[v.odometers.length - 1].odo;
+                    const dist = maxOdo - minOdo;
+                    if (dist > 0 && v.litres > 0) {
+                        calculatedBurnRate = Number(((v.litres / dist) * 100).toFixed(2));
+                    }
+                }
+
+                const stored = storedMap.get(assetKey);
+                if (stored) {
+                    mergedRecords.push({
+                        id: stored.id || assetKey,
+                        asset: assetKey,
+                        fleetId: stored.fleetId || v.fleetId || '-',
+                        dept: stored.dept || v.dept || 'General',
+                        year: stored.year !== undefined ? stored.year : '-',
+                        make: stored.make || '-',
+                        model: stored.model || '-',
+                        classType: stored.classType || '-',
+                        modeOfUse: stored.modeOfUse || 'On-Duty Operational (24/7)',
+                        monthlyMileageAllowance: stored.monthlyMileageAllowance !== undefined ? stored.monthlyMileageAllowance : '-',
+                        burnRate: stored.burnRate !== undefined && stored.burnRate !== '-' ? stored.burnRate : calculatedBurnRate,
+                        fuelLimit: stored.fuelLimit !== undefined ? stored.fuelLimit : 'No Limit',
+                        standardBRate: stored.standardBRate !== undefined && stored.standardBRate !== '-' ? stored.standardBRate : 7.0,
+                    });
+                } else {
+                    mergedRecords.push({
+                        id: assetKey,
+                        asset: assetKey,
+                        fleetId: v.fleetId || '-',
+                        dept: v.dept || 'General',
+                        year: '-',
+                        make: '-',
+                        model: '-',
+                        classType: '-',
+                        modeOfUse: '-',
+                        monthlyMileageAllowance: '-',
+                        burnRate: calculatedBurnRate,
+                        fuelLimit: 'No Limit',
+                        standardBRate: 7.0,
+                    });
+                }
+            });
+
+            // 2. Include any stored custom records that weren't in live transactions
+            storedRecords.forEach((stored) => {
+                const assetKey = (stored.asset || '').trim().toUpperCase();
+                if (assetKey && !seenAssets.has(assetKey)) {
+                    seenAssets.add(assetKey);
+                    mergedRecords.push(stored);
+                }
+            });
+
+            // Sort alphabetically by asset
+            mergedRecords.sort((a, b) => a.asset.localeCompare(b.asset));
+
+            setRecords(mergedRecords);
+        } catch (err) {
+            console.error('Failed to load vehicle metadata:', err);
+        } finally {
+            setLoading(false);
+            useClientStore.getState().setClientLoading(false);
+        }
+    };
 
     const saveRecordsToStorage = (updatedRecords: VehicleMetadataRecord[]) => {
         setRecords(updatedRecords);
@@ -299,7 +289,7 @@ export default function MetadataPage() {
             if (observer) observer.disconnect();
             window.removeEventListener('resize', computeRows);
         };
-    }, [pageSizeMode]);
+    }, [pageSizeMode, loading]);
 
     const handleSearch = () => {
         setSearch(searchInput);
@@ -321,7 +311,7 @@ export default function MetadataPage() {
         setFormData({
             asset: '',
             fleetId: '',
-            dept: '',
+            dept: selectedClient?.name || 'General',
             year: new Date().getFullYear(),
             make: '',
             model: '',
@@ -330,7 +320,7 @@ export default function MetadataPage() {
             monthlyMileageAllowance: '-',
             burnRate: '',
             fuelLimit: 'No Limit',
-            standardBRate: '',
+            standardBRate: '7.0',
         });
         setIsModalOpen(true);
     };
@@ -349,42 +339,43 @@ export default function MetadataPage() {
             if (!formData.asset?.trim()) {
                 return;
             }
+            const assetUpper = formData.asset.trim().toUpperCase();
             const newRecord: VehicleMetadataRecord = {
-                id: Date.now().toString(),
-                asset: (formData.asset || '').trim().toUpperCase(),
-                fleetId: (formData.fleetId || '').trim().toUpperCase() || `FL-${100 + records.length + 1}`,
-                dept: formData.dept?.trim() || 'General',
-                year: formData.year || new Date().getFullYear(),
-                make: (formData.make || '').trim().toUpperCase() || 'N/A',
-                model: (formData.model || '').trim().toUpperCase() || 'N/A',
+                id: assetUpper,
+                asset: assetUpper,
+                fleetId: (formData.fleetId || '').trim().toUpperCase() || '-',
+                dept: formData.dept?.trim() || selectedClient?.name || 'General',
+                year: formData.year || '-',
+                make: (formData.make || '').trim().toUpperCase() || '-',
+                model: (formData.model || '').trim().toUpperCase() || '-',
                 classType: formData.classType?.trim() || '-',
                 modeOfUse: formData.modeOfUse?.trim() || 'On-Duty Operational (24/7)',
-                monthlyMileageAllowance: formData.monthlyMileageAllowance !== undefined && formData.monthlyMileageAllowance !== '' 
+                monthlyMileageAllowance: formData.monthlyMileageAllowance !== undefined && formData.monthlyMileageAllowance !== ''
                     ? (isNaN(Number(formData.monthlyMileageAllowance)) ? formData.monthlyMileageAllowance : Number(formData.monthlyMileageAllowance))
                     : '-',
-                burnRate: formData.burnRate !== undefined && formData.burnRate !== '' 
+                burnRate: formData.burnRate !== undefined && formData.burnRate !== ''
                     ? (isNaN(Number(formData.burnRate)) ? formData.burnRate : Number(formData.burnRate))
                     : '-',
-                fuelLimit: formData.fuelLimit !== undefined && formData.fuelLimit !== '' 
+                fuelLimit: formData.fuelLimit !== undefined && formData.fuelLimit !== ''
                     ? (isNaN(Number(formData.fuelLimit)) ? formData.fuelLimit : Number(formData.fuelLimit))
                     : 'No Limit',
-                standardBRate: formData.standardBRate !== undefined && formData.standardBRate !== '' 
+                standardBRate: formData.standardBRate !== undefined && formData.standardBRate !== ''
                     ? (isNaN(Number(formData.standardBRate)) ? formData.standardBRate : Number(formData.standardBRate))
-                    : '-',
+                    : 7.0,
             };
-            const updated = [newRecord, ...records];
+            const updated = [newRecord, ...records.filter(r => r.asset !== assetUpper)];
             saveRecordsToStorage(updated);
             setIsModalOpen(false);
         } else {
             if (!editingRecord) return;
             const updated = records.map((r) =>
-                r.id === editingRecord.id
+                r.id === editingRecord.id || r.asset === editingRecord.asset
                     ? ({
-                          ...r,
-                          ...formData,
-                          asset: formData.asset ? formData.asset.trim().toUpperCase() : r.asset,
-                          fleetId: formData.fleetId ? formData.fleetId.trim().toUpperCase() : r.fleetId,
-                      } as VehicleMetadataRecord)
+                        ...r,
+                        ...formData,
+                        asset: formData.asset ? formData.asset.trim().toUpperCase() : r.asset,
+                        fleetId: formData.fleetId ? formData.fleetId.trim().toUpperCase() : r.fleetId,
+                    } as VehicleMetadataRecord)
                     : r
             );
             saveRecordsToStorage(updated);
@@ -393,20 +384,19 @@ export default function MetadataPage() {
     };
 
     const handleDeleteClick = (rec: VehicleMetadataRecord) => {
-        setOpenDropdownId(null);
         setDeleteConfirmRecord(rec);
     };
 
     const handleConfirmDelete = () => {
         if (!deleteConfirmRecord) return;
-        const updated = records.filter((r) => r.id !== deleteConfirmRecord.id);
+        const updated = records.filter((r) => r.id !== deleteConfirmRecord.id && r.asset !== deleteConfirmRecord.asset);
         saveRecordsToStorage(updated);
         setDeleteConfirmRecord(null);
     };
 
     // Filter data
-    const departments = Array.from(new Set(records.map((r) => r.dept).filter(Boolean)));
-    const makes = Array.from(new Set(records.map((r) => r.make).filter(Boolean)));
+    const departments = Array.from(new Set(records.map((r) => r.dept).filter(d => d && d !== '-')));
+    const makes = Array.from(new Set(records.map((r) => r.make).filter(m => m && m !== '-')));
 
     const filteredData = records.filter((item) => {
         const query = search.toLowerCase();
@@ -480,6 +470,16 @@ export default function MetadataPage() {
         }
     };
 
+    if (loading) {
+        return (
+            <PageContainer>
+                <div className="flex items-center justify-center min-h-[400px]">
+                    <LoadingSpinner size="lg" />
+                </div>
+            </PageContainer>
+        );
+    }
+
     return (
         <PageContainer className="p-2 sm:p-3 space-y-0 h-full flex flex-col overflow-hidden relative">
             <Card className="rounded border border-slate-200 shadow-sm p-2.5 mb-0 flex-1 flex flex-col overflow-hidden">
@@ -529,8 +529,8 @@ export default function MetadataPage() {
                                     <select
                                         value={selectedDept}
                                         onChange={(e) => {
-                                             setSelectedDept(e.target.value);
-                                             setPage(1);
+                                            setSelectedDept(e.target.value);
+                                            setPage(1);
                                         }}
                                         className="w-full h-8 px-2 text-xs border border-slate-200 rounded bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522]"
                                     >
@@ -667,7 +667,7 @@ export default function MetadataPage() {
                         </div>
                     </div>
 
-                    {/* Metadata Table matching the Transactions page design */}
+                    {/* Metadata Table matching the standard design */}
                     <div
                         ref={tableContainerRef}
                         className="overflow-x-auto overflow-y-auto border border-slate-200 shadow-xs rounded mb-1.5 flex-1 min-h-0"
@@ -720,7 +720,7 @@ export default function MetadataPage() {
                                 {paginatedData.length === 0 ? (
                                     <tr>
                                         <td colSpan={13} className="p-8 text-center text-slate-400 bg-slate-50">
-                                            No vehicle found.
+                                            No vehicle metadata found.
                                         </td>
                                     </tr>
                                 ) : (
@@ -758,61 +758,40 @@ export default function MetadataPage() {
                                                     ? formatNumber(item.monthlyMileageAllowance)
                                                     : item.monthlyMileageAllowance}
                                             </td>
-                                            <td className="py-1.5 px-3 text-right text-slate-600 align-middle">
-                                                {item.burnRate}
+                                            <td className="py-1.5 px-3 text-right font-medium text-[#0070c0] align-middle">
+                                                {typeof item.burnRate === 'number' ? formatNumber(item.burnRate, 2) : item.burnRate}
                                             </td>
                                             <td className="py-1.5 px-3 text-right font-bold text-slate-900 align-middle">
                                                 {typeof item.fuelLimit === 'number'
                                                     ? `${formatNumber(item.fuelLimit)} L`
                                                     : item.fuelLimit}
                                             </td>
-                                            <td className="py-1.5 px-3 text-right text-slate-600 align-middle">
-                                                {item.standardBRate}
+                                            <td className="py-1.5 px-3 text-right text-slate-700 font-medium align-middle">
+                                                {typeof item.standardBRate === 'number' ? formatNumber(item.standardBRate, 2) : item.standardBRate}
                                             </td>
-                                            <td className="py-1.5 px-3 text-center align-middle relative">
-                                                <div className="relative inline-block text-left">
+                                            <td className="py-1.5 px-3 text-center align-middle">
+                                                <div className="flex items-center justify-center gap-1.5">
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
                                                         type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setOpenDropdownId((prev) => (prev === item.id ? null : item.id));
-                                                        }}
-                                                        className="h-7 px-2 text-xs text-[#f26522] border-[#f26522]/30 hover:bg-orange-50 hover:text-[#d45316] font-semibold flex items-center gap-1 rounded shadow-2xs mx-auto cursor-pointer"
-                                                        title="Action"
+                                                        onClick={() => handleOpenEdit(item)}
+                                                        className="h-7 px-2.5 text-xs text-[#f26522] border-[#f26522]/30 hover:bg-orange-50 hover:text-[#d45316] font-semibold flex items-center gap-1 rounded shadow-2xs cursor-pointer"
+                                                        title="Edit Vehicle"
                                                     >
                                                         <Edit2 className="h-3 w-3" />
                                                         <span>Edit</span>
-                                                        <ChevronDown className={`h-2.5 w-2.5 transition-transform duration-150 ${openDropdownId === item.id ? 'rotate-180' : ''}`} />
                                                     </Button>
-
-                                                    {openDropdownId === item.id && (
-                                                        <div 
-                                                            onClick={(e) => e.stopPropagation()}
-                                                            className="absolute right-0 mt-1 w-28 bg-white rounded-md shadow-xl border border-slate-200 py-1 z-50 animate-in fade-in zoom-in-95 duration-100"
-                                                        >
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setOpenDropdownId(null);
-                                                                    handleOpenEdit(item);
-                                                                }}
-                                                                className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-orange-50 hover:text-[#f26522] flex items-center gap-2 transition-colors cursor-pointer font-medium"
-                                                            >
-                                                                <Edit2 className="h-3.5 w-3.5 text-slate-500" />
-                                                                <span>Edit</span>
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleDeleteClick(item)}
-                                                                className="w-full text-left px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors cursor-pointer font-medium border-t border-slate-100"
-                                                            >
-                                                                <Trash2 className="h-3.5 w-3.5 text-rose-500" />
-                                                                <span>Delete</span>
-                                                            </button>
-                                                        </div>
-                                                    )}
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        type="button"
+                                                        onClick={() => handleDeleteClick(item)}
+                                                        className="h-7 px-2 text-xs text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700 font-semibold flex items-center gap-1 rounded shadow-2xs cursor-pointer"
+                                                        title="Delete Vehicle"
+                                                    >
+                                                        <Trash2 className="h-3 w-3" />
+                                                    </Button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -884,7 +863,7 @@ export default function MetadataPage() {
             {/* Centered Modal Popup for Add / Edit Vehicle */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs transition-opacity duration-200">
-                    <div 
+                    <div
                         className="fixed inset-0"
                         onClick={() => setIsModalOpen(false)}
                     />
@@ -937,12 +916,11 @@ export default function MetadataPage() {
 
                                 <div className="space-y-1">
                                     <label className="font-bold text-slate-700">
-                                        Fleet ID <span className="text-rose-500">*</span>
+                                        Fleet ID
                                     </label>
                                     <input
                                         type="text"
-                                        required
-                                        placeholder="e.g. FL-101"
+                                        placeholder="e.g. 1161 or FL-101"
                                         value={formData.fleetId || ''}
                                         onChange={(e) => setFormData({ ...formData, fleetId: e.target.value.toUpperCase() })}
                                         className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900 font-semibold"
@@ -955,7 +933,7 @@ export default function MetadataPage() {
                                     <label className="font-bold text-slate-700">Department</label>
                                     <input
                                         type="text"
-                                        placeholder="e.g. Security, (10) TV"
+                                        placeholder="e.g. Digicel POM, Security"
                                         value={formData.dept || ''}
                                         onChange={(e) => setFormData({ ...formData, dept: e.target.value })}
                                         className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
@@ -965,10 +943,10 @@ export default function MetadataPage() {
                                 <div className="space-y-1">
                                     <label className="font-bold text-slate-700">Year</label>
                                     <input
-                                        type="number"
-                                        placeholder="e.g. 2025"
-                                        value={formData.year || ''}
-                                        onChange={(e) => setFormData({ ...formData, year: Number(e.target.value) })}
+                                        type="text"
+                                        placeholder="e.g. 2025 or -"
+                                        value={formData.year !== undefined ? formData.year : ''}
+                                        onChange={(e) => setFormData({ ...formData, year: e.target.value })}
                                         className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
                                 </div>
@@ -1038,7 +1016,7 @@ export default function MetadataPage() {
                                     <label className="font-bold text-slate-700">Burn Rate (L/100KM)</label>
                                     <input
                                         type="text"
-                                        placeholder="e.g. 17"
+                                        placeholder="e.g. 17 or -"
                                         value={formData.burnRate !== undefined ? formData.burnRate : ''}
                                         onChange={(e) => setFormData({ ...formData, burnRate: e.target.value })}
                                         className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
@@ -1062,7 +1040,7 @@ export default function MetadataPage() {
                                     <label className="font-bold text-slate-700">Standard B/Rate</label>
                                     <input
                                         type="text"
-                                        placeholder="e.g. 7"
+                                        placeholder="e.g. 7.0"
                                         value={formData.standardBRate !== undefined ? formData.standardBRate : ''}
                                         onChange={(e) => setFormData({ ...formData, standardBRate: e.target.value })}
                                         className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
@@ -1082,9 +1060,8 @@ export default function MetadataPage() {
                                 </Button>
                                 <Button
                                     type="submit"
-                                    className={`${
-                                        modalMode === 'add' ? 'bg-[#137e19] hover:bg-[#0e5c12]' : 'bg-[#f26522] hover:bg-[#d94f12]'
-                                    } text-white text-xs font-semibold h-8 px-4 flex items-center gap-1.5 shadow-xs cursor-pointer`}
+                                    className={`${modalMode === 'add' ? 'bg-[#137e19] hover:bg-[#0e5c12]' : 'bg-[#f26522] hover:bg-[#d94f12]'
+                                        } text-white text-xs font-semibold h-8 px-4 flex items-center gap-1.5 shadow-xs cursor-pointer`}
                                 >
                                     {modalMode === 'add' ? <Plus className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
                                     {modalMode === 'add' ? 'Add Vehicle' : 'Save Changes'}
@@ -1098,7 +1075,7 @@ export default function MetadataPage() {
             {/* Delete Confirmation Modal */}
             {deleteConfirmRecord && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs transition-opacity duration-200">
-                    <div 
+                    <div
                         className="fixed inset-0"
                         onClick={() => setDeleteConfirmRecord(null)}
                     />
@@ -1119,7 +1096,7 @@ export default function MetadataPage() {
 
                         <p className="text-xs text-slate-600 leading-relaxed">
                             Are you sure you want to delete vehicle{' '}
-                            <span className="font-bold text-slate-900">{deleteConfirmRecord.asset}</span> ({deleteConfirmRecord.fleetId})? It will be permanently removed from vehicle metadata.
+                            <span className="font-bold text-slate-900">{deleteConfirmRecord.asset}</span> ({deleteConfirmRecord.fleetId})? It will be removed from vehicle metadata.
                         </p>
 
                         <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">

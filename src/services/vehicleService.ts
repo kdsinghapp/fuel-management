@@ -3,56 +3,10 @@ import { Vehicle, FuelEfficiencyTransaction, VehicleFuelUsage } from '@/types/ve
 import { FilterParams, PaginatedResponse } from '@/types/common';
 import { fuelIssueService } from './fuelIssueService';
 
-const DEFAULT_METADATA_MAP: Record<string, { dept: string; standardBRate: number }> = {
-  'BFE131': { dept: 'Security', standardBRate: 9 },
-  'BGZ364': { dept: '(10) TV', standardBRate: 6 },
-  'BHA990': { dept: '(2) SMT', standardBRate: 7 },
-  'BGW537': { dept: '(2) SMT', standardBRate: 7 },
-  'BEF900': { dept: '(14) FOUNDATION', standardBRate: 6 },
-  'BGA411': { dept: '(19) POOL', standardBRate: 6 },
-  'BFR347': { dept: '(15) MFS', standardBRate: 6 },
-  'BGV702': { dept: '(2) SMT', standardBRate: 6 },
-  'BGM794': { dept: '(10) TV', standardBRate: 6 },
-  'BGV703': { dept: '(8) TECHNICAL', standardBRate: 6 },
-  'BGU167': { dept: 'Operations', standardBRate: 9.5 },
-  'BHB744': { dept: 'Logistics', standardBRate: 6.5 },
-  'BGU152': { dept: 'Transport', standardBRate: 7.0 },
-  'BFZ143': { dept: 'Commercial', standardBRate: 8.5 },
-  'BGX465': { dept: 'Security', standardBRate: 7.0 },
-  'BFR447': { dept: 'Engineering', standardBRate: 7.0 },
-  'BHA964': { dept: 'Admin', standardBRate: 6.0 },
-  'OAC924': { dept: 'Field Ops', standardBRate: 7.5 },
-  'BGB042': { dept: 'Maintenance', standardBRate: 6.0 },
-  'BFR595': { dept: 'Transport', standardBRate: 8.0 },
-  'BHA965': { dept: 'Admin', standardBRate: 6.5 },
-  'BGW155': { dept: 'Operations', standardBRate: 7.0 },
-  'BGM793': { dept: '(10) TV', standardBRate: 6.5 },
-  'WAI269': { dept: 'Operations', standardBRate: 7.0 },
-  'BFS871': { dept: 'Security', standardBRate: 7.5 },
-  'BGA232': { dept: '(19) POOL', standardBRate: 7.5 },
-  'BGU177': { dept: 'Logistics', standardBRate: 8.0 },
-  'BFR093': { dept: '(15) MFS', standardBRate: 7.0 },
-  'BGP175': { dept: 'Commercial', standardBRate: 6.5 },
-  'BGZ311': { dept: '(10) TV', standardBRate: 8.0 },
-  'BHJ945': { dept: 'Field Ops', standardBRate: 6.5 },
-  'BGB043': { dept: 'Maintenance', standardBRate: 7.0 },
-  'BHA967': { dept: 'Admin', standardBRate: 11.0 },
-  'BHK109': { dept: 'Operations', standardBRate: 7.0 },
-  'BGT008': { dept: 'Logistics', standardBRate: 7.0 },
-  'BGT826': { dept: 'Logistics', standardBRate: 7.5 },
-  'BGK079': { dept: 'Transport', standardBRate: 6.5 },
-  'BGU154': { dept: 'Transport', standardBRate: 7.5 },
-};
-
 function getVehicleMetadataLookup(): Map<string, { dept: string; standardBRate: number }> {
   const map = new Map<string, { dept: string; standardBRate: number }>();
   
-  // 1. Base defaults
-  Object.entries(DEFAULT_METADATA_MAP).forEach(([key, val]) => {
-    map.set(key.trim().toUpperCase(), val);
-  });
-
-  // 2. Load from localStorage if present
+  // Load from localStorage if present
   if (typeof window !== 'undefined') {
     try {
       const storedKeys = Object.keys(localStorage).filter(k => k.startsWith('vehicle_metadata_'));
