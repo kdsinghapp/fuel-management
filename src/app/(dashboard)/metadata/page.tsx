@@ -371,7 +371,14 @@ export default function MetadataPage() {
         } else {
             if (!editingRecord) return;
             const updated = records.map((r) =>
-                r.id === editingRecord.id ? ({ ...r, ...formData } as VehicleMetadataRecord) : r
+                r.id === editingRecord.id
+                    ? ({
+                          ...r,
+                          ...formData,
+                          asset: formData.asset ? formData.asset.trim().toUpperCase() : r.asset,
+                          fleetId: formData.fleetId ? formData.fleetId.trim().toUpperCase() : r.fleetId,
+                      } as VehicleMetadataRecord)
+                    : r
             );
             saveRecordsToStorage(updated);
             setIsModalOpen(false);
@@ -863,39 +870,29 @@ export default function MetadataPage() {
                             <div className="grid grid-cols-2 gap-3.5">
                                 <div className="space-y-1">
                                     <label className="font-bold text-slate-700">
-                                        Vehicle Rego (Asset) {modalMode === 'add' && <span className="text-rose-500">*</span>}
+                                        Vehicle Rego (Asset) <span className="text-rose-500">*</span>
                                     </label>
                                     <input
                                         type="text"
-                                        required={modalMode === 'add'}
-                                        disabled={modalMode === 'edit'}
+                                        required
                                         placeholder="e.g. BFE131"
                                         value={formData.asset || ''}
                                         onChange={(e) => setFormData({ ...formData, asset: e.target.value.toUpperCase() })}
-                                        className={`w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] ${
-                                            modalMode === 'edit'
-                                                ? 'bg-slate-100 text-slate-600 font-bold cursor-not-allowed border-slate-200'
-                                                : 'bg-white text-slate-900 font-semibold'
-                                        }`}
+                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900 font-semibold"
                                     />
                                 </div>
 
                                 <div className="space-y-1">
                                     <label className="font-bold text-slate-700">
-                                        Fleet ID {modalMode === 'add' && <span className="text-rose-500">*</span>}
+                                        Fleet ID <span className="text-rose-500">*</span>
                                     </label>
                                     <input
                                         type="text"
-                                        required={modalMode === 'add'}
-                                        disabled={modalMode === 'edit'}
+                                        required
                                         placeholder="e.g. FL-101"
                                         value={formData.fleetId || ''}
                                         onChange={(e) => setFormData({ ...formData, fleetId: e.target.value.toUpperCase() })}
-                                        className={`w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] ${
-                                            modalMode === 'edit'
-                                                ? 'bg-slate-100 text-slate-600 font-bold cursor-not-allowed border-slate-200'
-                                                : 'bg-white text-slate-900 font-semibold'
-                                        }`}
+                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900 font-semibold"
                                     />
                                 </div>
                             </div>
