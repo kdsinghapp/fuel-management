@@ -3,6 +3,7 @@ import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import ExcelJS from "exceljs";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -107,106 +108,97 @@ export function exportToCSV(filename: string, headers: string[], rows: any[][]) 
   document.body.removeChild(link);
 }
 
-function escapeXml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
-export function exportToExcel(filename: string, headers: string[], rows: any[][], sheetName = 'Sheet1') {
-  // Calculate column widths based on longest content
-  const colWidths = headers.map((h, colIdx) => {
-    let maxLen = h.length;
-    for (let i = 0; i < Math.min(rows.length, 100); i++) {
-      const valStr = String(rows[i]?.[colIdx] ?? '');
-      if (valStr.length > maxLen) {
-        maxLen = valStr.length;
-      }
-    }
-    return Math.min(Math.max(maxLen * 7.5 + 16, 70), 220);
+export async function exportToExcel(filename: string, headers: string[], rows: any[][], sheetName = 'Sheet1') {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet(sheetName, {
+    views: [{ showGridLines: false }]
   });
 
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:o="urn:schemas-microsoft-com:office:office"
- xmlns:x="urn:schemas-microsoft-com:office:excel"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:html="http://www.w3.org/TR/REC-html40">
- <Styles>
-  <Style ss:ID="Default" ss:Name="Normal">
-   <Alignment ss:Vertical="Center"/>
-   <Borders/>
-   <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#000000"/>
-   <Interior/>
-   <NumberFormat/>
-   <Protection/>
-  </Style>
-  <Style ss:ID="Header">
-   <Font ss:FontName="Calibri" ss:Bold="1" ss:Color="#FFFFFF" ss:Size="11"/>
-   <Interior ss:Color="#F26522" ss:Pattern="Solid"/>
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Borders>
-     <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#EA580C"/>
-     <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#EA580C"/>
-     <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#EA580C"/>
-     <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#EA580C"/>
-   </Borders>
-  </Style>
-  <Style ss:ID="RowEven">
-   <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#1E293B"/>
-   <Interior ss:Color="#FFFFFF" ss:Pattern="Solid"/>
-   <Alignment ss:Vertical="Center"/>
-   <Borders>
-     <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-     <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-     <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-     <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-   </Borders>
-  </Style>
-  <Style ss:ID="RowOdd">
-   <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#1E293B"/>
-   <Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/>
-   <Alignment ss:Vertical="Center"/>
-   <Borders>
-     <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-     <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-     <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-     <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-   </Borders>
-  </Style>
- </Styles>
- <Worksheet ss:Name="${escapeXml(sheetName)}">
-  <Table ss:ExpandedColumnCount="${headers.length}" ss:ExpandedRowCount="${rows.length + 1}">
-   ${colWidths.map(w => `<Column ss:Width="${w}"/>`).join('\n   ')}
-   <Row ss:Height="24">
-    ${headers.map(h => `<Cell ss:StyleID="Header"><Data ss:Type="String">${escapeXml(h)}</Data></Cell>`).join('')}
-   </Row>
-   ${rows.map((row, idx) => `
-   <Row ss:Height="20">
-    ${row.map(val => {
-      const isNum = typeof val === 'number' && !isNaN(val);
-      return `<Cell ss:StyleID="${idx % 2 === 0 ? 'RowEven' : 'RowOdd'}"><Data ss:Type="${isNum ? 'Number' : 'String'}">${escapeXml(String(val ?? ''))}</Data></Cell>`;
-    }).join('')}
-   </Row>
-   `).join('')}
-  </Table>
- </Worksheet>
-</Workbook>`;
+  // Add header row
+  const headerRow = worksheet.addRow(headers);
+  headerRow.height = 26;
+  headerRow.eachCell((cell) => {
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFF26522' } // Brand Orange
+    };
+    cell.font = {
+      name: 'Calibri',
+      size: 11,
+      bold: true,
+      color: { argb: 'FFFFFFFF' }
+    };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.border = {
+      top: { style: 'thin', color: { argb: 'FFEA580C' } },
+      left: { style: 'thin', color: { argb: 'FFEA580C' } },
+      bottom: { style: 'thin', color: { argb: 'FFEA580C' } },
+      right: { style: 'thin', color: { argb: 'FFEA580C' } }
+    };
+  });
 
-  const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+  // Add data rows
+  rows.forEach((row, idx) => {
+    const dataRow = worksheet.addRow(row);
+    dataRow.height = 21;
+    const isEven = idx % 2 === 0;
+    dataRow.eachCell({ includeEmpty: true }, (cell) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFF8FAFC' }
+      };
+      cell.font = {
+        name: 'Calibri',
+        size: 10,
+        color: { argb: 'FF1E293B' }
+      };
+      cell.alignment = { vertical: 'middle' };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+      };
+    });
+  });
+
+  // Auto-calculate column widths with good spacing
+  worksheet.columns.forEach((column, index) => {
+    if (index < headers.length) {
+      let maxLength = headers[index] ? String(headers[index]).length : 10;
+      for (let i = 0; i < Math.min(rows.length, 100); i++) {
+        const cellValue = rows[i]?.[index];
+        if (cellValue !== undefined && cellValue !== null) {
+          const len = String(cellValue).length;
+          if (len > maxLength) {
+            maxLength = len;
+          }
+        }
+      }
+      column.width = Math.min(Math.max(maxLength * 1.25 + 5, 16), 45);
+    }
+  });
+
+  // Hide unused columns so spreadsheet ends exactly where data ends
+  for (let colIdx = headers.length + 1; colIdx <= 40; colIdx++) {
+    worksheet.getColumn(colIdx).hidden = true;
+  }
+
+  // Export buffer and trigger download
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  const fileWithExt = filename.endsWith('.xls') ? filename : `${filename.replace(/\.[^/.]+$/, '')}.xls`;
+  const fileWithExt = filename.endsWith('.xlsx') ? filename : `${filename.replace(/\.[^/.]+$/, '')}.xlsx`;
   link.setAttribute('download', fileWithExt);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 export function exportToPDF(

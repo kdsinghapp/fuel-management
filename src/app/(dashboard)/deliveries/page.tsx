@@ -182,7 +182,7 @@ export default function DeliveriesPage() {
             if (format === 'csv') {
                 exportToCSV(`deliveries_${dateLabel}.csv`, headers, rows);
             } else if (format === 'excel') {
-                exportToExcel(`deliveries_${dateLabel}.xls`, headers, rows, 'Deliveries');
+                exportToExcel(`deliveries_${dateLabel}.xlsx`, headers, rows, 'Deliveries');
             } else if (format === 'pdf') {
                 exportToPDF('Fuel Deliveries Report', headers, rows);
             }
@@ -302,7 +302,7 @@ export default function DeliveriesPage() {
                                             </div>
                                             <div>
                                                 <div className="font-semibold text-slate-800">Excel</div>
-                                                <div className="text-[10px] text-slate-400">Spreadsheet (.xls)</div>
+                                                <div className="text-[10px] text-slate-400">Spreadsheet (.xlsx)</div>
                                             </div>
                                         </button>
                                         <button

@@ -209,7 +209,7 @@ export default function ReconciliationPage() {
             if (format === 'csv') {
                 exportToCSV(`reconciliation_${dateLabel}.csv`, headers, rows);
             } else if (format === 'excel') {
-                exportToExcel(`reconciliation_${dateLabel}.xls`, headers, rows, 'Reconciliation');
+                exportToExcel(`reconciliation_${dateLabel}.xlsx`, headers, rows, 'Reconciliation');
             } else if (format === 'pdf') {
                 exportToPDF('Reconciliation Report', headers, rows);
             }
@@ -304,7 +304,7 @@ export default function ReconciliationPage() {
                                         </div>
                                         <div>
                                             <div className="font-semibold text-slate-800">Excel</div>
-                                            <div className="text-[10px] text-slate-400">Spreadsheet (.xls)</div>
+                                            <div className="text-[10px] text-slate-400">Spreadsheet (.xlsx)</div>
                                         </div>
                                     </button>
                                     <button

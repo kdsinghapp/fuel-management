@@ -272,7 +272,7 @@ export default function FuelEfficiencySummaryPage() {
             if (format === 'csv') {
                 exportToCSV(`fuel_efficiency_summary_${dateLabel}.csv`, headers, rows);
             } else if (format === 'excel') {
-                exportToExcel(`fuel_efficiency_summary_${dateLabel}.xls`, headers, rows, 'Efficiency Summary');
+                exportToExcel(`fuel_efficiency_summary_${dateLabel}.xlsx`, headers, rows, 'Efficiency Summary');
             } else if (format === 'pdf') {
                 exportToPDF('Fuel Efficiency Summary Report', headers, rows);
             }
@@ -408,7 +408,7 @@ export default function FuelEfficiencySummaryPage() {
                                                 </div>
                                                 <div>
                                                     <div className="font-semibold text-slate-800">Excel</div>
-                                                    <div className="text-[10px] text-slate-400">Spreadsheet (.xls)</div>
+                                                    <div className="text-[10px] text-slate-400">Spreadsheet (.xlsx)</div>
                                                 </div>
                                             </button>
                                             <button

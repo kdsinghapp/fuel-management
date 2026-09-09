@@ -225,7 +225,7 @@ export default function VehiclesPage() {
             if (format === 'csv') {
                 exportToCSV(`fuel_efficiency_${dateLabel}.csv`, headers, rows);
             } else if (format === 'excel') {
-                exportToExcel(`fuel_efficiency_${dateLabel}.xls`, headers, rows, 'Fuel Efficiency');
+                exportToExcel(`fuel_efficiency_${dateLabel}.xlsx`, headers, rows, 'Fuel Efficiency');
             } else if (format === 'pdf') {
                 exportToPDF('Vehicle Fuel Efficiency Report', headers, rows);
             }
@@ -387,7 +387,7 @@ export default function VehiclesPage() {
                                                 </div>
                                                 <div>
                                                     <div className="font-semibold text-slate-800">Excel</div>
-                                                    <div className="text-[10px] text-slate-400">Spreadsheet (.xls)</div>
+                                                    <div className="text-[10px] text-slate-400">Spreadsheet (.xlsx)</div>
                                                 </div>
                                             </button>
                                             <button

@@ -207,7 +207,7 @@ export default function FuelIssuesPage() {
             if (format === 'csv') {
                 exportToCSV(`fuel_issues_${dateLabel}.csv`, headers, rows);
             } else if (format === 'excel') {
-                exportToExcel(`fuel_issues_${dateLabel}.xls`, headers, rows, 'Fuel Issues');
+                exportToExcel(`fuel_issues_${dateLabel}.xlsx`, headers, rows, 'Fuel Issues');
             } else if (format === 'pdf') {
                 exportToPDF('Fuel Issues Report', headers, rows);
             }
@@ -329,7 +329,7 @@ export default function FuelIssuesPage() {
                                                 </div>
                                                 <div>
                                                     <div className="font-semibold text-slate-800">Excel</div>
-                                                    <div className="text-[10px] text-slate-400">Spreadsheet (.xls)</div>
+                                                    <div className="text-[10px] text-slate-400">Spreadsheet (.xlsx)</div>
                                                 </div>
                                             </button>
                                             <button

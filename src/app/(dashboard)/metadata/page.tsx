@@ -387,7 +387,7 @@ export default function MetadataPage() {
             if (format === 'csv') {
                 exportToCSV(`vehicle_metadata_${clientLabel}.csv`, headers, rows);
             } else if (format === 'excel') {
-                exportToExcel(`vehicle_metadata_${clientLabel}.xls`, headers, rows, 'Vehicle Metadata');
+                exportToExcel(`vehicle_metadata_${clientLabel}.xlsx`, headers, rows, 'Vehicle Metadata');
             } else if (format === 'pdf') {
                 exportToPDF('Vehicle Metadata Report', headers, rows);
             }
@@ -537,7 +537,7 @@ export default function MetadataPage() {
                                                 </div>
                                                 <div>
                                                     <div className="font-semibold text-slate-800">Excel</div>
-                                                    <div className="text-[10px] text-slate-400">Spreadsheet (.xls)</div>
+                                                    <div className="text-[10px] text-slate-400">Spreadsheet (.xlsx)</div>
                                                 </div>
                                             </button>
                                             <button
