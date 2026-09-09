@@ -15,7 +15,9 @@ import {
     FileSpreadsheet,
     FileText,
     FileDown,
-    Plus
+    Plus,
+    Trash2,
+    AlertTriangle
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -209,11 +211,16 @@ export default function MetadataPage() {
     const [isExporting, setIsExporting] = useState<string | null>(null);
     const exportRef = useRef<HTMLDivElement>(null);
 
+    // Row action dropdown and delete confirmation states
+    const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+    const [deleteConfirmRecord, setDeleteConfirmRecord] = useState<VehicleMetadataRecord | null>(null);
+
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
                 setExportOpen(false);
             }
+            setOpenDropdownId(null);
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -383,6 +390,18 @@ export default function MetadataPage() {
             saveRecordsToStorage(updated);
             setIsModalOpen(false);
         }
+    };
+
+    const handleDeleteClick = (rec: VehicleMetadataRecord) => {
+        setOpenDropdownId(null);
+        setDeleteConfirmRecord(rec);
+    };
+
+    const handleConfirmDelete = () => {
+        if (!deleteConfirmRecord) return;
+        const updated = records.filter((r) => r.id !== deleteConfirmRecord.id);
+        saveRecordsToStorage(updated);
+        setDeleteConfirmRecord(null);
     };
 
     // Filter data
@@ -750,17 +769,51 @@ export default function MetadataPage() {
                                             <td className="py-1.5 px-3 text-right text-slate-600 align-middle">
                                                 {item.standardBRate}
                                             </td>
-                                            <td className="py-1.5 px-3 text-center align-middle">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => handleOpenEdit(item)}
-                                                    className="h-7 px-2.5 text-xs text-[#f26522] border-[#f26522]/30 hover:bg-orange-50 hover:text-[#d45316] font-semibold flex items-center gap-1 rounded shadow-2xs mx-auto"
-                                                    title="Edit Vehicle"
-                                                >
-                                                    <Edit2 className="h-3 w-3" />
-                                                    Edit
-                                                </Button>
+                                            <td className="py-1.5 px-3 text-center align-middle relative">
+                                                <div className="relative inline-block text-left">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setOpenDropdownId((prev) => (prev === item.id ? null : item.id));
+                                                        }}
+                                                        className="h-7 px-2 text-xs text-[#f26522] border-[#f26522]/30 hover:bg-orange-50 hover:text-[#d45316] font-semibold flex items-center gap-1 rounded shadow-2xs mx-auto cursor-pointer"
+                                                        title="Action"
+                                                    >
+                                                        <Edit2 className="h-3 w-3" />
+                                                        <span>Edit</span>
+                                                        <ChevronDown className={`h-2.5 w-2.5 transition-transform duration-150 ${openDropdownId === item.id ? 'rotate-180' : ''}`} />
+                                                    </Button>
+
+                                                    {openDropdownId === item.id && (
+                                                        <div 
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            className="absolute right-0 mt-1 w-28 bg-white rounded-md shadow-xl border border-slate-200 py-1 z-50 animate-in fade-in zoom-in-95 duration-100"
+                                                        >
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setOpenDropdownId(null);
+                                                                    handleOpenEdit(item);
+                                                                }}
+                                                                className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-orange-50 hover:text-[#f26522] flex items-center gap-2 transition-colors cursor-pointer font-medium"
+                                                            >
+                                                                <Edit2 className="h-3.5 w-3.5 text-slate-500" />
+                                                                <span>Edit</span>
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDeleteClick(item)}
+                                                                className="w-full text-left px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors cursor-pointer font-medium border-t border-slate-100"
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5 text-rose-500" />
+                                                                <span>Delete</span>
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))
@@ -1038,6 +1091,55 @@ export default function MetadataPage() {
                                 </Button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirmRecord && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs transition-opacity duration-200">
+                    <div 
+                        className="fixed inset-0"
+                        onClick={() => setDeleteConfirmRecord(null)}
+                    />
+                    <div className="relative w-full max-w-md bg-white shadow-2xl rounded-2xl z-10 border border-slate-200 overflow-hidden flex flex-col p-6 space-y-4">
+                        <div className="flex items-center gap-3.5">
+                            <div className="p-3 bg-rose-100 text-rose-600 rounded-xl">
+                                <Trash2 className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-900 text-base">
+                                    Delete Vehicle
+                                </h3>
+                                <p className="text-xs text-slate-500">
+                                    This action cannot be undone.
+                                </p>
+                            </div>
+                        </div>
+
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                            Are you sure you want to delete vehicle{' '}
+                            <span className="font-bold text-slate-900">{deleteConfirmRecord.asset}</span> ({deleteConfirmRecord.fleetId})? It will be permanently removed from vehicle metadata.
+                        </p>
+
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setDeleteConfirmRecord(null)}
+                                className="h-8 px-3.5 text-xs font-semibold cursor-pointer"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="button"
+                                onClick={handleConfirmDelete}
+                                className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold h-8 px-4 flex items-center gap-1.5 shadow-xs cursor-pointer"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Delete
+                            </Button>
+                        </div>
                     </div>
                 </div>
             )}
