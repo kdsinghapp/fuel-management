@@ -14,7 +14,8 @@ import {
     ChevronDown,
     FileSpreadsheet,
     FileText,
-    FileDown
+    FileDown,
+    Plus
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -199,8 +200,9 @@ export default function MetadataPage() {
     const [selectedDept, setSelectedDept] = useState('');
     const [selectedMake, setSelectedMake] = useState('');
 
-    // Modal Popup state for Editing
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    // Modal Popup state for Add / Edit
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
     const [editingRecord, setEditingRecord] = useState<VehicleMetadataRecord | null>(null);
     const [formData, setFormData] = useState<Partial<VehicleMetadataRecord>>({});
     const [exportOpen, setExportOpen] = useState(false);
@@ -305,22 +307,75 @@ export default function MetadataPage() {
         setPage(1);
     };
 
-    // Open center modal to edit
-    const handleOpenEdit = (rec: VehicleMetadataRecord) => {
-        setEditingRecord(rec);
-        setFormData({ ...rec });
-        setIsEditModalOpen(true);
+    // Open modal to add new vehicle
+    const handleOpenAdd = () => {
+        setModalMode('add');
+        setEditingRecord(null);
+        setFormData({
+            asset: '',
+            fleetId: '',
+            dept: '',
+            year: new Date().getFullYear(),
+            make: '',
+            model: '',
+            classType: '',
+            modeOfUse: 'On-Duty Operational (24/7)',
+            monthlyMileageAllowance: '-',
+            burnRate: '',
+            fuelLimit: 'No Limit',
+            standardBRate: '',
+        });
+        setIsModalOpen(true);
     };
 
-    const handleSaveEdit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!editingRecord) return;
+    // Open modal to edit existing vehicle
+    const handleOpenEdit = (rec: VehicleMetadataRecord) => {
+        setModalMode('edit');
+        setEditingRecord(rec);
+        setFormData({ ...rec });
+        setIsModalOpen(true);
+    };
 
-        const updated = records.map((r) =>
-            r.id === editingRecord.id ? ({ ...r, ...formData } as VehicleMetadataRecord) : r
-        );
-        saveRecordsToStorage(updated);
-        setIsEditModalOpen(false);
+    const handleSave = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (modalMode === 'add') {
+            if (!formData.asset?.trim()) {
+                return;
+            }
+            const newRecord: VehicleMetadataRecord = {
+                id: Date.now().toString(),
+                asset: (formData.asset || '').trim().toUpperCase(),
+                fleetId: (formData.fleetId || '').trim().toUpperCase() || `FL-${100 + records.length + 1}`,
+                dept: formData.dept?.trim() || 'General',
+                year: formData.year || new Date().getFullYear(),
+                make: (formData.make || '').trim().toUpperCase() || 'N/A',
+                model: (formData.model || '').trim().toUpperCase() || 'N/A',
+                classType: formData.classType?.trim() || '-',
+                modeOfUse: formData.modeOfUse?.trim() || 'On-Duty Operational (24/7)',
+                monthlyMileageAllowance: formData.monthlyMileageAllowance !== undefined && formData.monthlyMileageAllowance !== '' 
+                    ? (isNaN(Number(formData.monthlyMileageAllowance)) ? formData.monthlyMileageAllowance : Number(formData.monthlyMileageAllowance))
+                    : '-',
+                burnRate: formData.burnRate !== undefined && formData.burnRate !== '' 
+                    ? (isNaN(Number(formData.burnRate)) ? formData.burnRate : Number(formData.burnRate))
+                    : '-',
+                fuelLimit: formData.fuelLimit !== undefined && formData.fuelLimit !== '' 
+                    ? (isNaN(Number(formData.fuelLimit)) ? formData.fuelLimit : Number(formData.fuelLimit))
+                    : 'No Limit',
+                standardBRate: formData.standardBRate !== undefined && formData.standardBRate !== '' 
+                    ? (isNaN(Number(formData.standardBRate)) ? formData.standardBRate : Number(formData.standardBRate))
+                    : '-',
+            };
+            const updated = [newRecord, ...records];
+            saveRecordsToStorage(updated);
+            setIsModalOpen(false);
+        } else {
+            if (!editingRecord) return;
+            const updated = records.map((r) =>
+                r.id === editingRecord.id ? ({ ...r, ...formData } as VehicleMetadataRecord) : r
+            );
+            saveRecordsToStorage(updated);
+            setIsModalOpen(false);
+        }
     };
 
     // Filter data
@@ -404,16 +459,16 @@ export default function MetadataPage() {
             <Card className="rounded border border-slate-200 shadow-sm p-2.5 mb-0 flex-1 flex flex-col overflow-hidden">
                 <CardContent className="p-0 flex-1 flex flex-col overflow-hidden justify-between">
                     {/* Filter bar container matching single horizontal row structure */}
-                    <div className="mb-2 py-1.5 px-3 bg-[#eefcf2] border border-[#d6f2e1] rounded w-full shrink-0 relative z-20 overflow-visible">
-                        <div className="flex flex-wrap items-end justify-between gap-2.5">
+                    <div className="mb-2 py-1.5 px-3 bg-[#eefcf2] border border-[#d6f2e1] rounded w-full shrink-0 relative z-20 overflow-x-auto overflow-y-visible">
+                        <div className="flex items-end justify-between gap-2 min-w-max">
                             {/* Left Filters Group */}
-                            <div className="flex flex-wrap items-end gap-2.5 shrink-0">
+                            <div className="flex items-end gap-2 shrink-0">
                                 {/* Total Assets Metric */}
                                 <div className="flex flex-col gap-1 shrink-0">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                                         Total Assets
                                     </label>
-                                    <div className="flex items-center px-3 border border-slate-200 bg-white rounded h-8 shadow-xs">
+                                    <div className="flex items-center px-2.5 border border-slate-200 bg-white rounded h-8 shadow-xs">
                                         <span className="text-xs font-bold text-[#138024] whitespace-nowrap">
                                             {filteredData.length} Vehicles
                                         </span>
@@ -421,7 +476,7 @@ export default function MetadataPage() {
                                 </div>
 
                                 {/* Search Input Group */}
-                                <div className="flex flex-col gap-1 w-[200px] sm:w-[240px] shrink-0">
+                                <div className="flex flex-col gap-1 w-[180px] lg:w-[210px] shrink-0">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                                         Search Rego / Fleet
                                     </label>
@@ -441,15 +496,15 @@ export default function MetadataPage() {
                                 </div>
 
                                 {/* Department Filter */}
-                                <div className="flex flex-col gap-1 w-[140px] shrink-0">
+                                <div className="flex flex-col gap-1 w-[130px] shrink-0">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                                         Department
                                     </label>
                                     <select
                                         value={selectedDept}
                                         onChange={(e) => {
-                                            setSelectedDept(e.target.value);
-                                            setPage(1);
+                                             setSelectedDept(e.target.value);
+                                             setPage(1);
                                         }}
                                         className="w-full h-8 px-2 text-xs border border-slate-200 rounded bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522]"
                                     >
@@ -463,7 +518,7 @@ export default function MetadataPage() {
                                 </div>
 
                                 {/* Make Filter */}
-                                <div className="flex flex-col gap-1 w-[120px] shrink-0">
+                                <div className="flex flex-col gap-1 w-[110px] shrink-0">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                                         Make
                                     </label>
@@ -487,10 +542,21 @@ export default function MetadataPage() {
 
                             {/* Right Action Buttons Group */}
                             <div className="flex items-end gap-1.5 shrink-0">
+                                {/* Add Vehicle Button */}
+                                <Button
+                                    type="button"
+                                    onClick={handleOpenAdd}
+                                    className="bg-[#137e19] hover:bg-[#0e5c12] text-xs font-semibold text-white px-3 rounded h-8 border border-[#137e19] transition-colors duration-200 flex items-center justify-center gap-1.5 shadow-xs cursor-pointer whitespace-nowrap"
+                                    title="Add New Vehicle"
+                                >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    Add Vehicle
+                                </Button>
+
                                 {/* Search Button */}
                                 <Button
                                     onClick={handleSearch}
-                                    className="bg-[#f26522] hover:bg-[#d94f12] text-xs font-semibold text-white px-3.5 rounded h-8 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5"
+                                    className="bg-[#f26522] hover:bg-[#d94f12] text-xs font-semibold text-white px-3 rounded h-8 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
                                 >
                                     <Sliders className="h-3.5 w-3.5" />
                                     Search
@@ -501,7 +567,7 @@ export default function MetadataPage() {
                                     variant="outline"
                                     size="sm"
                                     onClick={handleReset}
-                                    className="h-8 px-3.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-1.5 text-xs font-semibold"
+                                    className="h-8 px-2.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-1.5 text-xs font-semibold whitespace-nowrap"
                                     title="Reset filters"
                                 >
                                     <RotateCcw className="h-3.5 w-3.5" />
@@ -513,7 +579,7 @@ export default function MetadataPage() {
                                     <Button
                                         type="button"
                                         onClick={() => setExportOpen((prev) => !prev)}
-                                        className="bg-[#f26522] hover:bg-[#d94f12] text-white text-xs font-semibold rounded h-8 px-3 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                                        className="bg-[#f26522] hover:bg-[#d94f12] text-white text-xs font-semibold rounded h-8 px-2.5 border border-[#f26522] transition-colors duration-200 flex items-center justify-center gap-1 cursor-pointer shadow-xs whitespace-nowrap"
                                         title="Export Options"
                                     >
                                         <Download className="h-3.5 w-3.5" />
@@ -755,59 +821,81 @@ export default function MetadataPage() {
                 </CardContent>
             </Card>
 
-            {/* Centered Modal Popup for Editing Vehicle */}
-            {isEditModalOpen && editingRecord && (
+            {/* Centered Modal Popup for Add / Edit Vehicle */}
+            {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs transition-opacity duration-200">
                     <div 
                         className="fixed inset-0"
-                        onClick={() => setIsEditModalOpen(false)}
+                        onClick={() => setIsModalOpen(false)}
                     />
                     <div className="relative w-full max-w-xl bg-white shadow-2xl rounded-2xl z-10 border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
                         {/* Modal Header */}
                         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-linear-to-r from-orange-500/15 via-green-500/10 to-transparent">
                             <div className="flex items-center gap-3">
-                                <div className="p-2.5 bg-[#f26522] text-white rounded-lg shadow-xs">
+                                <div className={`p-2.5 ${modalMode === 'add' ? 'bg-[#137e19]' : 'bg-[#f26522]'} text-white rounded-lg shadow-xs`}>
                                     <Car className="h-5 w-5" />
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-slate-900 text-base">
-                                        Edit Vehicle
+                                        {modalMode === 'add' ? 'Add Vehicle' : 'Edit Vehicle'}
                                     </h3>
                                     <p className="text-xs text-slate-500 font-medium">
-                                        Asset: <span className="font-bold text-slate-800">{editingRecord.asset}</span> ({editingRecord.fleetId})
+                                        {modalMode === 'add' ? (
+                                            'Enter new fleet vehicle specifications, allowances and fuel limits'
+                                        ) : (
+                                            <>Asset: <span className="font-bold text-slate-800">{editingRecord?.asset}</span> ({editingRecord?.fleetId})</>
+                                        )}
                                     </p>
                                 </div>
                             </div>
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => setIsEditModalOpen(false)}
-                                className="h-8 w-8 p-0 rounded-full hover:bg-slate-200/60 text-slate-500"
+                                onClick={() => setIsModalOpen(false)}
+                                className="h-8 w-8 p-0 rounded-full hover:bg-slate-200/60 text-slate-500 cursor-pointer"
                             >
                                 <X className="h-4 w-4" />
                             </Button>
                         </div>
 
                         {/* Modal Body / Form */}
-                        <form onSubmit={handleSaveEdit} className="flex-1 overflow-y-auto p-6 space-y-4 text-xs">
+                        <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-6 space-y-4 text-xs">
                             <div className="grid grid-cols-2 gap-3.5">
                                 <div className="space-y-1">
-                                    <label className="font-bold text-slate-700">Vehicle Rego (Asset)</label>
+                                    <label className="font-bold text-slate-700">
+                                        Vehicle Rego (Asset) {modalMode === 'add' && <span className="text-rose-500">*</span>}
+                                    </label>
                                     <input
                                         type="text"
-                                        disabled
+                                        required={modalMode === 'add'}
+                                        disabled={modalMode === 'edit'}
+                                        placeholder="e.g. BFE131"
                                         value={formData.asset || ''}
-                                        className="w-full h-8 px-2.5 border border-slate-200 bg-slate-100 rounded text-slate-600 font-bold cursor-not-allowed"
+                                        onChange={(e) => setFormData({ ...formData, asset: e.target.value.toUpperCase() })}
+                                        className={`w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] ${
+                                            modalMode === 'edit'
+                                                ? 'bg-slate-100 text-slate-600 font-bold cursor-not-allowed border-slate-200'
+                                                : 'bg-white text-slate-900 font-semibold'
+                                        }`}
                                     />
                                 </div>
 
                                 <div className="space-y-1">
-                                    <label className="font-bold text-slate-700">Fleet ID</label>
+                                    <label className="font-bold text-slate-700">
+                                        Fleet ID {modalMode === 'add' && <span className="text-rose-500">*</span>}
+                                    </label>
                                     <input
                                         type="text"
-                                        disabled
+                                        required={modalMode === 'add'}
+                                        disabled={modalMode === 'edit'}
+                                        placeholder="e.g. FL-101"
                                         value={formData.fleetId || ''}
-                                        className="w-full h-8 px-2.5 border border-slate-200 bg-slate-100 rounded text-slate-600 font-bold cursor-not-allowed"
+                                        onChange={(e) => setFormData({ ...formData, fleetId: e.target.value.toUpperCase() })}
+                                        className={`w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] ${
+                                            modalMode === 'edit'
+                                                ? 'bg-slate-100 text-slate-600 font-bold cursor-not-allowed border-slate-200'
+                                                : 'bg-white text-slate-900 font-semibold'
+                                        }`}
                                     />
                                 </div>
                             </div>
@@ -820,7 +908,7 @@ export default function MetadataPage() {
                                         placeholder="e.g. Security, (10) TV"
                                         value={formData.dept || ''}
                                         onChange={(e) => setFormData({ ...formData, dept: e.target.value })}
-                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522]"
+                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
                                 </div>
 
@@ -828,10 +916,10 @@ export default function MetadataPage() {
                                     <label className="font-bold text-slate-700">Year</label>
                                     <input
                                         type="number"
-                                        placeholder="e.g. 2024"
+                                        placeholder="e.g. 2025"
                                         value={formData.year || ''}
                                         onChange={(e) => setFormData({ ...formData, year: Number(e.target.value) })}
-                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522]"
+                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
                                 </div>
                             </div>
@@ -844,7 +932,7 @@ export default function MetadataPage() {
                                         placeholder="e.g. TOYOTA, FORD"
                                         value={formData.make || ''}
                                         onChange={(e) => setFormData({ ...formData, make: e.target.value.toUpperCase() })}
-                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522]"
+                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
                                 </div>
 
@@ -855,7 +943,7 @@ export default function MetadataPage() {
                                         placeholder="e.g. HI-ACE, RANGER"
                                         value={formData.model || ''}
                                         onChange={(e) => setFormData({ ...formData, model: e.target.value.toUpperCase() })}
-                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522]"
+                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
                                 </div>
                             </div>
@@ -868,7 +956,7 @@ export default function MetadataPage() {
                                         placeholder="e.g. 15 SEAT, DBLCAB"
                                         value={formData.classType || ''}
                                         onChange={(e) => setFormData({ ...formData, classType: e.target.value })}
-                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522]"
+                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
                                 </div>
 
@@ -879,7 +967,7 @@ export default function MetadataPage() {
                                         placeholder="e.g. On-Duty Operational (24/7)"
                                         value={formData.modeOfUse || ''}
                                         onChange={(e) => setFormData({ ...formData, modeOfUse: e.target.value })}
-                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522]"
+                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
                                 </div>
                             </div>
@@ -892,7 +980,7 @@ export default function MetadataPage() {
                                         placeholder="e.g. 1500 or -"
                                         value={formData.monthlyMileageAllowance !== undefined ? formData.monthlyMileageAllowance : ''}
                                         onChange={(e) => setFormData({ ...formData, monthlyMileageAllowance: e.target.value })}
-                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522]"
+                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
                                 </div>
 
@@ -903,7 +991,7 @@ export default function MetadataPage() {
                                         placeholder="e.g. 17"
                                         value={formData.burnRate !== undefined ? formData.burnRate : ''}
                                         onChange={(e) => setFormData({ ...formData, burnRate: e.target.value })}
-                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522]"
+                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
                                 </div>
                             </div>
@@ -916,7 +1004,7 @@ export default function MetadataPage() {
                                         placeholder="e.g. 225 or No Limit"
                                         value={formData.fuelLimit !== undefined ? formData.fuelLimit : ''}
                                         onChange={(e) => setFormData({ ...formData, fuelLimit: e.target.value })}
-                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522]"
+                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
                                 </div>
 
@@ -927,7 +1015,7 @@ export default function MetadataPage() {
                                         placeholder="e.g. 7"
                                         value={formData.standardBRate !== undefined ? formData.standardBRate : ''}
                                         onChange={(e) => setFormData({ ...formData, standardBRate: e.target.value })}
-                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522]"
+                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
                                 </div>
                             </div>
@@ -937,17 +1025,19 @@ export default function MetadataPage() {
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    onClick={() => setIsEditModalOpen(false)}
-                                    className="h-8 px-3.5 text-xs font-semibold"
+                                    onClick={() => setIsModalOpen(false)}
+                                    className="h-8 px-3.5 text-xs font-semibold cursor-pointer"
                                 >
                                     Cancel
                                 </Button>
                                 <Button
                                     type="submit"
-                                    className="bg-[#f26522] hover:bg-[#d94f12] text-white text-xs font-semibold h-8 px-4 flex items-center gap-1.5 shadow-xs"
+                                    className={`${
+                                        modalMode === 'add' ? 'bg-[#137e19] hover:bg-[#0e5c12]' : 'bg-[#f26522] hover:bg-[#d94f12]'
+                                    } text-white text-xs font-semibold h-8 px-4 flex items-center gap-1.5 shadow-xs cursor-pointer`}
                                 >
-                                    <Save className="h-3.5 w-3.5" />
-                                    Save Changes
+                                    {modalMode === 'add' ? <Plus className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
+                                    {modalMode === 'add' ? 'Add Vehicle' : 'Save Changes'}
                                 </Button>
                             </div>
                         </form>
