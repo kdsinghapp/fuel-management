@@ -1079,7 +1079,7 @@ export default function ReportsFullPage() {
                       { id: 'excel', label: 'Excel (.xlsx)', icon: FileSpreadsheet },
                       { id: 'pdf', label: 'PDF Document', icon: FileText },
                       { id: 'csv', label: 'CSV File', icon: FileDown },
-                      { id: 'inlineHtml', label: 'HTML Table', icon: Mail },
+                      // { id: 'inlineHtml', label: 'HTML Table', icon: Mail },
                     ].map((fmt) => {
                       const isChecked = selectedFormats.includes(fmt.id as ReportFormat);
                       const Icon = fmt.icon;
