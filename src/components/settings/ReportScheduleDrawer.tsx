@@ -27,6 +27,10 @@ import {
   History,
   FileDown,
   Info,
+  Droplet,
+  Truck,
+  Gauge,
+  FileBarChart,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CLIENTS } from '@/services/api';
@@ -43,46 +47,46 @@ import { useAuth } from '@/hooks/useAuth';
 
 const REPORT_OPTIONS: { id: ReportType; name: string; desc: string; icon: any }[] = [
   {
-    id: 'reconciliation',
-    name: 'Daily Reconciliation Report',
-    desc: 'Opening balance, deliveries, fuel issues, expected vs actual closing & variances',
-    icon: RefreshCw,
-  },
-  {
-    id: 'fuel-issues',
-    name: 'Fuel Issues & Transactions',
-    desc: 'Detailed log of all fuel issuances, vehicle IDs, drivers, pumps & DEM status',
-    icon: Fuel,
+    id: 'fuel-levels',
+    name: 'Fuel Levels',
+    desc: 'Storage tank dip readings, capacity percentages & low stock alerts',
+    icon: Droplet,
   },
   {
     id: 'deliveries',
-    name: 'Fuel Deliveries Report',
+    name: 'Deliveries',
     desc: 'Fuel refill logs, batch records, suppliers & delivered volumes',
+    icon: Truck,
+  },
+  {
+    id: 'fuel-issues',
+    name: 'Transactions',
+    desc: 'Detailed log of all fuel issuances, vehicle IDs, drivers, pumps & DEM status',
     icon: FileText,
   },
   {
-    id: 'fuel-levels',
-    name: 'Tank Levels & Capacity',
-    desc: 'Storage tank dip readings, capacity percentages & low stock alerts',
-    icon: Sliders,
-  },
-  {
     id: 'fuel-efficiency',
-    name: 'Vehicle Fuel Efficiency',
+    name: 'Fuel Efficiency',
     desc: 'Fleet vehicle burn rates (km/L, L/100km) vs standard benchmark rates',
-    icon: Clock,
-  },
-  {
-    id: 'fuel-limits',
-    name: 'Fuel Limits & Allowances',
-    desc: 'Vehicle monthly allowances, consumption thresholds and breach limits',
-    icon: Building2,
+    icon: Gauge,
   },
   {
     id: 'summary-all',
-    name: 'Master Operations Summary',
+    name: 'Fuel Efficiency Summary',
     desc: 'Consolidated executive report across all tanks, deliveries & fleet usage',
-    icon: ShieldCheck,
+    icon: FileBarChart,
+  },
+  {
+    id: 'fuel-limits',
+    name: 'Fuel Limits',
+    desc: 'Vehicle monthly allowances, consumption thresholds and breach limits',
+    icon: Sliders,
+  },
+  {
+    id: 'reconciliation',
+    name: 'Reconciliation',
+    desc: 'Opening balance, deliveries, fuel issues, expected vs actual closing & variances',
+    icon: RefreshCw,
   },
 ];
 

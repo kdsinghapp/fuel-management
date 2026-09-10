@@ -27,6 +27,10 @@ import {
   FileDown,
   Info,
   Sparkles,
+  Droplet,
+  Truck,
+  Gauge,
+  FileBarChart,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,46 +49,46 @@ import { useAuth } from '@/hooks/useAuth';
 
 const REPORT_OPTIONS: { id: ReportType; name: string; desc: string; icon: any }[] = [
   {
-    id: 'reconciliation',
-    name: 'Daily Reconciliation Report',
-    desc: 'Opening balance, deliveries, fuel issues, expected vs actual closing & variances',
-    icon: RefreshCw,
-  },
-  {
-    id: 'fuel-issues',
-    name: 'Fuel Issues & Transactions',
-    desc: 'Detailed log of all fuel issuances, vehicle IDs, drivers, pumps & DEM status',
-    icon: Fuel,
+    id: 'fuel-levels',
+    name: 'Fuel Levels',
+    desc: 'Storage tank dip readings, capacity percentages & low stock alerts',
+    icon: Droplet,
   },
   {
     id: 'deliveries',
-    name: 'Fuel Deliveries Report',
+    name: 'Deliveries',
     desc: 'Fuel refill logs, batch records, suppliers & delivered volumes',
+    icon: Truck,
+  },
+  {
+    id: 'fuel-issues',
+    name: 'Transactions',
+    desc: 'Detailed log of all fuel issuances, vehicle IDs, drivers, pumps & DEM status',
     icon: FileText,
   },
   {
-    id: 'fuel-levels',
-    name: 'Tank Levels & Capacity',
-    desc: 'Storage tank dip readings, capacity percentages & low stock alerts',
-    icon: Sliders,
-  },
-  {
     id: 'fuel-efficiency',
-    name: 'Vehicle Fuel Efficiency',
+    name: 'Fuel Efficiency',
     desc: 'Fleet vehicle burn rates (km/L, L/100km) vs standard benchmark rates',
-    icon: Clock,
-  },
-  {
-    id: 'fuel-limits',
-    name: 'Fuel Limits & Allowances',
-    desc: 'Vehicle monthly allowances, consumption thresholds and breach limits',
-    icon: Building2,
+    icon: Gauge,
   },
   {
     id: 'summary-all',
-    name: 'Master Operations Summary',
+    name: 'Fuel Efficiency Summary',
     desc: 'Consolidated executive report across all tanks, deliveries & fleet usage',
-    icon: ShieldCheck,
+    icon: FileBarChart,
+  },
+  {
+    id: 'fuel-limits',
+    name: 'Fuel Limits',
+    desc: 'Vehicle monthly allowances, consumption thresholds and breach limits',
+    icon: Sliders,
+  },
+  {
+    id: 'reconciliation',
+    name: 'Reconciliation',
+    desc: 'Opening balance, deliveries, fuel issues, expected vs actual closing & variances',
+    icon: RefreshCw,
   },
 ];
 
@@ -1219,12 +1223,13 @@ export default function ReportsFullPage() {
                     onChange={(e) => setQuickReport(e.target.value as ReportType)}
                     className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl p-3 text-xs font-bold text-zinc-900 dark:text-white"
                   >
-                    <option value="reconciliation">Daily Fuel Reconciliation</option>
-                    <option value="fuel-issues">Fuel Issues & Transactions</option>
-                    <option value="deliveries">Fuel Deliveries Report</option>
-                    <option value="fuel-levels">Tank Levels & Balances</option>
-                    <option value="fuel-efficiency">Fleet Fuel Efficiency</option>
-                    <option value="summary-all">Master Operations Summary</option>
+                    <option value="fuel-levels">Fuel Levels</option>
+                    <option value="deliveries">Deliveries</option>
+                    <option value="fuel-issues">Transactions</option>
+                    <option value="fuel-efficiency">Fuel Efficiency</option>
+                    <option value="summary-all">Fuel Efficiency Summary</option>
+                    <option value="fuel-limits">Fuel Limits</option>
+                    <option value="reconciliation">Reconciliation</option>
                   </select>
                 </div>
 

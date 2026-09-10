@@ -1,5 +1,23 @@
 [
   {
+    "id": "log-1789018921659-y3ew",
+    "scheduleId": "sch-1789018878392-1nded",
+    "scheduleName": "Daily Digicel POM Report",
+    "clientName": "Digicel POM",
+    "reportType": "fuel-levels",
+    "dateRange": "Yesterday (2026-09-09)",
+    "recipients": [
+      "ankitchouhan523@yopmail.com"
+    ],
+    "formats": [
+      "inlineHtml"
+    ],
+    "status": "success",
+    "message": "Dispatched successfully to ankitchouhan523@yopmail.com",
+    "timestamp": "2026-09-10T05:42:01.659Z",
+    "durationMs": 2403
+  },
+  {
     "id": "log-1788962448418-xnec",
     "scheduleId": "sch-1788956291381-wngvp",
     "scheduleName": "Daily Digicel POM Daily Reconciliation Report",
