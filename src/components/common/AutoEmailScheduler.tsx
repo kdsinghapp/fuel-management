@@ -3,6 +3,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useScheduleStore } from '@/services/scheduleStore';
+import { getPGTTimeString } from '@/lib/pgtTime';
 
 export function AutoEmailScheduler() {
   const fetchSchedules = useScheduleStore((state) => state.fetchSchedules);
@@ -14,8 +15,8 @@ export function AutoEmailScheduler() {
 
     // Scheduler tick every 10 seconds to ensure prompt minute detection
     const interval = setInterval(async () => {
-      const now = new Date();
-      const currentMinute = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      // Calculate current time in Papua New Guinea Time (PGT, UTC+10)
+      const currentMinute = getPGTTimeString();
 
       // Avoid triggering multiple times in the same minute
       if (lastCheckedMinute.current === currentMinute) {

@@ -485,7 +485,7 @@ export function ReportScheduleDrawer() {
                             <div className="flex items-center gap-4 text-xs text-zinc-400 pt-1 flex-wrap">
                               <span className="flex items-center gap-1 text-amber-400 font-bold">
                                 <Clock className="h-3.5 w-3.5" />
-                                {sched.time} ({sched.frequency})
+                                {sched.time} PGT ({sched.frequency})
                               </span>
                               <span className="flex items-center gap-1 text-zinc-400">
                                 <Calendar className="h-3.5 w-3.5" />
@@ -715,11 +715,11 @@ export function ReportScheduleDrawer() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-extrabold tracking-wider uppercase text-zinc-400">
-                      4. Dispatch Timing (Har Din Kab Email Jayegi)
+                      4. Dispatch Timing (Papua New Guinea Time • PGT, UTC+10)
                     </label>
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-orange-500/20 text-[#f26522] border border-orange-500/30">
                       <Clock className="h-3 w-3 text-[#f26522]" />
-                      {formatTime12H(selectedTime)} ({selectedTime})
+                      {formatTime12H(selectedTime)} ({selectedTime} PGT, UTC+10)
                     </span>
                   </div>
 
@@ -729,7 +729,7 @@ export function ReportScheduleDrawer() {
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-zinc-400 font-bold flex items-center gap-1">
                           <Clock className="h-3.5 w-3.5 text-zinc-500" />
-                          Delivery Time
+                          Delivery Time (PGT / UTC+10)
                         </span>
 
                         {/* Mode toggle */}

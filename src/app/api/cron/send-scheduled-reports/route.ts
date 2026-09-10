@@ -5,6 +5,7 @@ import path from 'path';
 import { generateReportData, formatReportSubject } from '@/services/reportGeneratorService';
 import { sendMicrosoftGraphMail } from '@/lib/microsoftGraph';
 import { ReportSchedule, ScheduleExecutionLog } from '@/types/schedule';
+import { getPGTTimeInfo } from '@/lib/pgtTime';
 
 const DATA_DIR = path.join(process.cwd(), 'src', 'data');
 const SCHEDULES_FILE = path.join(DATA_DIR, 'schedules.json');
@@ -48,58 +49,58 @@ export async function GET(req: NextRequest) {
   try {
     const schedules = readSchedules();
     const activeSchedules = schedules.filter((s) => s.enabled);
-    const now = new Date();
     
-    // Server local time and date
-    const currentHours = String(now.getHours()).padStart(2, '0');
-    const currentMins = String(now.getMinutes()).padStart(2, '0');
-    const serverTimeStr = `${currentHours}:${currentMins}`;
-    const serverDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    const currentDayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-    const currentDayOfMonth = now.getDate();
+    // Evaluate in Papua New Guinea Time (PGT, UTC+10:00 / Pacific/Port_Moresby)
+    const pgt = getPGTTimeInfo();
+    const pgtTimeStr = pgt.timeStr; // "HH:mm" in PGT
+    const pgtDateStr = pgt.dateStr; // "YYYY-MM-DD" in PGT
+    const currentDayOfWeek = pgt.dayOfWeek; // 0=Sun, 1=Mon, ..., 6=Sat
+    const currentDayOfMonth = pgt.dayOfMonth;
 
     // Query parameters
     const { searchParams } = new URL(req.url);
     const forceId = searchParams.get('forceScheduleId');
     const runAll = searchParams.get('runAll') === 'true';
-    const clientTime = searchParams.get('clientTime'); // Optional client local time (e.g. "19:19")
+    const clientTime = searchParams.get('clientTime'); // Optional client-reported PGT time (e.g. "08:00")
 
     const results: any[] = [];
 
-    console.log(`[AutoReport Cron] Tick at server=${serverTimeStr}, client=${clientTime || 'N/A'}, date=${serverDateStr}. Active schedules: ${activeSchedules.length}`);
+    console.log(
+      `[AutoReport Cron - PGT UTC+10] Tick at PGT=${pgtTimeStr} (${pgt.formattedDateTime}), clientTime=${clientTime || 'N/A'}. Active schedules: ${activeSchedules.length}`
+    );
 
     for (const sched of activeSchedules) {
       const isForced = Boolean(forceId && sched.id === forceId);
 
-      // Check if time matches either server time or client time
-      const timeMatches = sched.time === serverTimeStr || (Boolean(clientTime) && sched.time === clientTime);
+      // Check if schedule time matches PGT time or client-reported PGT time
+      const timeMatches = sched.time === pgtTimeStr || (Boolean(clientTime) && sched.time === clientTime);
       const isDue = isForced || runAll || timeMatches;
 
       if (!isDue) {
         continue;
       }
 
-      // Frequency eligibility check (for automated scheduled runs)
+      // Frequency eligibility check (for automated scheduled runs in PGT)
       if (!isForced && !runAll) {
         if (sched.frequency === 'weekdays' && (currentDayOfWeek === 0 || currentDayOfWeek === 6)) {
-          continue; // Skip weekends
+          continue; // Skip weekends in PGT
         }
         if (sched.frequency === 'weekly' && currentDayOfWeek !== (sched.weeklyDay ?? 1)) {
-          continue; // Default Monday
+          continue; // Default Monday in PGT
         }
         if (sched.frequency === 'monthly' && currentDayOfMonth !== (sched.monthlyDay ?? 1)) {
-          continue; // Default 1st of month
+          continue; // Default 1st of month in PGT
         }
 
         // Slot tracking: prevent duplicate executions within the same day/time slot
-        const todaySlotKey = `${serverDateStr}_${sched.time}`;
+        const todaySlotKey = `${pgtDateStr}_${sched.time}`;
         if (sched.lastScheduledSlot === todaySlotKey) {
-          console.log(`[AutoReport Cron] Schedule "${sched.name}" (${sched.id}) already ran for slot ${todaySlotKey}. Skipping duplicate.`);
+          console.log(`[AutoReport Cron] Schedule "${sched.name}" (${sched.id}) already ran for slot ${todaySlotKey} (PGT). Skipping duplicate.`);
           continue;
         }
       }
 
-      console.log(`[AutoReport Cron] >>> Executing schedule: "${sched.name}" for client "${sched.clientName}" at ${sched.time} (isForced=${isForced})`);
+      console.log(`[AutoReport Cron] >>> Executing schedule (PGT): "${sched.name}" for client "${sched.clientName}" at ${sched.time} (isForced=${isForced})`);
 
       const startTime = Date.now();
       try {
@@ -141,7 +142,7 @@ export async function GET(req: NextRequest) {
 
         // Mark scheduled slot as executed only on scheduled runs
         if (!isForced) {
-          sched.lastScheduledSlot = `${serverDateStr}_${sched.time}`;
+          sched.lastScheduledSlot = `${pgtDateStr}_${sched.time}`;
         }
 
         const logItem: ScheduleExecutionLog = {
@@ -155,7 +156,7 @@ export async function GET(req: NextRequest) {
           formats: sched.formats,
           status,
           message,
-          timestamp: new Date().toISOString(),
+          timestamp: pgt.isoWithOffset,
           durationMs,
         };
 

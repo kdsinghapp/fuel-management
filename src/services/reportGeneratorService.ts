@@ -4,6 +4,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { CLIENTS, ClientConfig } from '@/services/api';
 import { DateWindowPreset, ReportType, ReportFormat } from '@/types/schedule';
+import { getPGTTimeInfo } from '@/lib/pgtTime';
 
 export interface GeneratedReportResult {
   title: string;
@@ -35,8 +36,14 @@ export function computeDatesFromPreset(
     return `${yyyy}-${mm}-${dd}`;
   };
 
-  const today = new Date();
-  const todayStr = formatYMD(today);
+  // Base date calculations on Papua New Guinea Time (PGT, UTC+10)
+  const pgtInfo = getPGTTimeInfo();
+  const today = new Date(
+    pgtInfo.pgtDateObject.getFullYear(),
+    pgtInfo.pgtDateObject.getMonth(),
+    pgtInfo.pgtDateObject.getDate()
+  );
+  const todayStr = pgtInfo.dateStr;
 
   switch (preset) {
     case 'today':
@@ -1353,9 +1360,10 @@ export async function generateReportData(
       </div>
     </div>
 
-    <div class="footer">
+    <div class="footer" style="padding: 16px 28px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 11px; color: #64748b; text-align: center;">
       This is an automated report dispatched by Fuel Management System via Microsoft 365.<br>
-      © ${new Date().getFullYear()} Fuel Master • Master Systems • All rights reserved.
+      Time Zone: Papua New Guinea Time (PGT, UTC+10) • Generated: ${getPGTTimeInfo().formattedDateTime}<br>
+      © ${getPGTTimeInfo().pgtDateObject.getFullYear()} Fuel Master • Master Systems • All rights reserved.
     </div>
   </div>
 </body>
