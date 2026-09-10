@@ -171,7 +171,7 @@ export default function ReportsFullPage() {
   const [quickClient, setQuickClient] = useState('Digicel POM');
   const [quickReport, setQuickReport] = useState<ReportType>('reconciliation');
   const [quickDatePreset, setQuickDatePreset] = useState<DateWindowPreset>('yesterday');
-  const [quickRecipient, setQuickRecipient] = useState(user?.email || 'manager@fuelmaster.com');
+  const [quickRecipient, setQuickRecipient] = useState('');
   const [quickFormats, setQuickFormats] = useState<ReportFormat[]>(['excel', 'pdf']);
   const [quickSuccess, setQuickSuccess] = useState<string | null>(null);
   const [quickError, setQuickError] = useState<string | null>(null);
@@ -235,7 +235,7 @@ export default function ReportsFullPage() {
       setCustomEnd('');
       setSelectedTime('08:00');
       setSelectedFrequency('daily');
-      setRecipients(user?.email ? [user.email] : ['manager@fuelmaster.com']);
+      setRecipients([]);
       setSelectedFormats(['excel', 'pdf']);
     }
     setFormError(null);

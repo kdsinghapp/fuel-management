@@ -224,7 +224,7 @@ export function ReportScheduleDrawer() {
     setCustomEnd('');
     setSelectedTime('08:00');
     setSelectedFrequency('daily');
-    setRecipients(user?.email ? [user.email] : ['manager@fuelmaster.com']);
+    setRecipients([]);
     setSelectedFormats(['excel', 'pdf']);
     setSubjectTemplate('');
     setCustomNotes('');
