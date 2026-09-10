@@ -2,7 +2,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Menu, Settings, ChevronDown } from 'lucide-react';
+import { Menu, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSidebar } from '@/hooks/useSidebar';
 import { Breadcrumbs } from './Breadcrumbs';
@@ -45,6 +45,14 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
     '/metadata': {
         title: 'Vehicle',
         subtitle: 'Manage fleet vehicle specifications, allowances and fuel limits'
+    },
+    '/reports': {
+        title: 'Automated Reports',
+        subtitle: 'Manage automated daily email schedules and report dispatches'
+    },
+    '/settings/scheduled-reports': {
+        title: 'Automated Reports',
+        subtitle: 'Configure automated daily email reports via Microsoft 365'
     },
     '/admin/users': {
         title: 'User Management',

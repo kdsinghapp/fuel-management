@@ -185,6 +185,7 @@ export function canAccessRoute(user: AuthUser | null, route: string): boolean {
     '/metadata': PERMISSIONS.VEHICLES.VIEW,
     '/reconciliation': PERMISSIONS.RECONCILIATION.VIEW,
     '/reports': PERMISSIONS.REPORTS.VIEW,
+    '/settings/scheduled-reports': PERMISSIONS.REPORTS.VIEW,
     '/admin/users': PERMISSIONS.USERS.VIEW,
     '/admin/roles': PERMISSIONS.ROLES.VIEW,
   };

@@ -1,4 +1,3 @@
-// src/app/(dashboard)/layout.tsx
 'use client';
 
 import { ReactNode } from 'react';
@@ -7,6 +6,7 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { useClientStore } from '@/services/api';
 import { Fuel } from 'lucide-react';
+import { AutoEmailScheduler } from '@/components/common/AutoEmailScheduler';
 
 export default function DashboardLayout({
     children,
@@ -23,6 +23,9 @@ export default function DashboardLayout({
                 <Header />
                 <main className="flex-1 flex flex-col min-w-0 relative overflow-y-auto">
                     {children}
+
+                    {/* Background Email Auto-Scheduler */}
+                    <AutoEmailScheduler />
 
                     {/* Backdrop blur & loader on client switch */}
                     {isClientLoading && (

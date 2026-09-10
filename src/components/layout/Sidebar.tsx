@@ -26,11 +26,13 @@ import {
     Gauge,
     Smartphone,
     Database,
+    Mail,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { authService } from '@/lib/auth';
 import { useAuth } from '@/hooks/useAuth';
 import { useSidebar } from '@/hooks/useSidebar';
+import { useScheduleStore } from '@/services/scheduleStore';
 
 const navigationItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -42,6 +44,7 @@ const navigationItems = [
     { name: 'Fuel Limits', href: '/fuel-limits', icon: Sliders },
     { name: 'Reconciliation', href: '/reconciliation', icon: RefreshCw },
     { name: 'Vehicle', href: '/metadata', icon: Database },
+    { name: 'Report Settings', href: '/reports', icon: Mail },
 ];
 
 const adminItems = [
