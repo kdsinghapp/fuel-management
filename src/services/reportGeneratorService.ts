@@ -509,6 +509,382 @@ export function buildPdfAttachmentBuffer(
   return Buffer.from(pdfArrayBuffer).toString('base64');
 }
 
+/**
+ * RICH RECONCILIATION PDF GENERATOR
+ * Replicates the complete layout of the email template:
+ * 1. Header & Period
+ * 2. Side-by-side Stock Reconciliation Summary (Orange) & Stock Demand Plan (Green)
+ * 3. Daily Reconciliation Breakdown table
+ * 4. Yesterday's Transaction Summary table
+ */
+export function buildReconciliationPdfBuffer(
+  clientName: string,
+  startDate: string,
+  endDate: string,
+  sData: any,
+  reconRecords: any[],
+  yesterdayTransactions: any[]
+): string {
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'pt',
+    format: 'a4',
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const leftMargin = 32;
+  const rightMargin = 32;
+  const contentWidth = pageWidth - leftMargin - rightMargin;
+
+  // Header Brand & Title
+  doc.setFontSize(13);
+  doc.setTextColor(242, 101, 34); // #F26522
+  doc.setFont('helvetica', 'bold');
+  doc.text('⛽ FUEL MANAGEMENT SYSTEM', leftMargin, 30);
+
+  doc.setFontSize(16);
+  doc.setTextColor(15, 23, 42); // Slate 900
+  doc.text(`${clientName} Fuel Bowser Reconciliation Report`, leftMargin, 48);
+
+  doc.setFontSize(9);
+  doc.setTextColor(100, 116, 139); // Slate 500
+  doc.setFont('helvetica', 'normal');
+  const dateStr = `Period: ${startDate} to ${endDate}`;
+  doc.text(dateStr, pageWidth - rightMargin, 30, { align: 'right' });
+  doc.text(
+    `Export Date: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`,
+    pageWidth - rightMargin,
+    44,
+    { align: 'right' }
+  );
+
+  // Top Divider line
+  doc.setDrawColor(242, 101, 34);
+  doc.setLineWidth(1.5);
+  doc.line(leftMargin, 56, pageWidth - rightMargin, 56);
+
+  // Greeting line
+  doc.setFontSize(9.5);
+  doc.setTextColor(51, 65, 85);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Hi ${clientName} Team, please find attached the Fuel Bowser Reconciliation Report covering ${startDate} to ${endDate}.`, leftMargin, 70);
+
+  const startY = 80;
+  const gap = 16;
+  const summaryWidth = (contentWidth - gap) / 2;
+
+  // 1. LEFT TABLE: Stock Reconciliation Summary (Orange Theme)
+  autoTable(doc, {
+    head: [['STOCK RECONCILIATION SUMMARY', '']],
+    body: [
+      ['Opening Dip', `${Number(sData.openingDip).toLocaleString()}`],
+      ['Fuel Issues', `${Number(sData.totalIssues).toLocaleString()}`],
+      ['Fuel Receipts', `${Number(sData.totalDeliveries).toLocaleString()}`],
+      ['Closing Dip', `${Number(sData.closingDip).toLocaleString()}`],
+      ['Closing Stock', `${Number(sData.closingStock).toLocaleString()}`],
+      ['Variance', `${sData.variance >= 0 ? '+' : ''}${sData.variance.toLocaleString()}`],
+      ['%', `${sData.variancePercent >= 0 ? '+' : ''}${sData.variancePercent.toFixed(1)}%`],
+    ],
+    startY: startY,
+    margin: { left: leftMargin },
+    tableWidth: summaryWidth,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [234, 88, 12], // #ea580c
+      textColor: [255, 255, 255],
+      fontSize: 9.5,
+      fontStyle: 'bold',
+      halign: 'center',
+      cellPadding: 4.5,
+    },
+    styles: {
+      fontSize: 8.5,
+      cellPadding: 4,
+      lineColor: [254, 215, 170],
+      lineWidth: 0.5,
+    },
+    columnStyles: {
+      0: { fontStyle: 'bold', textColor: [124, 45, 18], cellWidth: summaryWidth * 0.55 },
+      1: { halign: 'right', fontStyle: 'bold', textColor: [30, 41, 59], cellWidth: summaryWidth * 0.45 },
+    },
+    didParseCell: (data) => {
+      if (data.section === 'body') {
+        if (data.row.index % 2 === 0) {
+          data.cell.styles.fillColor = [255, 250, 245];
+        }
+        if (data.row.index === 1 && data.column.index === 1) {
+          data.cell.styles.textColor = [234, 88, 12]; // Fuel Issues Orange
+        }
+        if (data.row.index === 2 && data.column.index === 1) {
+          data.cell.styles.textColor = [22, 163, 74]; // Fuel Receipts Green
+        }
+        if (data.row.index >= 5 && data.column.index === 1) {
+          data.cell.styles.textColor = sData.variance >= 0 ? [21, 128, 61] : [185, 28, 28];
+        }
+      }
+    },
+  });
+
+  const leftTableFinalY = (doc as any).lastAutoTable.finalY;
+
+  // 2. RIGHT TABLE: Stock Demand Plan (Green Theme)
+  autoTable(doc, {
+    head: [['STOCK DEMAND PLAN', '', '']],
+    body: [
+      ['Stock', `${Number(sData.closingDip).toLocaleString()}`, 'Balance remaining in the tank.'],
+      ['Av Daily Cons.', `${Math.round(sData.avDailyCons).toLocaleString()}`, 'Average Fuel Consumption/Day MTD.'],
+      ['Days Stock', String(sData.daysStock), 'Days left before Stock run Out based on listed rate.'],
+      ['Min Stock', `${Number(sData.minStock).toLocaleString()}`, 'Critical Tank Level for Main Tank.'],
+      ['Re-Order', String(sData.reorderDays), 'Days to prepare for New Purchase.'],
+      ['Re-Order', String(sData.reorderDate), 'Placing ST order Date'],
+      ['Stock Arrival', String(sData.arrivalDate), 'Delivery of stock Date'],
+    ],
+    startY: startY,
+    margin: { left: leftMargin + summaryWidth + gap },
+    tableWidth: summaryWidth,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [21, 128, 61], // #15803d
+      textColor: [255, 255, 255],
+      fontSize: 9.5,
+      fontStyle: 'bold',
+      halign: 'center',
+      cellPadding: 4.5,
+    },
+    styles: {
+      fontSize: 8.5,
+      cellPadding: 4,
+      lineColor: [187, 247, 208],
+      lineWidth: 0.5,
+    },
+    columnStyles: {
+      0: { fontStyle: 'bold', textColor: [20, 83, 45], cellWidth: summaryWidth * 0.32 },
+      1: { halign: 'center', fontStyle: 'bold', textColor: [30, 41, 59], cellWidth: summaryWidth * 0.26 },
+      2: { textColor: [100, 116, 139], fontSize: 7.5, cellWidth: summaryWidth * 0.42 },
+    },
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.row.index % 2 === 0) {
+        data.cell.styles.fillColor = [240, 253, 244];
+      }
+    },
+  });
+
+  const rightTableFinalY = (doc as any).lastAutoTable.finalY;
+  const summaryFinalY = Math.max(leftTableFinalY, rightTableFinalY) + 16;
+
+  // 3. MAIN TABLE: Daily Reconciliation Breakdown
+  doc.setFontSize(11);
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`📊 DAILY RECONCILIATION BREAKDOWN (${reconRecords.length} Records)`, leftMargin, summaryFinalY);
+
+  autoTable(doc, {
+    head: [['Date', 'Opening Balance', 'Deliveries', 'Fuel Issues', 'Expected Closing', 'Actual Closing', 'Variance', 'Variance %']],
+    body: reconRecords.map((r) => {
+      const vPercent = r.expectedClosing > 0 ? (r.variance / r.expectedClosing) * 100 : 0;
+      return [
+        r.date,
+        `${Number(r.openingBalance).toLocaleString()} L`,
+        `+${Number(r.deliveries).toLocaleString()} L`,
+        `-${Number(r.fuelIssues).toLocaleString()} L`,
+        `${Number(r.expectedClosing).toLocaleString()} L`,
+        `${Number(r.actualClosing).toLocaleString()} L`,
+        `${r.variance >= 0 ? '+' : ''}${Number(r.variance).toLocaleString()} L`,
+        `${vPercent >= 0 ? '+' : ''}${vPercent.toFixed(1)}%`,
+      ];
+    }),
+    startY: summaryFinalY + 8,
+    margin: { left: leftMargin, right: rightMargin },
+    theme: 'grid',
+    showHead: 'everyPage',
+    headStyles: {
+      fillColor: [15, 23, 42],
+      textColor: [255, 255, 255],
+      fontSize: 8.5,
+      fontStyle: 'bold',
+      halign: 'right',
+      cellPadding: 5,
+    },
+    styles: {
+      fontSize: 8,
+      cellPadding: 4,
+      textColor: [51, 65, 85],
+      lineColor: [226, 232, 240],
+      lineWidth: 0.5,
+    },
+    columnStyles: {
+      0: { halign: 'left', fontStyle: 'bold', textColor: [30, 41, 59] },
+      1: { halign: 'right' },
+      2: { halign: 'right', textColor: [21, 128, 61], fontStyle: 'bold' },
+      3: { halign: 'right', textColor: [234, 88, 12], fontStyle: 'bold' },
+      4: { halign: 'right' },
+      5: { halign: 'right', fontStyle: 'bold', textColor: [30, 41, 59] },
+      6: { halign: 'right', fontStyle: 'bold' },
+      7: { halign: 'right', fontStyle: 'bold' },
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
+    },
+    didParseCell: (data) => {
+      if (data.section === 'head') {
+        if (data.column.index === 0) data.cell.styles.halign = 'left';
+        if (data.column.index === 2) data.cell.styles.fillColor = [21, 128, 61]; // Green Deliveries header
+        if (data.column.index === 3) data.cell.styles.fillColor = [234, 88, 12]; // Orange Issues header
+      }
+      if (data.section === 'body') {
+        const record = reconRecords[data.row.index];
+        if (record && (data.column.index === 6 || data.column.index === 7)) {
+          data.cell.styles.textColor = record.variance >= 0 ? [21, 128, 61] : [185, 28, 28];
+        }
+      }
+    },
+  });
+
+  // 4. YESTERDAY'S TRANSACTIONS (if present)
+  if (yesterdayTransactions && yesterdayTransactions.length > 0) {
+    const dailyFinalY = (doc as any).lastAutoTable.finalY + 16;
+
+    if (dailyFinalY > pageHeight - 120) {
+      doc.addPage();
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`⛽ YESTERDAY'S TRANSACTION SUMMARY (${yesterdayTransactions.length} Transactions)`, leftMargin, 36);
+
+      autoTable(doc, {
+        head: [['Date / Time', 'ID', 'Vehicle Reg', 'Fleet ID', 'Site', 'Litres', 'Pump', 'Odo/Meter', 'DEM']],
+        body: yesterdayTransactions.map((tx) => [
+          `${tx.date} ${tx.time}`,
+          tx.transactionId || tx.id,
+          tx.vehicleId || '—',
+          tx.fleetId || '—',
+          tx.siteId || tx.depot || '2591',
+          `${Number(tx.fuelQuantity || 0).toFixed(1)} L`,
+          tx.pump || '1',
+          tx.odometer && tx.odometer !== '0' ? tx.odometer : '—',
+          tx.dem || (tx.status === 'Matched' ? '▲ Driver Tag Matched' : '♦ ST500 Blue Driver Key'),
+        ]),
+        startY: 46,
+        margin: { left: leftMargin, right: rightMargin },
+        theme: 'grid',
+        showHead: 'everyPage',
+        headStyles: {
+          fillColor: [15, 23, 42],
+          textColor: [255, 255, 255],
+          fontSize: 8.5,
+          fontStyle: 'bold',
+          cellPadding: 4.5,
+        },
+        styles: {
+          fontSize: 8,
+          cellPadding: 4,
+          textColor: [51, 65, 85],
+          lineColor: [226, 232, 240],
+          lineWidth: 0.5,
+        },
+        columnStyles: {
+          0: { cellWidth: 90 },
+          1: { cellWidth: 75, fontStyle: 'bold' },
+          2: { cellWidth: 85, fontStyle: 'bold', textColor: [21, 128, 61] },
+          5: { halign: 'right', fontStyle: 'bold', textColor: [15, 23, 42] },
+          6: { halign: 'center' },
+          8: { cellWidth: 140, fontStyle: 'bold' },
+        },
+        didParseCell: (data) => {
+          if (data.section === 'head') {
+            if (data.column.index === 0) data.cell.styles.fillColor = [234, 88, 12];
+            if (data.column.index >= 2 && data.column.index <= 5) data.cell.styles.fillColor = [21, 128, 61];
+          }
+          if (data.section === 'body' && data.column.index === 8) {
+            const val = String(data.cell.raw);
+            data.cell.styles.textColor = val.includes('▲') ? [21, 128, 61] : [234, 88, 12];
+          }
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252],
+        },
+      });
+    } else {
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`⛽ YESTERDAY'S TRANSACTION SUMMARY (${yesterdayTransactions.length} Transactions)`, leftMargin, dailyFinalY);
+
+      autoTable(doc, {
+        head: [['Date / Time', 'ID', 'Vehicle Reg', 'Fleet ID', 'Site', 'Litres', 'Pump', 'Odo/Meter', 'DEM']],
+        body: yesterdayTransactions.map((tx) => [
+          `${tx.date} ${tx.time}`,
+          tx.transactionId || tx.id,
+          tx.vehicleId || '—',
+          tx.fleetId || '—',
+          tx.siteId || tx.depot || '2591',
+          `${Number(tx.fuelQuantity || 0).toFixed(1)} L`,
+          tx.pump || '1',
+          tx.odometer && tx.odometer !== '0' ? tx.odometer : '—',
+          tx.dem || (tx.status === 'Matched' ? '▲ Driver Tag Matched' : '♦ ST500 Blue Driver Key'),
+        ]),
+        startY: dailyFinalY + 8,
+        margin: { left: leftMargin, right: rightMargin },
+        theme: 'grid',
+        showHead: 'everyPage',
+        headStyles: {
+          fillColor: [15, 23, 42],
+          textColor: [255, 255, 255],
+          fontSize: 8.5,
+          fontStyle: 'bold',
+          cellPadding: 4.5,
+        },
+        styles: {
+          fontSize: 8,
+          cellPadding: 4,
+          textColor: [51, 65, 85],
+          lineColor: [226, 232, 240],
+          lineWidth: 0.5,
+        },
+        columnStyles: {
+          0: { cellWidth: 90 },
+          1: { cellWidth: 75, fontStyle: 'bold' },
+          2: { cellWidth: 85, fontStyle: 'bold', textColor: [21, 128, 61] },
+          5: { halign: 'right', fontStyle: 'bold', textColor: [15, 23, 42] },
+          6: { halign: 'center' },
+          8: { cellWidth: 140, fontStyle: 'bold' },
+        },
+        didParseCell: (data) => {
+          if (data.section === 'head') {
+            if (data.column.index === 0) data.cell.styles.fillColor = [234, 88, 12];
+            if (data.column.index >= 2 && data.column.index <= 5) data.cell.styles.fillColor = [21, 128, 61];
+          }
+          if (data.section === 'body' && data.column.index === 8) {
+            const val = String(data.cell.raw);
+            data.cell.styles.textColor = val.includes('▲') ? [21, 128, 61] : [234, 88, 12];
+          }
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252],
+        },
+      });
+    }
+  }
+
+  // Footer on all pages
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text(
+      `Page ${i} of ${totalPages}  •  ${clientName} Fuel Bowser Reconciliation  •  Fuel Management System`,
+      pageWidth - rightMargin,
+      pageHeight - 16,
+      { align: 'right' }
+    );
+  }
+
+  const pdfArrayBuffer = doc.output('arraybuffer');
+  return Buffer.from(pdfArrayBuffer).toString('base64');
+}
+
 // Generate complete report package with attachments
 export async function generateReportData(
   clientName: string,
@@ -546,7 +922,7 @@ export async function generateReportData(
 
     const rawStart = (() => {
       const d = new Date(startDate + 'T00:00:00');
-      d.setDate(d.getDate() - 15);
+      d.setDate(d.getDate() - 45);
       return d.toISOString().split('T')[0];
     })();
 
@@ -559,6 +935,14 @@ export async function generateReportData(
     const uniqueDates = Array.from(new Set(levels.map((l) => l.date)));
     uniqueDates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
+    const getClosestTo4PM = (items: typeof levels) => {
+      return items.reduce((prev, curr) => {
+        const prevDiff = Math.abs(new Date(`${curr.date}T${curr.time || '00:00:00'}Z`).getTime() - new Date(`${curr.date}T16:00:00Z`).getTime());
+        const currDiff = Math.abs(new Date(`${prev.date}T${prev.time || '00:00:00'}Z`).getTime() - new Date(`${prev.date}T16:00:00Z`).getTime());
+        return prevDiff < currDiff ? curr : prev;
+      });
+    };
+
     const reconRecords: any[] = [];
     for (let i = 0; i < uniqueDates.length - 1; i++) {
       const curDate = uniqueDates[i];
@@ -568,8 +952,11 @@ export async function generateReportData(
       const curLevels = levels.filter((l) => l.date === curDate);
       if (prevLevels.length === 0 || curLevels.length === 0) continue;
 
-      const opening = prevLevels[prevLevels.length - 1].level;
-      const actualClosing = curLevels[curLevels.length - 1].level;
+      const openingRecord = getClosestTo4PM(prevLevels);
+      const closingRecord = getClosestTo4PM(curLevels);
+
+      const opening = openingRecord.level;
+      const actualClosing = closingRecord.level;
 
       const dayDelivs = deliveries.filter((d) => d.date === curDate);
       const totalDeliv = Number(dayDelivs.reduce((s, d) => s + (d.quantity || 0), 0).toFixed(2));
@@ -1408,10 +1795,23 @@ export async function generateReportData(
     }
   }
 
-  // 2. Generate PDF Attachment (Identical to exportToPDF)
+  // 2. Generate PDF Attachment
   if (requestedFormats.includes('pdf')) {
     try {
-      const pdfBase64 = buildPdfAttachmentBuffer(reportTitle, headers, rows, pdfMetadata);
+      let pdfBase64: string;
+      if (reportType === 'reconciliation' && reconSummaryData) {
+        pdfBase64 = buildReconciliationPdfBuffer(
+          actualClientName,
+          startDate,
+          endDate,
+          reconSummaryData,
+          reconFilteredRecords,
+          yesterdayTransactions
+        );
+      } else {
+        pdfBase64 = buildPdfAttachmentBuffer(reportTitle, headers, rows, pdfMetadata);
+      }
+
       attachments.push({
         filename: `${safeFilenamePrefix}.pdf`,
         contentType: 'application/pdf',
