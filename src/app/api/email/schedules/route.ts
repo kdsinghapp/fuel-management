@@ -1,86 +1,39 @@
 // src/app/api/email/schedules/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { connectToDatabase } from '@/lib/mongodb';
+import { ScheduleModel } from '@/models/Schedule';
 import { ReportSchedule } from '@/types/schedule';
 
-const DATA_DIR = path.join(process.cwd(), 'src', 'data');
-const SCHEDULES_FILE = path.join(DATA_DIR, 'schedules.json');
-
-// Default initial schedule demo
-const DEFAULT_SCHEDULES: ReportSchedule[] = [
-  {
-    id: 'sch-daily-recon-digicel',
-    name: 'Daily Digicel Reconciliation Dispatch',
-    enabled: true,
-    clientName: 'Digicel POM',
-    reportType: 'reconciliation',
-    datePreset: 'yesterday',
-    time: '08:00',
-    frequency: 'daily',
-    recipients: ['operations@fuelmaster.com'],
-    formats: ['excel', 'pdf'],
-    subjectTemplate: '⛽ [Automated Report] Digicel POM Daily Reconciliation',
-    customNotes: 'Automated daily report generated every morning for Digicel POM.',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'sch-daily-trans-all',
-    name: 'Daily Fleet Fuel Transactions',
-    enabled: true,
-    clientName: 'Digicel POM',
-    reportType: 'fuel-issues',
-    datePreset: 'yesterday',
-    time: '09:00',
-    frequency: 'daily',
-    recipients: ['fleetmanager@fuelmaster.com'],
-    formats: ['excel'],
-    subjectTemplate: '⛽ [Daily Log] Fuel Transactions Summary',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
-function readSchedules(): ReportSchedule[] {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    if (!fs.existsSync(SCHEDULES_FILE)) {
-      fs.writeFileSync(SCHEDULES_FILE, JSON.stringify(DEFAULT_SCHEDULES, null, 2), 'utf-8');
-      return DEFAULT_SCHEDULES;
-    }
-    const content = fs.readFileSync(SCHEDULES_FILE, 'utf-8');
-    return JSON.parse(content);
-  } catch (err) {
-    console.error('Error reading schedules:', err);
-    return DEFAULT_SCHEDULES;
-  }
-}
-
-function writeSchedules(schedules: ReportSchedule[]) {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    fs.writeFileSync(SCHEDULES_FILE, JSON.stringify(schedules, null, 2), 'utf-8');
-  } catch (err) {
-    console.error('Error writing schedules:', err);
-  }
-}
-
-// GET: list all schedules
+// GET: list all schedules from MongoDB
 export async function GET() {
-  const schedules = readSchedules();
-  return NextResponse.json({ success: true, schedules });
+  try {
+    await connectToDatabase();
+
+    const schedules = await ScheduleModel.find({})
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Map documents to clean ReportSchedule objects without mongo internal fields
+    const sanitizedSchedules = schedules.map((item) => {
+      const { _id, __v, ...rest } = item as any;
+      return rest as ReportSchedule;
+    });
+
+    return NextResponse.json({ success: true, schedules: sanitizedSchedules });
+  } catch (err: any) {
+    console.error('Error fetching schedules from MongoDB:', err);
+    return NextResponse.json(
+      { success: false, error: err?.message || 'Failed to fetch schedules' },
+      { status: 500 }
+    );
+  }
 }
 
-// POST: create or update a schedule
+// POST: create or update a schedule in MongoDB
 export async function POST(req: NextRequest) {
   try {
+    await connectToDatabase();
     const body = await req.json();
-    const schedules = readSchedules();
 
     if (!body.name || !body.clientName || !body.recipients || body.recipients.length === 0) {
       return NextResponse.json(
@@ -90,48 +43,45 @@ export async function POST(req: NextRequest) {
     }
 
     const now = new Date().toISOString();
-    let updatedList: ReportSchedule[];
+    const scheduleId = body.id || `sch-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
-    if (body.id) {
-      // Update existing
-      const index = schedules.findIndex((s) => s.id === body.id);
-      if (index !== -1) {
-        schedules[index] = {
-          ...schedules[index],
-          ...body,
-          updatedAt: now,
-        };
-        updatedList = schedules;
-      } else {
-        const newSched: ReportSchedule = {
-          ...body,
-          id: body.id,
-          createdAt: now,
-          updatedAt: now,
-        };
-        updatedList = [newSched, ...schedules];
-      }
-    } else {
-      // Create new
-      const newSched: ReportSchedule = {
-        ...body,
-        id: `sch-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        createdAt: now,
-        updatedAt: now,
-      };
-      updatedList = [newSched, ...schedules];
-    }
+    const scheduleData = {
+      ...body,
+      id: scheduleId,
+      updatedAt: now,
+      ...(body.id ? {} : { createdAt: now }),
+    };
 
-    writeSchedules(updatedList);
-    return NextResponse.json({ success: true, schedules: updatedList });
+    // Upsert into MongoDB
+    await ScheduleModel.findOneAndUpdate(
+      { id: scheduleId },
+      { $set: scheduleData },
+      { upsert: true, new: true, runValidators: true }
+    );
+
+    const updatedList = await ScheduleModel.find({})
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const sanitizedList = updatedList.map((item) => {
+      const { _id, __v, ...rest } = item as any;
+      return rest as ReportSchedule;
+    });
+
+    return NextResponse.json({ success: true, schedules: sanitizedList });
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err?.message || 'Failed to save schedule' }, { status: 500 });
+    console.error('Error saving schedule to MongoDB:', err);
+    return NextResponse.json(
+      { success: false, error: err?.message || 'Failed to save schedule' },
+      { status: 500 }
+    );
   }
 }
 
-// DELETE: remove schedule
+// DELETE: remove schedule from MongoDB
 export async function DELETE(req: NextRequest) {
   try {
+    await connectToDatabase();
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
@@ -139,12 +89,23 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Schedule ID is required' }, { status: 400 });
     }
 
-    let schedules = readSchedules();
-    schedules = schedules.filter((s) => s.id !== id);
-    writeSchedules(schedules);
+    await ScheduleModel.deleteOne({ id });
 
-    return NextResponse.json({ success: true, schedules });
+    const updatedList = await ScheduleModel.find({})
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const sanitizedList = updatedList.map((item) => {
+      const { _id, __v, ...rest } = item as any;
+      return rest as ReportSchedule;
+    });
+
+    return NextResponse.json({ success: true, schedules: sanitizedList });
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err?.message || 'Failed to delete schedule' }, { status: 500 });
+    console.error('Error deleting schedule from MongoDB:', err);
+    return NextResponse.json(
+      { success: false, error: err?.message || 'Failed to delete schedule' },
+      { status: 500 }
+    );
   }
 }

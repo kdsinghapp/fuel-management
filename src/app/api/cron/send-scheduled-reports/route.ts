@@ -6,48 +6,47 @@ import { generateReportData, formatReportSubject } from '@/services/reportGenera
 import { sendMicrosoftGraphMail } from '@/lib/microsoftGraph';
 import { ReportSchedule, ScheduleExecutionLog } from '@/types/schedule';
 import { getPGTTimeInfo } from '@/lib/pgtTime';
+import { connectToDatabase } from '@/lib/mongodb';
+import { ScheduleModel } from '@/models/Schedule';
+import { ScheduleLogModel } from '@/models/ScheduleLog';
 
 const DATA_DIR = path.join(process.cwd(), 'src', 'data');
-const SCHEDULES_FILE = path.join(DATA_DIR, 'schedules.json');
 const LOGS_FILE = path.join(DATA_DIR, 'execution_logs.json');
 
-function readSchedules(): ReportSchedule[] {
+async function appendExecutionLog(log: ScheduleExecutionLog) {
   try {
-    if (!fs.existsSync(SCHEDULES_FILE)) return [];
-    return JSON.parse(fs.readFileSync(SCHEDULES_FILE, 'utf-8'));
-  } catch {
-    return [];
-  }
-}
-
-function writeSchedules(schedules: ReportSchedule[]) {
-  try {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(SCHEDULES_FILE, JSON.stringify(schedules, null, 2), 'utf-8');
+    // 1. Save to MongoDB
+    await connectToDatabase();
+    await ScheduleLogModel.create(log);
   } catch (err) {
-    console.error('Error writing schedules:', err);
+    console.error('Error saving execution log to MongoDB:', err);
   }
-}
 
-function appendLog(log: ScheduleExecutionLog) {
   try {
+    // 2. Local JSON log backup
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
     let logs: ScheduleExecutionLog[] = [];
     if (fs.existsSync(LOGS_FILE)) {
       logs = JSON.parse(fs.readFileSync(LOGS_FILE, 'utf-8'));
     }
     logs.unshift(log);
-    // Keep last 100 logs
     if (logs.length > 100) logs = logs.slice(0, 100);
     fs.writeFileSync(LOGS_FILE, JSON.stringify(logs, null, 2), 'utf-8');
   } catch (err) {
-    console.error('Error logging schedule execution:', err);
+    console.error('Error logging schedule execution to file:', err);
   }
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const schedules = readSchedules();
+    await connectToDatabase();
+
+    const rawSchedules = await ScheduleModel.find({}).lean();
+    const schedules: ReportSchedule[] = rawSchedules.map((item) => {
+      const { _id, __v, ...rest } = item as any;
+      return rest as ReportSchedule;
+    });
+
     const activeSchedules = schedules.filter((s) => s.enabled);
     
     // Evaluate in Papua New Guinea Time (PGT, UTC+10:00 / Pacific/Port_Moresby)
@@ -136,14 +135,21 @@ export async function GET(req: NextRequest) {
           ? `Dispatched successfully to ${sched.recipients.join(', ')}`
           : sendResult.error || 'Failed to send';
 
-        sched.lastRunAt = new Date().toISOString();
-        sched.lastRunStatus = status;
-        sched.lastRunMessage = message;
+        const lastRunAt = new Date().toISOString();
+        const lastScheduledSlot = !isForced ? `${pgtDateStr}_${sched.time}` : sched.lastScheduledSlot;
 
-        // Mark scheduled slot as executed only on scheduled runs
-        if (!isForced) {
-          sched.lastScheduledSlot = `${pgtDateStr}_${sched.time}`;
-        }
+        // Update schedule state in MongoDB
+        await ScheduleModel.updateOne(
+          { id: sched.id },
+          {
+            $set: {
+              lastRunAt,
+              lastRunStatus: status,
+              lastRunMessage: message,
+              ...(lastScheduledSlot ? { lastScheduledSlot } : {}),
+            },
+          }
+        );
 
         const logItem: ScheduleExecutionLog = {
           id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -160,7 +166,7 @@ export async function GET(req: NextRequest) {
           durationMs,
         };
 
-        appendLog(logItem);
+        await appendExecutionLog(logItem);
 
         results.push({
           scheduleId: sched.id,
@@ -172,11 +178,21 @@ export async function GET(req: NextRequest) {
 
         console.log(`[AutoReport Cron] ✓ Schedule "${sched.name}" completed: ${status} in ${durationMs}ms`);
       } catch (runErr: any) {
-        sched.lastRunAt = new Date().toISOString();
-        sched.lastRunStatus = 'failed';
-        sched.lastRunMessage = runErr?.message || 'Error occurred';
+        const lastRunAt = new Date().toISOString();
+        const errorMessage = runErr?.message || 'Error occurred';
 
-        appendLog({
+        await ScheduleModel.updateOne(
+          { id: sched.id },
+          {
+            $set: {
+              lastRunAt,
+              lastRunStatus: 'failed',
+              lastRunMessage: errorMessage,
+            },
+          }
+        );
+
+        await appendExecutionLog({
           id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
           scheduleId: sched.id,
           scheduleName: sched.name,
@@ -201,8 +217,6 @@ export async function GET(req: NextRequest) {
         console.error(`[AutoReport Cron] ✗ Error running schedule "${sched.name}":`, runErr);
       }
     }
-
-    writeSchedules(schedules);
 
     return NextResponse.json({
       success: true,
