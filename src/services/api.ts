@@ -8,6 +8,7 @@ export interface ClientConfig {
   userid: number;
   divisionid: number;
   minStock?: number;
+  depot?: string;
 }
 
 export const CLIENTS: ClientConfig[] = [

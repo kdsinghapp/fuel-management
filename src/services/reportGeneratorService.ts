@@ -1044,7 +1044,7 @@ export async function generateReportData(
                 <td style="padding: 6px 8px; font-weight: 700; color: #0f172a; font-size: 11px;">${tx.transactionId || tx.id}</td>
                 <td style="padding: 6px 8px; font-weight: 700; color: ${isMatched ? '#15803d' : '#64748b'}; font-size: 11px;">${tx.vehicleId || '—'}</td>
                 <td style="padding: 6px 8px; color: #64748b; font-size: 11px;">${tx.fleetId || '—'}</td>
-                <td style="padding: 6px 8px; color: #475569; font-size: 11px;">${tx.siteId || tx.depot || targetClient.depot || '2591'}</td>
+                <td style="padding: 6px 8px; color: #475569; font-size: 11px;">${tx.siteId || tx.depot || targetClient.clientid || '2591'}</td>
                 <td style="padding: 6px 8px; font-weight: 700; text-align: right; color: #0f172a; font-size: 11px;">${Number(tx.fuelQuantity || 0).toFixed(1)} L</td>
                 <td style="padding: 6px 8px; text-align: center; color: #475569; font-size: 11px;">${tx.pump || '1'}</td>
                 <td style="padding: 6px 8px; color: #64748b; font-size: 11px;">${tx.odometer && tx.odometer !== '0' ? tx.odometer : '—'}</td>
