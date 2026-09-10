@@ -93,6 +93,34 @@ export function computeDatesFromPreset(
   }
 }
 
+/**
+ * Format report email subject according to recommended default template:
+ * "{ClientName} Fuel Bowser Reconciliation Report: {FromDate}-{ToDate}"
+ */
+export function formatReportSubject(
+  template: string | undefined,
+  clientName: string,
+  startDate: string,
+  endDate: string,
+  reportType: ReportType,
+  reportTitle: string
+): string {
+  if (template && template.trim().length > 0) {
+    return template
+      .replace(/\{ClientName\}/gi, clientName)
+      .replace(/\{FromDate\}/gi, startDate)
+      .replace(/\{ToDate\}/gi, endDate)
+      .replace(/\{ReportName\}/gi, reportTitle)
+      .replace(/\{DateRange\}/gi, `${startDate} to ${endDate}`);
+  }
+
+  if (reportType === 'reconciliation') {
+    return `${clientName} Fuel Bowser Reconciliation Report: ${startDate}-${endDate}`;
+  }
+
+  return `⛽ [Automated Report] ${clientName} - ${reportTitle} (${startDate} to ${endDate})`;
+}
+
 // Server-side / API token fetcher for FMA API
 let serverCachedToken: string | null = null;
 let serverTokenExpiry: number | null = null;
@@ -499,6 +527,10 @@ export async function generateReportData(
     Period: dateRangeStr,
   };
 
+  let reconSummaryData: any = null;
+  let reconFilteredRecords: any[] = [];
+  let yesterdayTransactions: any[] = [];
+
   // 1. RECONCILIATION REPORT (Matches reconciliation/page.tsx EXACTLY)
   if (reportType === 'reconciliation') {
     reportTitle = `Reconciliation Report - ${actualClientName}`;
@@ -574,7 +606,63 @@ export async function generateReportData(
     const totalDelivered = Number(filtered.reduce((s, r) => s + r.deliveries, 0).toFixed(2));
     const netVariance = Number(filtered.reduce((s, r) => s + r.variance, 0).toFixed(2));
 
+    reconFilteredRecords = filtered;
+
+    reconFilteredRecords = filtered;
+
     if (filtered.length > 0) {
+      const sorted = [...filtered].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const openingDip = sorted[0]?.openingBalance || 0;
+      const closingDip = sorted[sorted.length - 1]?.actualClosing || 0;
+      const closingStock = openingDip + totalDelivered - totalIssued;
+      const variance = Number((closingDip - closingStock).toFixed(2));
+      const variancePercent = closingStock > 0 ? (variance / closingStock) * 100 : 0;
+      const avDailyCons = filtered.length > 0 ? totalIssued / filtered.length : 0;
+      const daysStock = avDailyCons > 0 ? Math.round(closingDip / avDailyCons) : 0;
+      const today = new Date();
+      const reorderDays = 7;
+      const minStock = targetClient.minStock || Math.round(avDailyCons * reorderDays) || 5000;
+      const reorderDateObj = new Date(today);
+      reorderDateObj.setDate(today.getDate() + Math.max(0, daysStock - reorderDays));
+      const arrivalDateObj = new Date(reorderDateObj);
+      arrivalDateObj.setDate(reorderDateObj.getDate() + 7);
+
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const formatShortDate = (d: Date) => `${d.getDate()}-${months[d.getMonth()]}-${d.getFullYear().toString().slice(-2)}`;
+
+      reconSummaryData = {
+        openingDip,
+        totalIssues: totalIssued,
+        totalDeliveries: totalDelivered,
+        closingDip,
+        closingStock,
+        variance,
+        variancePercent,
+        avDailyCons,
+        daysStock,
+        minStock,
+        reorderDays,
+        reorderDate: formatShortDate(reorderDateObj),
+        arrivalDate: formatShortDate(arrivalDateObj),
+      };
+
+      // Get transactions for yesterday or latest day
+      const yesterdayDate = (() => {
+        const y = new Date();
+        y.setDate(y.getDate() - 1);
+        return y.toISOString().split('T')[0];
+      })();
+
+      let yTxs = issues.filter((t) => t.date === yesterdayDate);
+      if (yTxs.length === 0 && issues.length > 0) {
+        const dates = Array.from(new Set(issues.map((t) => t.date))).sort().reverse();
+        if (dates.length > 0) {
+          yTxs = issues.filter((t) => t.date === dates[0]);
+        }
+      }
+      yTxs.sort((a, b) => new Date(`${b.date}T${b.time}`).getTime() - new Date(`${a.date}T${a.time}`).getTime());
+      yesterdayTransactions = yTxs.slice(0, 15);
+
       rows.push([
         'TOTALS / NET',
         '',
@@ -916,8 +1004,250 @@ export async function generateReportData(
     ];
   }
 
-  // Build Beautiful HTML Email Body
-  const htmlBody = `
+  // Build Recommended Email Body matching Handover Specification
+  let htmlBody = '';
+
+  if (reportType === 'reconciliation' && reconSummaryData) {
+    const sData = reconSummaryData;
+
+    // Reconciliation table rows
+    const reconRowsHtml = reconFilteredRecords
+      .map((r, idx) => {
+        const isEven = idx % 2 === 0;
+        const vPercent = r.expectedClosing > 0 ? (r.variance / r.expectedClosing) * 100 : 0;
+        const vColor = r.variance >= 0 ? '#15803d' : '#b91c1c';
+        const isDelivPos = r.deliveries > 0;
+        return `
+          <tr style="background-color: ${isEven ? '#ffffff' : '#fff9f5'}; border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 7px 10px; font-weight: 700; color: #1e293b;">${r.date}</td>
+            <td style="padding: 7px 10px; text-align: right; color: #334155;">${Number(r.openingBalance).toLocaleString()} L</td>
+            <td style="padding: 7px 10px; text-align: right; font-weight: 700; color: ${isDelivPos ? '#15803d' : '#64748b'};">+${Number(r.deliveries).toLocaleString()} L</td>
+            <td style="padding: 7px 10px; text-align: right; font-weight: 700; color: #ea580c;">-${Number(r.fuelIssues).toLocaleString()} L</td>
+            <td style="padding: 7px 10px; text-align: right; color: #334155;">${Number(r.expectedClosing).toLocaleString()} L</td>
+            <td style="padding: 7px 10px; text-align: right; font-weight: 700; color: #1e293b;">${Number(r.actualClosing).toLocaleString()} L</td>
+            <td style="padding: 7px 10px; text-align: right; font-weight: 800; color: ${vColor};">${r.variance >= 0 ? '+' : ''}${r.variance} L</td>
+            <td style="padding: 7px 10px; text-align: right; font-weight: 800; color: ${vColor};">${vPercent >= 0 ? '+' : ''}${vPercent.toFixed(1)}%</td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    // Yesterday's transaction rows
+    const yestRowsHtml = yesterdayTransactions.length > 0
+      ? yesterdayTransactions
+          .map((tx, idx) => {
+            const isEven = idx % 2 === 0;
+            const isMatched = tx.status === 'Matched' || (tx.vehicleId && tx.vehicleId.length > 2);
+            return `
+              <tr style="background-color: ${isEven ? '#ffffff' : '#fff9f5'}; border-bottom: 1px solid #e2e8f0;">
+                <td style="padding: 6px 8px; color: #475569; font-size: 11px;">${tx.date} ${tx.time}</td>
+                <td style="padding: 6px 8px; font-weight: 700; color: #0f172a; font-size: 11px;">${tx.transactionId || tx.id}</td>
+                <td style="padding: 6px 8px; font-weight: 700; color: ${isMatched ? '#15803d' : '#64748b'}; font-size: 11px;">${tx.vehicleId || '—'}</td>
+                <td style="padding: 6px 8px; color: #64748b; font-size: 11px;">${tx.fleetId || '—'}</td>
+                <td style="padding: 6px 8px; color: #475569; font-size: 11px;">${tx.siteId || tx.depot || targetClient.depot || '2591'}</td>
+                <td style="padding: 6px 8px; font-weight: 700; text-align: right; color: #0f172a; font-size: 11px;">${Number(tx.fuelQuantity || 0).toFixed(1)} L</td>
+                <td style="padding: 6px 8px; text-align: center; color: #475569; font-size: 11px;">${tx.pump || '1'}</td>
+                <td style="padding: 6px 8px; color: #64748b; font-size: 11px;">${tx.odometer && tx.odometer !== '0' ? tx.odometer : '—'}</td>
+                <td style="padding: 6px 8px; font-size: 10px;">
+                  ${
+                    isMatched
+                      ? `<span style="color: #15803d; font-weight: 700;">▲ ${tx.dem || 'Driver Tag Matched by Trip'}</span>`
+                      : `<span style="color: #ea580c; font-weight: 700;">♦ ${tx.dem || 'ST500 Blue Driver Key'}</span>`
+                  }
+                </td>
+              </tr>
+            `;
+          })
+          .join('')
+      : `
+        <tr>
+          <td colspan="9" style="padding: 16px; text-align: center; color: #94a3b8; font-size: 12px; background: #fafafa;">
+            No transactions recorded for yesterday.
+          </td>
+        </tr>
+      `;
+
+    htmlBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${actualClientName} Fuel Bowser Reconciliation Report</title>
+</head>
+<body style="margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; color: #1e293b;">
+  <div style="max-width: 900px; margin: 0 auto; background: #ffffff; border-radius: 8px; border: 1px solid #cbd5e1; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.08);">
+    
+    <!-- Top Greeting Section -->
+    <div style="padding: 24px 28px 16px 28px; border-bottom: 1px solid #e2e8f0;">
+      <p style="margin: 0 0 10px 0; font-size: 15px; font-weight: 700; color: #0f172a;">
+        Hi ${actualClientName} Team,
+      </p>
+      <p style="margin: 0; font-size: 13px; color: #334155; line-height: 1.6;">
+        Please find attached the <strong>${actualClientName}</strong> Fuel Bowser Reconciliation Report covering <strong>${startDate}</strong> to <strong>${endDate}</strong>.
+      </p>
+    </div>
+
+    <!-- Content Area -->
+    <div style="padding: 20px 28px 28px 28px;">
+      
+      <!-- 2 Column Side-by-Side Summary Grid -->
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px;">
+        <tr>
+          <!-- STOCK RECONCILIATION SUMMARY (Orange Header) -->
+          <td width="48%" valign="top" style="padding-right: 12px;">
+            <table width="100%" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-size: 11px; border: 1px solid #ea580c; border-radius: 6px; overflow: hidden;">
+              <thead>
+                <tr>
+                  <th colspan="2" style="background: #ea580c; color: #ffffff; text-align: center; font-size: 12px; font-weight: 800; padding: 8px 10px; letter-spacing: 0.5px; text-transform: uppercase;">
+                    STOCK RECONCILIATION SUMMARY
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom: 1px solid #fed7aa; background: #fffaf5;">
+                  <td style="padding: 6px 10px; font-weight: 700; color: #7c2d12;">Opening Dip</td>
+                  <td style="padding: 6px 10px; text-align: right; font-weight: 700; color: #1e293b;">${Number(sData.openingDip).toLocaleString()}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #fed7aa;">
+                  <td style="padding: 6px 10px; font-weight: 700; color: #7c2d12;">Fuel Issues</td>
+                  <td style="padding: 6px 10px; text-align: right; font-weight: 700; color: #ea580c;">${Number(sData.totalIssues).toLocaleString()}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #fed7aa; background: #fffaf5;">
+                  <td style="padding: 6px 10px; font-weight: 700; color: #7c2d12;">Fuel Receipts</td>
+                  <td style="padding: 6px 10px; text-align: right; font-weight: 700; color: #16a34a;">${Number(sData.totalDeliveries).toLocaleString()}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #fed7aa;">
+                  <td style="padding: 6px 10px; font-weight: 700; color: #7c2d12;">Closing Dip</td>
+                  <td style="padding: 6px 10px; text-align: right; font-weight: 700; color: #1e293b;">${Number(sData.closingDip).toLocaleString()}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #fed7aa; background: #fffaf5;">
+                  <td style="padding: 6px 10px; font-weight: 700; color: #7c2d12;">Closing Stock</td>
+                  <td style="padding: 6px 10px; text-align: right; font-weight: 700; color: #1e293b;">${Number(sData.closingStock).toLocaleString()}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #fed7aa;">
+                  <td style="padding: 6px 10px; font-weight: 700; color: #7c2d12;">Variance</td>
+                  <td style="padding: 6px 10px; text-align: right; font-weight: 800; color: ${sData.variance >= 0 ? '#15803d' : '#b91c1c'};">${sData.variance >= 0 ? '+' : ''}${sData.variance.toLocaleString()}</td>
+                </tr>
+                <tr style="background: #fffaf5;">
+                  <td style="padding: 6px 10px; font-weight: 700; color: #7c2d12;">%</td>
+                  <td style="padding: 6px 10px; text-align: right; font-weight: 800; color: ${sData.variancePercent >= 0 ? '#15803d' : '#b91c1c'};">${sData.variancePercent >= 0 ? '+' : ''}${sData.variancePercent.toFixed(1)}%</td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+
+          <!-- STOCK DEMAND PLAN (Green Header) -->
+          <td width="52%" valign="top" style="padding-left: 12px;">
+            <table width="100%" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-size: 11px; border: 1px solid #16a34a; border-radius: 6px; overflow: hidden;">
+              <thead>
+                <tr>
+                  <th colspan="3" style="background: #15803d; color: #ffffff; text-align: center; font-size: 12px; font-weight: 800; padding: 8px 10px; letter-spacing: 0.5px; text-transform: uppercase;">
+                    STOCK DEMAND PLAN
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom: 1px solid #bbf7d0; background: #f0fdf4;">
+                  <td style="padding: 6px 8px; font-weight: 700; color: #14532d;">Stock</td>
+                  <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #1e293b;">${Number(sData.closingDip).toLocaleString()}</td>
+                  <td style="padding: 6px 8px; color: #64748b; font-size: 10px;">Balance remaining in the tank.</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #bbf7d0;">
+                  <td style="padding: 6px 8px; font-weight: 700; color: #14532d;">Av Daily Cons.</td>
+                  <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #1e293b;">${Math.round(sData.avDailyCons).toLocaleString()}</td>
+                  <td style="padding: 6px 8px; color: #64748b; font-size: 10px;">Average Fuel Consumption/Day MTD.</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #bbf7d0; background: #f0fdf4;">
+                  <td style="padding: 6px 8px; font-weight: 700; color: #14532d;">Days Stock</td>
+                  <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #1e293b;">${sData.daysStock}</td>
+                  <td style="padding: 6px 8px; color: #64748b; font-size: 10px;">Days left before Stock run Out based on listed rate.</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #bbf7d0;">
+                  <td style="padding: 6px 8px; font-weight: 700; color: #14532d;">Min Stock</td>
+                  <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #1e293b;">${Number(sData.minStock).toLocaleString()}</td>
+                  <td style="padding: 6px 8px; color: #64748b; font-size: 10px;">Critical Tank Level for Main Tank.</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #bbf7d0; background: #f0fdf4;">
+                  <td style="padding: 6px 8px; font-weight: 700; color: #14532d;">Re-Order</td>
+                  <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #1e293b;">${sData.reorderDays}</td>
+                  <td style="padding: 6px 8px; color: #64748b; font-size: 10px;">Days to prepare for New Purchase.</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #bbf7d0;">
+                  <td style="padding: 6px 8px; font-weight: 700; color: #14532d;">Re-Order</td>
+                  <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #1e293b;">${sData.reorderDate}</td>
+                  <td style="padding: 6px 8px; color: #64748b; font-size: 10px;">Placing ST order Date</td>
+                </tr>
+                <tr style="background: #f0fdf4;">
+                  <td style="padding: 6px 8px; font-weight: 700; color: #14532d;">Stock Arrival</td>
+                  <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #1e293b;">${sData.arrivalDate}</td>
+                  <td style="padding: 6px 8px; color: #64748b; font-size: 10px;">Delivery of stock Date</td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Daily Reconciliation Table -->
+      <table width="100%" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-size: 11px; margin-bottom: 24px; border: 1px solid #cbd5e1; border-radius: 4px; overflow: hidden;">
+        <thead>
+          <tr style="color: #ffffff; font-size: 11px; font-weight: 700;">
+            <th style="background: #0f172a; padding: 8px 10px; border: 1px solid #334155; text-align: left;">Date</th>
+            <th style="background: #0f172a; padding: 8px 10px; border: 1px solid #334155; text-align: right;">Opening Balance</th>
+            <th style="background: #15803d; padding: 8px 10px; border: 1px solid #16a34a; text-align: right;">Deliveries</th>
+            <th style="background: #ea580c; padding: 8px 10px; border: 1px solid #f97316; text-align: right;">Fuel Issues</th>
+            <th style="background: #0f172a; padding: 8px 10px; border: 1px solid #334155; text-align: right;">Expected Closing</th>
+            <th style="background: #0f172a; padding: 8px 10px; border: 1px solid #334155; text-align: right;">Actual Closing</th>
+            <th style="background: #0f172a; padding: 8px 10px; border: 1px solid #334155; text-align: right;">Variance</th>
+            <th style="background: #0f172a; padding: 8px 10px; border: 1px solid #334155; text-align: right;">Variance %</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${reconRowsHtml}
+        </tbody>
+      </table>
+
+      <!-- Yesterday's Transaction Summary -->
+      <div style="margin-top: 24px; margin-bottom: 24px;">
+        <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 800; color: #0f172a; letter-spacing: 0.2px;">
+          Yesterday's Transaction Summary
+        </h3>
+        <table width="100%" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 4px; overflow: hidden;">
+          <thead>
+            <tr style="color: #ffffff; font-size: 11px; font-weight: 700; text-align: left;">
+              <th style="background: #ea580c; padding: 8px 8px; border: 1px solid #f97316;">Date / Time</th>
+              <th style="background: #0f172a; padding: 8px 8px; border: 1px solid #334155;">ID</th>
+              <th style="background: #15803d; padding: 8px 8px; border: 1px solid #16a34a;">Vehicle Reg</th>
+              <th style="background: #15803d; padding: 8px 8px; border: 1px solid #16a34a;">Fleet Id</th>
+              <th style="background: #15803d; padding: 8px 8px; border: 1px solid #16a34a;">Site</th>
+              <th style="background: #15803d; padding: 8px 8px; border: 1px solid #16a34a; text-align: right;">Litres</th>
+              <th style="background: #0f172a; padding: 8px 8px; border: 1px solid #334155; text-align: center;">Pump</th>
+              <th style="background: #0f172a; padding: 8px 8px; border: 1px solid #334155;">Odo/Meter</th>
+              <th style="background: #0f172a; padding: 8px 8px; border: 1px solid #334155;">DEM</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${yestRowsHtml}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Sign-Off & Footer -->
+      <div style="margin-top: 28px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #334155; line-height: 1.6;">
+        <p style="margin: 0 0 16px 0;">Kindly contact us should you have any queries regarding the report.</p>
+        <p style="margin: 0; font-weight: 700; color: #0f172a;">Sincere regards,</p>
+        <p style="margin: 4px 0 0 0; font-weight: 600; color: #ea580c;">Fuel Management Dispatcher</p>
+        <p style="margin: 2px 0 0 0; color: #64748b; font-weight: 500;">Master Systems (PNG) Ltd</p>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
+    `;
+  } else {
+    // Standard template for other reports
+    htmlBody = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -925,26 +1255,27 @@ export async function generateReportData(
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; color: #1e293b; }
     .container { max-width: 760px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
-    .header { background: linear-gradient(135deg, #ff9f1c 0%, #f26522 100%); color: #ffffff; padding: 28px 32px; text-align: left; }
-    .header h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
-    .header p { margin: 6px 0 0 0; font-size: 13px; opacity: 0.95; font-weight: 500; }
-    .meta-bar { background: #0f172a; color: #94a3b8; padding: 12px 32px; font-size: 12px; display: flex; justify-content: space-between; border-bottom: 1px solid #334155; }
-    .content { padding: 32px; }
-    .kpi-grid { display: table; width: 100%; margin-bottom: 24px; }
-    .kpi-card { display: table-cell; width: 25%; padding: 12px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; text-align: center; }
-    .kpi-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; font-weight: 700; margin-bottom: 4px; }
-    .kpi-val { font-size: 18px; font-weight: 800; }
-    .section-title { font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .header { background: linear-gradient(135deg, #ff9f1c 0%, #f26522 100%); color: #ffffff; padding: 24px 28px; text-align: left; }
+    .header h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+    .header p { margin: 4px 0 0 0; font-size: 13px; opacity: 0.95; font-weight: 500; }
+    .meta-bar { background: #0f172a; color: #94a3b8; padding: 10px 28px; font-size: 12px; display: flex; justify-content: space-between; border-bottom: 1px solid #334155; }
+    .content { padding: 28px; }
+    .greeting { font-size: 14px; margin-bottom: 16px; color: #334155; line-height: 1.5; }
+    .kpi-grid { display: table; width: 100%; margin-bottom: 20px; }
+    .kpi-card { display: table-cell; width: 25%; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; text-align: center; }
+    .kpi-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; font-weight: 700; margin-bottom: 4px; }
+    .kpi-val { font-size: 17px; font-weight: 800; }
+    .section-title { font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
-    th { background: #f26522; color: #ffffff; font-weight: 700; text-align: left; padding: 10px 12px; border: 1px solid #ea580c; font-size: 11px; text-transform: uppercase; }
-    td { padding: 8px 12px; border: 1px solid #e2e8f0; color: #334155; }
+    th { background: #f26522; color: #ffffff; font-weight: 700; text-align: left; padding: 8px 10px; border: 1px solid #ea580c; font-size: 11px; text-transform: uppercase; }
+    td { padding: 7px 10px; border: 1px solid #e2e8f0; color: #334155; }
     tr:nth-child(even) td { background-color: #f8fafc; }
-    .badge { display: inline-block; padding: 3px 8px; font-size: 10px; font-weight: 700; border-radius: 12px; }
+    .badge { display: inline-block; padding: 2px 7px; font-size: 10px; font-weight: 700; border-radius: 10px; }
     .badge-success { background: #dcfce7; color: #15803d; }
     .badge-warn { background: #fef3c7; color: #b45309; }
     .badge-danger { background: #fee2e2; color: #b91c1c; }
-    .footer { background: #f8fafc; padding: 20px 32px; font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; }
-    .note { margin-top: 20px; padding: 12px 16px; background: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 4px; font-size: 12px; color: #1e40af; }
+    .footer { background: #f8fafc; padding: 16px 28px; font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; }
+    .signoff { margin-top: 24px; padding-top: 14px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #475569; }
   </style>
 </head>
 <body>
@@ -955,11 +1286,15 @@ export async function generateReportData(
     </div>
     <div class="meta-bar">
       <span><strong>Client:</strong> ${actualClientName}</span> &nbsp;|&nbsp;
-      <span><strong>Date Window:</strong> ${dateRangeStr}</span> &nbsp;|&nbsp;
-      <span><strong>Generated:</strong> ${new Date().toUTCString()}</span>
+      <span><strong>Date Window:</strong> ${dateRangeStr}</span>
     </div>
 
     <div class="content">
+      <div class="greeting">
+        <p style="margin: 0 0 6px 0; font-weight: 700; color: #0f172a;">Hi ${actualClientName} Team,</p>
+        <p style="margin: 0;">Please find attached the <strong>${actualClientName}</strong> ${reportTitle} covering <strong>${startDate}</strong> to <strong>${endDate}</strong>.</p>
+      </div>
+
       <div class="kpi-grid">
         ${summaryKpis
           .map(
@@ -973,7 +1308,7 @@ export async function generateReportData(
           .join('')}
       </div>
 
-      <div class="section-title">📊 Report Summary Table (${rows.length} records)</div>
+      <div class="section-title">📊 Report Summary (${rows.length} records)</div>
       <table>
         <thead>
           <tr>
@@ -1006,12 +1341,15 @@ export async function generateReportData(
 
       ${
         rows.length > 15
-          ? `<p style="font-size: 11px; color: #64748b; margin-top: 8px;">* Showing top 15 records. Download the attached Excel / PDF file for the complete dataset of ${rows.length} rows.</p>`
+          ? `<p style="font-size: 11px; color: #64748b; margin-top: 6px;">* Showing top 15 records. Download the attached Excel / PDF file for the complete dataset of ${rows.length} rows.</p>`
           : ''
       }
 
-      <div class="note">
-        📎 <strong>Attached Files:</strong> Full detailed data matching the dashboard export format has been generated and attached in Excel (.xlsx) and PDF format.
+      <div class="signoff">
+        <p style="margin: 0 0 12px 0;">Kindly contact us should you have any queries regarding the report.</p>
+        <p style="margin: 0; font-weight: 700; color: #0f172a;">Sincere regards,</p>
+        <p style="margin: 2px 0 0 0; font-weight: 600; color: #ea580c;">Fuel Management Dispatcher</p>
+        <p style="margin: 1px 0 0 0; color: #64748b;">Master Systems (PNG) Ltd</p>
       </div>
     </div>
 
@@ -1022,7 +1360,8 @@ export async function generateReportData(
   </div>
 </body>
 </html>
-`;
+    `;
+  }
 
   // Attachments generation using EXACT export styles
   const attachments: { filename: string; contentType: string; contentBase64: string }[] = [];

@@ -1115,6 +1115,26 @@ export function ReportScheduleDrawer() {
                   </div>
                 </div>
 
+                {/* 7. Email Subject Line Template */}
+                <div className="space-y-2">
+                  <label className="text-xs font-extrabold tracking-wider uppercase text-zinc-400 flex items-center justify-between">
+                    <span>7. Email Subject Line (Optional Template)</span>
+                    <span className="text-[11px] text-zinc-500 font-normal">Leave empty for recommended format</span>
+                  </label>
+                  <div className="p-3 bg-zinc-900/70 border border-zinc-800 rounded-xl space-y-2">
+                    <input
+                      type="text"
+                      value={subjectTemplate}
+                      onChange={(e) => setSubjectTemplate(e.target.value)}
+                      placeholder="{ClientName} Fuel Bowser Reconciliation Report: {FromDate}-{ToDate}"
+                      className="w-full bg-black/60 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#f26522]"
+                    />
+                    <p className="text-[10px] text-zinc-400">
+                      <strong>Tokens:</strong> <code className="text-[#f26522]">{'{ClientName}'}</code>, <code className="text-[#f26522]">{'{FromDate}'}</code>, <code className="text-[#f26522]">{'{ToDate}'}</code>, <code className="text-[#f26522]">{'{ReportName}'}</code>
+                    </p>
+                  </div>
+                </div>
+
                 {/* Status / Feedback Alerts */}
                 {formError && (
                   <div className="p-3 bg-rose-500/15 border border-rose-500/40 rounded-xl flex items-center gap-2 text-xs text-rose-300">

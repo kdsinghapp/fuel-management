@@ -1,1 +1,24 @@
-[]
+[
+  {
+    "name": "Daily Digicel POM Report",
+    "enabled": true,
+    "clientName": "St Johns Pom",
+    "reportType": "fuel-levels",
+    "datePreset": "last30days",
+    "time": "06:00",
+    "frequency": "daily",
+    "recipients": [
+      "puneet.technorizen@gmail.com"
+    ],
+    "formats": [
+      "inlineHtml",
+      "excel"
+    ],
+    "id": "sch-1789021858737-lrjon",
+    "createdAt": "2026-09-10T06:30:58.737Z",
+    "updatedAt": "2026-09-10T07:08:04.088Z",
+    "lastRunAt": "2026-09-10T06:31:13.070Z",
+    "lastRunStatus": "success",
+    "lastRunMessage": "Dispatched successfully to puneet.technorizen@gmail.com"
+  }
+]

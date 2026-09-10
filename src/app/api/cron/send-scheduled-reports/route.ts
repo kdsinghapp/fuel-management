@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { generateReportData } from '@/services/reportGeneratorService';
+import { generateReportData, formatReportSubject } from '@/services/reportGeneratorService';
 import { sendMicrosoftGraphMail } from '@/lib/microsoftGraph';
 import { ReportSchedule, ScheduleExecutionLog } from '@/types/schedule';
 
@@ -112,9 +112,14 @@ export async function GET(req: NextRequest) {
           sched.formats || ['excel', 'pdf']
         );
 
-        const subject =
-          sched.subjectTemplate ||
-          `⛽ [Automated Report] ${reportData.title} (${reportData.dateRangeStr})`;
+        const subject = formatReportSubject(
+          sched.subjectTemplate,
+          reportData.clientName,
+          reportData.startDate,
+          reportData.endDate,
+          sched.reportType,
+          reportData.title
+        );
 
         const sendResult = await sendMicrosoftGraphMail({
           to: sched.recipients,

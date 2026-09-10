@@ -1,6 +1,6 @@
 // src/app/api/email/send-report/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { generateReportData } from '@/services/reportGeneratorService';
+import { generateReportData, formatReportSubject } from '@/services/reportGeneratorService';
 import { sendMicrosoftGraphMail, testMicrosoftGraphConnection } from '@/lib/microsoftGraph';
 import { DateWindowPreset, ReportFormat, ReportType } from '@/types/schedule';
 
@@ -40,9 +40,14 @@ export async function POST(req: NextRequest) {
     );
 
     // 2. Prepare Subject Line
-    const subject =
-      subjectTemplate ||
-      `⛽ [Automated Report] ${reportData.title} (${reportData.dateRangeStr})`;
+    const subject = formatReportSubject(
+      subjectTemplate,
+      reportData.clientName,
+      reportData.startDate,
+      reportData.endDate,
+      reportType,
+      reportData.title
+    );
 
     // 3. Dispatch Email via Microsoft Graph API
     const sendResult = await sendMicrosoftGraphMail({
