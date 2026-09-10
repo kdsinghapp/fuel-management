@@ -1,7 +1,5 @@
 // src/app/api/cron/send-scheduled-reports/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 import { generateReportData, formatReportSubject } from '@/services/reportGeneratorService';
 import { sendMicrosoftGraphMail } from '@/lib/microsoftGraph';
 import { ReportSchedule, ScheduleExecutionLog } from '@/types/schedule';
@@ -10,30 +8,13 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { ScheduleModel } from '@/models/Schedule';
 import { ScheduleLogModel } from '@/models/ScheduleLog';
 
-const DATA_DIR = path.join(process.cwd(), 'src', 'data');
-const LOGS_FILE = path.join(DATA_DIR, 'execution_logs.json');
-
 async function appendExecutionLog(log: ScheduleExecutionLog) {
   try {
-    // 1. Save to MongoDB
+    // Save to MongoDB Atlas
     await connectToDatabase();
     await ScheduleLogModel.create(log);
   } catch (err) {
     console.error('Error saving execution log to MongoDB:', err);
-  }
-
-  try {
-    // 2. Local JSON log backup
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    let logs: ScheduleExecutionLog[] = [];
-    if (fs.existsSync(LOGS_FILE)) {
-      logs = JSON.parse(fs.readFileSync(LOGS_FILE, 'utf-8'));
-    }
-    logs.unshift(log);
-    if (logs.length > 100) logs = logs.slice(0, 100);
-    fs.writeFileSync(LOGS_FILE, JSON.stringify(logs, null, 2), 'utf-8');
-  } catch (err) {
-    console.error('Error logging schedule execution to file:', err);
   }
 }
 
