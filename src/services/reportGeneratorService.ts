@@ -541,7 +541,7 @@ export function buildReconciliationPdfBuffer(
   doc.setFontSize(13);
   doc.setTextColor(242, 101, 34); // #F26522
   doc.setFont('helvetica', 'bold');
-  doc.text('⛽ FUEL MANAGEMENT SYSTEM', leftMargin, 30);
+  doc.text('FUEL MANAGEMENT SYSTEM', leftMargin, 30);
 
   doc.setFontSize(16);
   doc.setTextColor(15, 23, 42); // Slate 900
@@ -677,7 +677,7 @@ export function buildReconciliationPdfBuffer(
   doc.setFontSize(11);
   doc.setTextColor(15, 23, 42);
   doc.setFont('helvetica', 'bold');
-  doc.text(`📊 DAILY RECONCILIATION BREAKDOWN (${reconRecords.length} Records)`, leftMargin, summaryFinalY);
+  doc.text(`DAILY RECONCILIATION BREAKDOWN (${reconRecords.length} Records)`, leftMargin, summaryFinalY);
 
   autoTable(doc, {
     head: [['Date', 'Opening Balance', 'Deliveries', 'Fuel Issues', 'Expected Closing', 'Actual Closing', 'Variance', 'Variance %']],
@@ -750,20 +750,20 @@ export function buildReconciliationPdfBuffer(
       doc.setFontSize(11);
       doc.setTextColor(15, 23, 42);
       doc.setFont('helvetica', 'bold');
-      doc.text(`⛽ YESTERDAY'S TRANSACTION SUMMARY (${yesterdayTransactions.length} Transactions)`, leftMargin, 36);
+      doc.text(`YESTERDAY'S TRANSACTION SUMMARY (${yesterdayTransactions.length} Transactions)`, leftMargin, 36);
 
       autoTable(doc, {
         head: [['Date / Time', 'ID', 'Vehicle Reg', 'Fleet ID', 'Site', 'Litres', 'Pump', 'Odo/Meter', 'DEM']],
         body: yesterdayTransactions.map((tx) => [
           `${tx.date} ${tx.time}`,
           tx.transactionId || tx.id,
-          tx.vehicleId || '—',
-          tx.fleetId || '—',
+          tx.vehicleId || '-',
+          tx.fleetId || '-',
           tx.siteId || tx.depot || '2591',
           `${Number(tx.fuelQuantity || 0).toFixed(1)} L`,
           tx.pump || '1',
-          tx.odometer && tx.odometer !== '0' ? tx.odometer : '—',
-          tx.dem || (tx.status === 'Matched' ? '▲ Driver Tag Matched' : '♦ ST500 Blue Driver Key'),
+          tx.odometer && tx.odometer !== '0' ? tx.odometer : '-',
+          tx.dem || (tx.status === 'Matched' ? 'Driver Tag Matched' : 'ST500 Blue Driver Key'),
         ]),
         startY: 46,
         margin: { left: leftMargin, right: rightMargin },
@@ -798,7 +798,7 @@ export function buildReconciliationPdfBuffer(
           }
           if (data.section === 'body' && data.column.index === 8) {
             const val = String(data.cell.raw);
-            data.cell.styles.textColor = val.includes('▲') ? [21, 128, 61] : [234, 88, 12];
+            data.cell.styles.textColor = val.includes('Matched') ? [21, 128, 61] : [234, 88, 12];
           }
         },
         alternateRowStyles: {
@@ -809,20 +809,20 @@ export function buildReconciliationPdfBuffer(
       doc.setFontSize(11);
       doc.setTextColor(15, 23, 42);
       doc.setFont('helvetica', 'bold');
-      doc.text(`⛽ YESTERDAY'S TRANSACTION SUMMARY (${yesterdayTransactions.length} Transactions)`, leftMargin, dailyFinalY);
+      doc.text(`YESTERDAY'S TRANSACTION SUMMARY (${yesterdayTransactions.length} Transactions)`, leftMargin, dailyFinalY);
 
       autoTable(doc, {
         head: [['Date / Time', 'ID', 'Vehicle Reg', 'Fleet ID', 'Site', 'Litres', 'Pump', 'Odo/Meter', 'DEM']],
         body: yesterdayTransactions.map((tx) => [
           `${tx.date} ${tx.time}`,
           tx.transactionId || tx.id,
-          tx.vehicleId || '—',
-          tx.fleetId || '—',
+          tx.vehicleId || '-',
+          tx.fleetId || '-',
           tx.siteId || tx.depot || '2591',
           `${Number(tx.fuelQuantity || 0).toFixed(1)} L`,
           tx.pump || '1',
-          tx.odometer && tx.odometer !== '0' ? tx.odometer : '—',
-          tx.dem || (tx.status === 'Matched' ? '▲ Driver Tag Matched' : '♦ ST500 Blue Driver Key'),
+          tx.odometer && tx.odometer !== '0' ? tx.odometer : '-',
+          tx.dem || (tx.status === 'Matched' ? 'Driver Tag Matched' : 'ST500 Blue Driver Key'),
         ]),
         startY: dailyFinalY + 8,
         margin: { left: leftMargin, right: rightMargin },
