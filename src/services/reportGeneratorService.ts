@@ -1025,15 +1025,15 @@ export async function generateReportData(
         const vColor = r.variance >= 0 ? '#15803d' : '#b91c1c';
         const isDelivPos = r.deliveries > 0;
         return `
-          <tr style="background-color: ${isEven ? '#ffffff' : '#fff9f5'}; border-bottom: 1px solid #e2e8f0;">
-            <td style="padding: 7px 10px; font-weight: 700; color: #1e293b;">${r.date}</td>
-            <td style="padding: 7px 10px; text-align: right; color: #334155;">${Number(r.openingBalance).toLocaleString()} L</td>
-            <td style="padding: 7px 10px; text-align: right; font-weight: 700; color: ${isDelivPos ? '#15803d' : '#64748b'};">+${Number(r.deliveries).toLocaleString()} L</td>
-            <td style="padding: 7px 10px; text-align: right; font-weight: 700; color: #ea580c;">-${Number(r.fuelIssues).toLocaleString()} L</td>
-            <td style="padding: 7px 10px; text-align: right; color: #334155;">${Number(r.expectedClosing).toLocaleString()} L</td>
-            <td style="padding: 7px 10px; text-align: right; font-weight: 700; color: #1e293b;">${Number(r.actualClosing).toLocaleString()} L</td>
-            <td style="padding: 7px 10px; text-align: right; font-weight: 800; color: ${vColor};">${r.variance >= 0 ? '+' : ''}${r.variance} L</td>
-            <td style="padding: 7px 10px; text-align: right; font-weight: 800; color: ${vColor};">${vPercent >= 0 ? '+' : ''}${vPercent.toFixed(1)}%</td>
+          <tr style="background-color: ${isEven ? '#ffffff' : '#f8fafc'}; border-bottom: 1px solid #e2e8f0; font-size: 13px;">
+            <td style="padding: 10px 12px; font-weight: 700; color: #1e293b; font-size: 13px;">${r.date}</td>
+            <td style="padding: 10px 12px; text-align: right; color: #334155; font-size: 13px;">${Number(r.openingBalance).toLocaleString()} L</td>
+            <td style="padding: 10px 12px; text-align: right; font-weight: 700; color: ${isDelivPos ? '#15803d' : '#64748b'}; font-size: 13px;">+${Number(r.deliveries).toLocaleString()} L</td>
+            <td style="padding: 10px 12px; text-align: right; font-weight: 700; color: #ea580c; font-size: 13px;">-${Number(r.fuelIssues).toLocaleString()} L</td>
+            <td style="padding: 10px 12px; text-align: right; color: #334155; font-size: 13px;">${Number(r.expectedClosing).toLocaleString()} L</td>
+            <td style="padding: 10px 12px; text-align: right; font-weight: 700; color: #1e293b; font-size: 13px;">${Number(r.actualClosing).toLocaleString()} L</td>
+            <td style="padding: 10px 12px; text-align: right; font-weight: 800; color: ${vColor}; font-size: 13px;">${r.variance >= 0 ? '+' : ''}${r.variance} L</td>
+            <td style="padding: 10px 12px; text-align: right; font-weight: 800; color: ${vColor}; font-size: 13px;">${vPercent >= 0 ? '+' : ''}${vPercent.toFixed(1)}%</td>
           </tr>
         `;
       })
@@ -1046,19 +1046,19 @@ export async function generateReportData(
             const isEven = idx % 2 === 0;
             const isMatched = tx.status === 'Matched' || (tx.vehicleId && tx.vehicleId.length > 2);
             return `
-              <tr style="background-color: ${isEven ? '#ffffff' : '#fff9f5'}; border-bottom: 1px solid #e2e8f0;">
-                <td style="padding: 6px 8px; color: #475569; font-size: 11px;">${tx.date} ${tx.time}</td>
-                <td style="padding: 6px 8px; font-weight: 700; color: #0f172a; font-size: 11px;">${tx.transactionId || tx.id}</td>
-                <td style="padding: 6px 8px; font-weight: 700; color: ${isMatched ? '#15803d' : '#64748b'}; font-size: 11px;">${tx.vehicleId || '—'}</td>
-                <td style="padding: 6px 8px; color: #64748b; font-size: 11px;">${tx.fleetId || '—'}</td>
-                <td style="padding: 6px 8px; color: #475569; font-size: 11px;">${tx.siteId || tx.depot || targetClient.clientid || '2591'}</td>
-                <td style="padding: 6px 8px; font-weight: 700; text-align: right; color: #0f172a; font-size: 11px;">${Number(tx.fuelQuantity || 0).toFixed(1)} L</td>
-                <td style="padding: 6px 8px; text-align: center; color: #475569; font-size: 11px;">${tx.pump || '1'}</td>
-                <td style="padding: 6px 8px; color: #64748b; font-size: 11px;">${tx.odometer && tx.odometer !== '0' ? tx.odometer : '—'}</td>
-                <td style="padding: 6px 8px; font-size: 10px;">
+              <tr style="background-color: ${isEven ? '#ffffff' : '#f8fafc'}; border-bottom: 1px solid #e2e8f0; font-size: 12px;">
+                <td style="padding: 8px 10px; color: #334155; font-size: 12px; font-weight: 600;">${tx.date} ${tx.time}</td>
+                <td style="padding: 8px 10px; font-weight: 700; color: #0f172a; font-size: 12px;">${tx.transactionId || tx.id}</td>
+                <td style="padding: 8px 10px; font-weight: 700; color: ${isMatched ? '#15803d' : '#64748b'}; font-size: 12px;">${tx.vehicleId || '—'}</td>
+                <td style="padding: 8px 10px; color: #475569; font-size: 12px;">${tx.fleetId || '—'}</td>
+                <td style="padding: 8px 10px; color: #475569; font-size: 12px;">${tx.siteId || tx.depot || targetClient.clientid || '2591'}</td>
+                <td style="padding: 8px 10px; font-weight: 700; text-align: right; color: #0f172a; font-size: 12px;">${Number(tx.fuelQuantity || 0).toFixed(1)} L</td>
+                <td style="padding: 8px 10px; text-align: center; color: #475569; font-size: 12px;">${tx.pump || '1'}</td>
+                <td style="padding: 8px 10px; color: #475569; font-size: 12px;">${tx.odometer && tx.odometer !== '0' ? tx.odometer : '—'}</td>
+                <td style="padding: 8px 10px; font-size: 11px;">
                   ${
                     isMatched
-                      ? `<span style="color: #15803d; font-weight: 700;">▲ ${tx.dem || 'Driver Tag Matched by Trip'}</span>`
+                      ? `<span style="color: #15803d; font-weight: 700;">▲ ${tx.dem || 'Driver Tag Matched'}</span>`
                       : `<span style="color: #ea580c; font-weight: 700;">♦ ${tx.dem || 'ST500 Blue Driver Key'}</span>`
                   }
                 </td>
@@ -1068,7 +1068,7 @@ export async function generateReportData(
           .join('')
       : `
         <tr>
-          <td colspan="9" style="padding: 16px; text-align: center; color: #94a3b8; font-size: 12px; background: #fafafa;">
+          <td colspan="9" style="padding: 18px; text-align: center; color: #64748b; font-size: 13px; background: #f8fafc;">
             No transactions recorded for yesterday.
           </td>
         </tr>
@@ -1081,113 +1081,116 @@ export async function generateReportData(
   <meta charset="utf-8">
   <title>${actualClientName} Fuel Bowser Reconciliation Report</title>
 </head>
-<body style="margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; color: #1e293b;">
-  <div style="max-width: 900px; margin: 0 auto; background: #ffffff; border-radius: 8px; border: 1px solid #cbd5e1; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.08);">
+<body style="margin: 0; padding: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; color: #1e293b;">
+  <div style="max-width: 960px; margin: 0 auto; background: #ffffff; border-radius: 10px; border: 1px solid #cbd5e1; overflow: hidden; box-shadow: 0 4px 10px -1px rgba(0,0,0,0.08);">
     
     <!-- Top Greeting Section -->
-    <div style="padding: 24px 28px 16px 28px; border-bottom: 1px solid #e2e8f0;">
-      <p style="margin: 0 0 10px 0; font-size: 15px; font-weight: 700; color: #0f172a;">
+    <div style="padding: 26px 30px 18px 30px; border-bottom: 2px solid #e2e8f0; background: #ffffff;">
+      <p style="margin: 0 0 10px 0; font-size: 17px; font-weight: 800; color: #0f172a;">
         Hi ${actualClientName} Team,
       </p>
-      <p style="margin: 0; font-size: 13px; color: #334155; line-height: 1.6;">
+      <p style="margin: 0; font-size: 14px; color: #334155; line-height: 1.6;">
         Please find attached the <strong>${actualClientName}</strong> Fuel Bowser Reconciliation Report covering <strong>${startDate}</strong> to <strong>${endDate}</strong>.
       </p>
     </div>
 
     <!-- Content Area -->
-    <div style="padding: 20px 28px 28px 28px;">
+    <div style="padding: 24px 30px 30px 30px;">
       
-      <!-- 2 Column Side-by-Side Summary Grid -->
-      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px;">
+      <!-- 2 Column Side-by-Side Summary Grid with Distinct Gutter -->
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: separate;">
         <tr>
           <!-- STOCK RECONCILIATION SUMMARY (Orange Header) -->
-          <td width="48%" valign="top" style="padding-right: 12px;">
-            <table width="100%" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-size: 11px; border: 1px solid #ea580c; border-radius: 6px; overflow: hidden;">
+          <td width="48%" valign="top" style="vertical-align: top;">
+            <table width="100%" cellpadding="8" cellspacing="0" style="width: 100%; border-collapse: collapse; font-size: 13px; border: 2px solid #ea580c; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
               <thead>
                 <tr>
-                  <th colspan="2" style="background: #ea580c; color: #ffffff; text-align: center; font-size: 12px; font-weight: 800; padding: 8px 10px; letter-spacing: 0.5px; text-transform: uppercase;">
+                  <th colspan="2" style="background: #ea580c; color: #ffffff; text-align: center; font-size: 14px; font-weight: 800; padding: 10px 12px; letter-spacing: 0.5px; text-transform: uppercase;">
                     STOCK RECONCILIATION SUMMARY
                   </th>
                 </tr>
               </thead>
               <tbody>
                 <tr style="border-bottom: 1px solid #fed7aa; background: #fffaf5;">
-                  <td style="padding: 6px 10px; font-weight: 700; color: #7c2d12;">Opening Dip</td>
-                  <td style="padding: 6px 10px; text-align: right; font-weight: 700; color: #1e293b;">${Number(sData.openingDip).toLocaleString()}</td>
+                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px;">Opening Dip</td>
+                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #1e293b; font-size: 14px;">${Number(sData.openingDip).toLocaleString()}</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #fed7aa;">
-                  <td style="padding: 6px 10px; font-weight: 700; color: #7c2d12;">Fuel Issues</td>
-                  <td style="padding: 6px 10px; text-align: right; font-weight: 700; color: #ea580c;">${Number(sData.totalIssues).toLocaleString()}</td>
+                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px;">Fuel Issues</td>
+                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #ea580c; font-size: 14px;">${Number(sData.totalIssues).toLocaleString()}</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #fed7aa; background: #fffaf5;">
-                  <td style="padding: 6px 10px; font-weight: 700; color: #7c2d12;">Fuel Receipts</td>
-                  <td style="padding: 6px 10px; text-align: right; font-weight: 700; color: #16a34a;">${Number(sData.totalDeliveries).toLocaleString()}</td>
+                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px;">Fuel Receipts</td>
+                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #16a34a; font-size: 14px;">${Number(sData.totalDeliveries).toLocaleString()}</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #fed7aa;">
-                  <td style="padding: 6px 10px; font-weight: 700; color: #7c2d12;">Closing Dip</td>
-                  <td style="padding: 6px 10px; text-align: right; font-weight: 700; color: #1e293b;">${Number(sData.closingDip).toLocaleString()}</td>
+                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px;">Closing Dip</td>
+                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #1e293b; font-size: 14px;">${Number(sData.closingDip).toLocaleString()}</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #fed7aa; background: #fffaf5;">
-                  <td style="padding: 6px 10px; font-weight: 700; color: #7c2d12;">Closing Stock</td>
-                  <td style="padding: 6px 10px; text-align: right; font-weight: 700; color: #1e293b;">${Number(sData.closingStock).toLocaleString()}</td>
+                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px;">Closing Stock</td>
+                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #1e293b; font-size: 14px;">${Number(sData.closingStock).toLocaleString()}</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #fed7aa;">
-                  <td style="padding: 6px 10px; font-weight: 700; color: #7c2d12;">Variance</td>
-                  <td style="padding: 6px 10px; text-align: right; font-weight: 800; color: ${sData.variance >= 0 ? '#15803d' : '#b91c1c'};">${sData.variance >= 0 ? '+' : ''}${sData.variance.toLocaleString()}</td>
+                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px;">Variance</td>
+                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; font-size: 14px; color: ${sData.variance >= 0 ? '#15803d' : '#b91c1c'};">${sData.variance >= 0 ? '+' : ''}${sData.variance.toLocaleString()}</td>
                 </tr>
                 <tr style="background: #fffaf5;">
-                  <td style="padding: 6px 10px; font-weight: 700; color: #7c2d12;">%</td>
-                  <td style="padding: 6px 10px; text-align: right; font-weight: 800; color: ${sData.variancePercent >= 0 ? '#15803d' : '#b91c1c'};">${sData.variancePercent >= 0 ? '+' : ''}${sData.variancePercent.toFixed(1)}%</td>
+                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px;">%</td>
+                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; font-size: 14px; color: ${sData.variancePercent >= 0 ? '#15803d' : '#b91c1c'};">${sData.variancePercent >= 0 ? '+' : ''}${sData.variancePercent.toFixed(1)}%</td>
                 </tr>
               </tbody>
             </table>
           </td>
 
+          <!-- Dedicated Middle Spacer Column between the two top tables -->
+          <td width="4%" style="width: 4%; min-width: 16px;">&nbsp;</td>
+
           <!-- STOCK DEMAND PLAN (Green Header) -->
-          <td width="52%" valign="top" style="padding-left: 12px;">
-            <table width="100%" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-size: 11px; border: 1px solid #16a34a; border-radius: 6px; overflow: hidden;">
+          <td width="48%" valign="top" style="vertical-align: top;">
+            <table width="100%" cellpadding="8" cellspacing="0" style="width: 100%; border-collapse: collapse; font-size: 13px; border: 2px solid #16a34a; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
               <thead>
                 <tr>
-                  <th colspan="3" style="background: #15803d; color: #ffffff; text-align: center; font-size: 12px; font-weight: 800; padding: 8px 10px; letter-spacing: 0.5px; text-transform: uppercase;">
+                  <th colspan="3" style="background: #15803d; color: #ffffff; text-align: center; font-size: 14px; font-weight: 800; padding: 10px 12px; letter-spacing: 0.5px; text-transform: uppercase;">
                     STOCK DEMAND PLAN
                   </th>
                 </tr>
               </thead>
               <tbody>
                 <tr style="border-bottom: 1px solid #bbf7d0; background: #f0fdf4;">
-                  <td style="padding: 6px 8px; font-weight: 700; color: #14532d;">Stock</td>
-                  <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #1e293b;">${Number(sData.closingDip).toLocaleString()}</td>
-                  <td style="padding: 6px 8px; color: #64748b; font-size: 10px;">Balance remaining in the tank.</td>
+                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px;">Stock</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px;">${Number(sData.closingDip).toLocaleString()}</td>
+                  <td style="padding: 8px 10px; color: #475569; font-size: 11px;">Balance remaining in the tank.</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #bbf7d0;">
-                  <td style="padding: 6px 8px; font-weight: 700; color: #14532d;">Av Daily Cons.</td>
-                  <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #1e293b;">${Math.round(sData.avDailyCons).toLocaleString()}</td>
-                  <td style="padding: 6px 8px; color: #64748b; font-size: 10px;">Average Fuel Consumption/Day MTD.</td>
+                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px;">Av Daily Cons.</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px;">${Math.round(sData.avDailyCons).toLocaleString()}</td>
+                  <td style="padding: 8px 10px; color: #475569; font-size: 11px;">Average Fuel Consumption/Day MTD.</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #bbf7d0; background: #f0fdf4;">
-                  <td style="padding: 6px 8px; font-weight: 700; color: #14532d;">Days Stock</td>
-                  <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #1e293b;">${sData.daysStock}</td>
-                  <td style="padding: 6px 8px; color: #64748b; font-size: 10px;">Days left before Stock run Out based on listed rate.</td>
+                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px;">Days Stock</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px;">${sData.daysStock}</td>
+                  <td style="padding: 8px 10px; color: #475569; font-size: 11px;">Days left before Stock run Out.</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #bbf7d0;">
-                  <td style="padding: 6px 8px; font-weight: 700; color: #14532d;">Min Stock</td>
-                  <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #1e293b;">${Number(sData.minStock).toLocaleString()}</td>
-                  <td style="padding: 6px 8px; color: #64748b; font-size: 10px;">Critical Tank Level for Main Tank.</td>
+                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px;">Min Stock</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px;">${Number(sData.minStock).toLocaleString()}</td>
+                  <td style="padding: 8px 10px; color: #475569; font-size: 11px;">Critical Tank Level for Main Tank.</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #bbf7d0; background: #f0fdf4;">
-                  <td style="padding: 6px 8px; font-weight: 700; color: #14532d;">Re-Order</td>
-                  <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #1e293b;">${sData.reorderDays}</td>
-                  <td style="padding: 6px 8px; color: #64748b; font-size: 10px;">Days to prepare for New Purchase.</td>
+                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px;">Re-Order</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px;">${sData.reorderDays}</td>
+                  <td style="padding: 8px 10px; color: #475569; font-size: 11px;">Days to prepare for New Purchase.</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #bbf7d0;">
-                  <td style="padding: 6px 8px; font-weight: 700; color: #14532d;">Re-Order</td>
-                  <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #1e293b;">${sData.reorderDate}</td>
-                  <td style="padding: 6px 8px; color: #64748b; font-size: 10px;">Placing ST order Date</td>
+                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px;">Re-Order</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px;">${sData.reorderDate}</td>
+                  <td style="padding: 8px 10px; color: #475569; font-size: 11px;">Placing ST order Date</td>
                 </tr>
                 <tr style="background: #f0fdf4;">
-                  <td style="padding: 6px 8px; font-weight: 700; color: #14532d;">Stock Arrival</td>
-                  <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #1e293b;">${sData.arrivalDate}</td>
-                  <td style="padding: 6px 8px; color: #64748b; font-size: 10px;">Delivery of stock Date</td>
+                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px;">Stock Arrival</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px;">${sData.arrivalDate}</td>
+                  <td style="padding: 8px 10px; color: #475569; font-size: 11px;">Delivery of stock Date</td>
                 </tr>
               </tbody>
             </table>
@@ -1195,18 +1198,29 @@ export async function generateReportData(
         </tr>
       </table>
 
+      <!-- STRONG VISIBLE SEPARATION SPACER & SECTION HEADER BETWEEN TOP & BOTTOM TABLES -->
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 32px; margin-bottom: 14px;">
+        <tr>
+          <td style="padding-bottom: 8px; border-bottom: 2px solid #cbd5e1;">
+            <span style="font-size: 15px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">
+              📊 Daily Reconciliation Breakdown (${reconFilteredRecords.length} Records)
+            </span>
+          </td>
+        </tr>
+      </table>
+
       <!-- Daily Reconciliation Table -->
-      <table width="100%" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-size: 11px; margin-bottom: 24px; border: 1px solid #cbd5e1; border-radius: 4px; overflow: hidden;">
+      <table width="100%" cellpadding="8" cellspacing="0" style="border-collapse: collapse; font-size: 13px; margin-bottom: 32px; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
         <thead>
-          <tr style="color: #ffffff; font-size: 11px; font-weight: 700;">
-            <th style="background: #0f172a; padding: 8px 10px; border: 1px solid #334155; text-align: left;">Date</th>
-            <th style="background: #0f172a; padding: 8px 10px; border: 1px solid #334155; text-align: right;">Opening Balance</th>
-            <th style="background: #15803d; padding: 8px 10px; border: 1px solid #16a34a; text-align: right;">Deliveries</th>
-            <th style="background: #ea580c; padding: 8px 10px; border: 1px solid #f97316; text-align: right;">Fuel Issues</th>
-            <th style="background: #0f172a; padding: 8px 10px; border: 1px solid #334155; text-align: right;">Expected Closing</th>
-            <th style="background: #0f172a; padding: 8px 10px; border: 1px solid #334155; text-align: right;">Actual Closing</th>
-            <th style="background: #0f172a; padding: 8px 10px; border: 1px solid #334155; text-align: right;">Variance</th>
-            <th style="background: #0f172a; padding: 8px 10px; border: 1px solid #334155; text-align: right;">Variance %</th>
+          <tr style="color: #ffffff; font-size: 13px; font-weight: 800;">
+            <th style="background: #0f172a; padding: 11px 12px; border: 1px solid #334155; text-align: left;">Date</th>
+            <th style="background: #0f172a; padding: 11px 12px; border: 1px solid #334155; text-align: right;">Opening Balance</th>
+            <th style="background: #15803d; padding: 11px 12px; border: 1px solid #16a34a; text-align: right;">Deliveries</th>
+            <th style="background: #ea580c; padding: 11px 12px; border: 1px solid #f97316; text-align: right;">Fuel Issues</th>
+            <th style="background: #0f172a; padding: 11px 12px; border: 1px solid #334155; text-align: right;">Expected Closing</th>
+            <th style="background: #0f172a; padding: 11px 12px; border: 1px solid #334155; text-align: right;">Actual Closing</th>
+            <th style="background: #0f172a; padding: 11px 12px; border: 1px solid #334155; text-align: right;">Variance</th>
+            <th style="background: #0f172a; padding: 11px 12px; border: 1px solid #334155; text-align: right;">Variance %</th>
           </tr>
         </thead>
         <tbody>
@@ -1215,36 +1229,41 @@ export async function generateReportData(
       </table>
 
       <!-- Yesterday's Transaction Summary -->
-      <div style="margin-top: 24px; margin-bottom: 24px;">
-        <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 800; color: #0f172a; letter-spacing: 0.2px;">
-          Yesterday's Transaction Summary
-        </h3>
-        <table width="100%" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 4px; overflow: hidden;">
-          <thead>
-            <tr style="color: #ffffff; font-size: 11px; font-weight: 700; text-align: left;">
-              <th style="background: #ea580c; padding: 8px 8px; border: 1px solid #f97316;">Date / Time</th>
-              <th style="background: #0f172a; padding: 8px 8px; border: 1px solid #334155;">ID</th>
-              <th style="background: #15803d; padding: 8px 8px; border: 1px solid #16a34a;">Vehicle Reg</th>
-              <th style="background: #15803d; padding: 8px 8px; border: 1px solid #16a34a;">Fleet Id</th>
-              <th style="background: #15803d; padding: 8px 8px; border: 1px solid #16a34a;">Site</th>
-              <th style="background: #15803d; padding: 8px 8px; border: 1px solid #16a34a; text-align: right;">Litres</th>
-              <th style="background: #0f172a; padding: 8px 8px; border: 1px solid #334155; text-align: center;">Pump</th>
-              <th style="background: #0f172a; padding: 8px 8px; border: 1px solid #334155;">Odo/Meter</th>
-              <th style="background: #0f172a; padding: 8px 8px; border: 1px solid #334155;">DEM</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${yestRowsHtml}
-          </tbody>
-        </table>
-      </div>
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 32px; margin-bottom: 14px;">
+        <tr>
+          <td style="padding-bottom: 8px; border-bottom: 2px solid #cbd5e1;">
+            <span style="font-size: 15px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">
+              ⛽ Yesterday's Transaction Summary (${yesterdayTransactions.length} Transactions)
+            </span>
+          </td>
+        </tr>
+      </table>
+
+      <table width="100%" cellpadding="8" cellspacing="0" style="border-collapse: collapse; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <thead>
+          <tr style="color: #ffffff; font-size: 12px; font-weight: 800; text-align: left;">
+            <th style="background: #ea580c; padding: 10px 10px; border: 1px solid #f97316;">Date / Time</th>
+            <th style="background: #0f172a; padding: 10px 10px; border: 1px solid #334155;">ID</th>
+            <th style="background: #15803d; padding: 10px 10px; border: 1px solid #16a34a;">Vehicle Reg</th>
+            <th style="background: #15803d; padding: 10px 10px; border: 1px solid #16a34a;">Fleet Id</th>
+            <th style="background: #15803d; padding: 10px 10px; border: 1px solid #16a34a;">Site</th>
+            <th style="background: #15803d; padding: 10px 10px; border: 1px solid #16a34a; text-align: right;">Litres</th>
+            <th style="background: #0f172a; padding: 10px 10px; border: 1px solid #334155; text-align: center;">Pump</th>
+            <th style="background: #0f172a; padding: 10px 10px; border: 1px solid #334155;">Odo/Meter</th>
+            <th style="background: #0f172a; padding: 10px 10px; border: 1px solid #334155;">DEM</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${yestRowsHtml}
+        </tbody>
+      </table>
 
       <!-- Sign-Off & Footer -->
-      <div style="margin-top: 28px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #334155; line-height: 1.6;">
+      <div style="margin-top: 32px; padding-top: 18px; border-top: 1px solid #e2e8f0; font-size: 14px; color: #334155; line-height: 1.6;">
         <p style="margin: 0 0 16px 0;">Kindly contact us should you have any queries regarding the report.</p>
         <p style="margin: 0; font-weight: 700; color: #0f172a;">Sincere regards,</p>
-        <p style="margin: 4px 0 0 0; font-weight: 600; color: #ea580c;">Fuel Management Dispatcher</p>
-        <p style="margin: 2px 0 0 0; color: #64748b; font-weight: 500;">Master Systems (PNG) Ltd</p>
+        <p style="margin: 4px 0 0 0; font-weight: 700; color: #ea580c;">Fuel Management Dispatcher</p>
+        <p style="margin: 2px 0 0 0; color: #64748b; font-weight: 600;">Master Systems (PNG) Ltd</p>
       </div>
 
     </div>
@@ -1260,29 +1279,29 @@ export async function generateReportData(
 <head>
   <meta charset="utf-8">
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; color: #1e293b; }
-    .container { max-width: 760px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
-    .header { background: linear-gradient(135deg, #ff9f1c 0%, #f26522 100%); color: #ffffff; padding: 24px 28px; text-align: left; }
-    .header h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
-    .header p { margin: 4px 0 0 0; font-size: 13px; opacity: 0.95; font-weight: 500; }
-    .meta-bar { background: #0f172a; color: #94a3b8; padding: 10px 28px; font-size: 12px; display: flex; justify-content: space-between; border-bottom: 1px solid #334155; }
-    .content { padding: 28px; }
-    .greeting { font-size: 14px; margin-bottom: 16px; color: #334155; line-height: 1.5; }
-    .kpi-grid { display: table; width: 100%; margin-bottom: 20px; }
-    .kpi-card { display: table-cell; width: 25%; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; text-align: center; }
-    .kpi-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; font-weight: 700; margin-bottom: 4px; }
-    .kpi-val { font-size: 17px; font-weight: 800; }
-    .section-title { font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
-    th { background: #f26522; color: #ffffff; font-weight: 700; text-align: left; padding: 8px 10px; border: 1px solid #ea580c; font-size: 11px; text-transform: uppercase; }
-    td { padding: 7px 10px; border: 1px solid #e2e8f0; color: #334155; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b; }
+    .container { max-width: 860px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 10px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+    .header { background: linear-gradient(135deg, #ff9f1c 0%, #f26522 100%); color: #ffffff; padding: 24px 30px; text-align: left; }
+    .header h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+    .header p { margin: 4px 0 0 0; font-size: 14px; opacity: 0.95; font-weight: 600; }
+    .meta-bar { background: #0f172a; color: #94a3b8; padding: 12px 30px; font-size: 13px; display: flex; justify-content: space-between; border-bottom: 1px solid #334155; }
+    .content { padding: 28px 30px; }
+    .greeting { font-size: 15px; margin-bottom: 20px; color: #334155; line-height: 1.6; }
+    .kpi-grid { display: table; width: 100%; margin-bottom: 24px; }
+    .kpi-card { display: table-cell; width: 25%; padding: 12px 14px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; text-align: center; }
+    .kpi-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; font-weight: 700; margin-bottom: 6px; }
+    .kpi-val { font-size: 19px; font-weight: 800; }
+    .section-title { font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+    th { background: #f26522; color: #ffffff; font-weight: 800; text-align: left; padding: 10px 12px; border: 1px solid #ea580c; font-size: 12px; text-transform: uppercase; }
+    td { padding: 9px 12px; border: 1px solid #e2e8f0; color: #334155; }
     tr:nth-child(even) td { background-color: #f8fafc; }
-    .badge { display: inline-block; padding: 2px 7px; font-size: 10px; font-weight: 700; border-radius: 10px; }
+    .badge { display: inline-block; padding: 3px 8px; font-size: 11px; font-weight: 700; border-radius: 10px; }
     .badge-success { background: #dcfce7; color: #15803d; }
     .badge-warn { background: #fef3c7; color: #b45309; }
     .badge-danger { background: #fee2e2; color: #b91c1c; }
-    .footer { background: #f8fafc; padding: 16px 28px; font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; }
-    .signoff { margin-top: 24px; padding-top: 14px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #475569; }
+    .footer { background: #f8fafc; padding: 18px 30px; font-size: 12px; color: #64748b; text-align: center; border-top: 1px solid #e2e8f0; }
+    .signoff { margin-top: 28px; padding-top: 18px; border-top: 1px solid #e2e8f0; font-size: 14px; color: #334155; line-height: 1.6; }
   </style>
 </head>
 <body>
