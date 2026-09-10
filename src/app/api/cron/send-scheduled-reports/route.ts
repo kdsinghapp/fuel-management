@@ -207,8 +207,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       processedCount: results.length,
-      serverTime: serverTimeStr,
-      serverDate: serverDateStr,
+      pgtTime: pgtTimeStr,
+      pgtDate: pgtDateStr,
+      pgtFormatted: pgt.formattedDateTime,
       clientTime: clientTime || null,
       results,
     });
