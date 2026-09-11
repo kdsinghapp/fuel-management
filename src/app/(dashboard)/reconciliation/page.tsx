@@ -23,7 +23,7 @@ export default function ReconciliationPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedStatus, setSelectedStatus] = useState('');
-    const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
+    const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('monthToDate'));
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
     const [exportOpen, setExportOpen] = useState(false);
@@ -222,7 +222,7 @@ export default function ReconciliationPage() {
     };
 
     const handleReset = () => {
-        const defaultRange = getDateRangeFromPreset('30days');
+        const defaultRange = getDateRangeFromPreset('monthToDate');
         setSelectedStatus('');
         setDateRange(defaultRange);
         setPage(1);

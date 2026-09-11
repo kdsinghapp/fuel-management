@@ -29,7 +29,7 @@ export default function DeliveriesPage() {
     const [page, setPage] = useState(1);
     const [pageSize] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
-    const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
+    const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('monthToDate'));
     const [exportOpen, setExportOpen] = useState(false);
     const [isExporting, setIsExporting] = useState<string | null>(null);
     const exportRef = useRef<HTMLDivElement>(null);
@@ -145,7 +145,7 @@ export default function DeliveriesPage() {
     };
 
     const handleReset = () => {
-        const defaultRange = getDateRangeFromPreset('30days');
+        const defaultRange = getDateRangeFromPreset('monthToDate');
         setSearch('');
         setDateRange(defaultRange);
         setPage(1);

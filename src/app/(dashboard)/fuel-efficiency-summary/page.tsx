@@ -34,7 +34,7 @@ export default function FuelEfficiencySummaryPage() {
     const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [searchInput, setSearchInput] = useState('');
-    const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
+    const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('monthToDate'));
     const [exportOpen, setExportOpen] = useState(false);
     const [isExporting, setIsExporting] = useState<string | null>(null);
     const exportRef = useRef<HTMLDivElement>(null);
@@ -233,7 +233,7 @@ export default function FuelEfficiencySummaryPage() {
     };
 
     const handleReset = () => {
-        const defaultRange = getDateRangeFromPreset('30days');
+        const defaultRange = getDateRangeFromPreset('monthToDate');
         setSearchInput('');
         setSearch('');
         setDateRange(defaultRange);

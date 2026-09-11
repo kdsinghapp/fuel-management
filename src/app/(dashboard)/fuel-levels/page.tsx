@@ -30,7 +30,7 @@ export default function FuelLevelsPage() {
     const [levels, setLevels] = useState<FuelLevel[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
+    const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('monthToDate'));
     const [search, setSearch] = useState('');
     const [exportOpen, setExportOpen] = useState(false);
     const [isExporting, setIsExporting] = useState<string | null>(null);
@@ -226,7 +226,7 @@ export default function FuelLevelsPage() {
                                 size="sm"
                                 onClick={() => {
                                     setSearch('');
-                                    setDateRange(getDateRangeFromPreset('30days'));
+                                    setDateRange(getDateRangeFromPreset('monthToDate'));
                                 }}
                                 className="h-8 px-4 rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-1.5 text-xs font-semibold"
                                 title="Reset filters"

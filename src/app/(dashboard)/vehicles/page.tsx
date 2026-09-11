@@ -27,7 +27,7 @@ export default function VehiclesPage() {
     const [search, setSearch] = useState('');
     const [searchInput, setSearchInput] = useState('');
     const [selectedDepartment, setSelectedDepartment] = useState('');
-    const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
+    const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('monthToDate'));
     const [exportOpen, setExportOpen] = useState(false);
     const [isExporting, setIsExporting] = useState<string | null>(null);
     const exportRef = useRef<HTMLDivElement>(null);
@@ -138,7 +138,7 @@ export default function VehiclesPage() {
     };
 
     const handleReset = () => {
-        const defaultRange = getDateRangeFromPreset('30days');
+        const defaultRange = getDateRangeFromPreset('monthToDate');
         setSearchInput('');
         setSearch('');
         setSelectedDepartment('');

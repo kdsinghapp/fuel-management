@@ -26,7 +26,7 @@ export default function FuelIssuesPage() {
     // Filter states
     const [search, setSearch] = useState('');
     const [selectedVehicle, setSelectedVehicle] = useState('');
-    const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
+    const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('monthToDate'));
 
     const [vehicles, setVehicles] = useState<string[]>([]);
     const [total, setTotal] = useState(0);
@@ -165,7 +165,7 @@ export default function FuelIssuesPage() {
     };
 
     const handleReset = () => {
-        const defaultRange = getDateRangeFromPreset('30days');
+        const defaultRange = getDateRangeFromPreset('monthToDate');
         setSearch('');
         setSelectedVehicle('');
         setDateRange(defaultRange);
