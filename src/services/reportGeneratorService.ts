@@ -578,12 +578,12 @@ export function buildReconciliationPdfBuffer(
   autoTable(doc, {
     head: [['STOCK RECONCILIATION SUMMARY', '']],
     body: [
-      ['Opening Dip', `${Number(sData.openingDip).toLocaleString()}`],
-      ['Fuel Issues', `${Number(sData.totalIssues).toLocaleString()}`],
-      ['Fuel Receipts', `${Number(sData.totalDeliveries).toLocaleString()}`],
-      ['Closing Dip', `${Number(sData.closingDip).toLocaleString()}`],
-      ['Closing Stock', `${Number(sData.closingStock).toLocaleString()}`],
-      ['Variance', `${sData.variance >= 0 ? '+' : ''}${sData.variance.toLocaleString()}`],
+      ['Opening Dip', `${Math.round(sData.openingDip).toLocaleString()}`],
+      ['Fuel Issues', `${Math.round(sData.totalIssues).toLocaleString()}`],
+      ['Fuel Receipts', `${Math.round(sData.totalDeliveries).toLocaleString()}`],
+      ['Closing Dip', `${Math.round(sData.closingDip).toLocaleString()}`],
+      ['Closing Stock', `${Math.round(sData.closingStock).toLocaleString()}`],
+      ['Variance', `${Math.round(sData.variance) >= 0 ? '+' : ''}${Math.round(sData.variance).toLocaleString()}`],
       ['%', `${sData.variancePercent >= 0 ? '+' : ''}${sData.variancePercent.toFixed(1)}%`],
     ],
     startY: startY,
@@ -632,10 +632,10 @@ export function buildReconciliationPdfBuffer(
   autoTable(doc, {
     head: [['STOCK DEMAND PLAN', '', '']],
     body: [
-      ['Stock', `${Number(sData.closingDip).toLocaleString()}`, 'Balance remaining in the tank.'],
+      ['Stock', `${Math.round(sData.closingDip).toLocaleString()}`, 'Balance remaining in the tank.'],
       ['Av Daily Cons.', `${Math.round(sData.avDailyCons).toLocaleString()}`, 'Average Fuel Consumption/Day MTD.'],
       ['Days Stock', String(sData.daysStock), 'Days left before Stock run Out based on listed rate.'],
-      ['Min Stock', `${Number(sData.minStock).toLocaleString()}`, 'Critical Tank Level for Main Tank.'],
+      ['Min Stock', `${Math.round(sData.minStock).toLocaleString()}`, 'Critical Tank Level for Main Tank.'],
       ['Re-Order', String(sData.reorderDays), 'Days to prepare for New Purchase.'],
       ['Re-Order', String(sData.reorderDate), 'Placing ST order Date'],
       ['Stock Arrival', String(sData.arrivalDate), 'Delivery of stock Date'],
@@ -1019,7 +1019,7 @@ export async function generateReportData(
       const reorderDateObj = new Date(today);
       reorderDateObj.setDate(today.getDate() + Math.max(0, daysStock - reorderDays));
       const arrivalDateObj = new Date(reorderDateObj);
-      arrivalDateObj.setDate(reorderDateObj.getDate() + 7);
+      arrivalDateObj.setDate(reorderDateObj.getDate() + 1);
 
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const formatShortDate = (d: Date) => `${d.getDate()}-${months[d.getMonth()]}-${d.getFullYear().toString().slice(-2)}`;
@@ -1500,27 +1500,27 @@ export async function generateReportData(
               <tbody>
                 <tr style="height: 38px; border-bottom: 1px solid #fed7aa; background: #fffaf5;">
                   <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px; white-space: nowrap;">Opening Dip</td>
-                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #1e293b; font-size: 13px; white-space: nowrap;">${Number(sData.openingDip).toLocaleString()}</td>
+                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #1e293b; font-size: 13px; white-space: nowrap;">${Math.round(sData.openingDip).toLocaleString()}</td>
                 </tr>
                 <tr style="height: 38px; border-bottom: 1px solid #fed7aa;">
                   <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px; white-space: nowrap;">Fuel Issues</td>
-                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #ea580c; font-size: 13px; white-space: nowrap;">${Number(sData.totalIssues).toLocaleString()}</td>
+                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #ea580c; font-size: 13px; white-space: nowrap;">${Math.round(sData.totalIssues).toLocaleString()}</td>
                 </tr>
                 <tr style="height: 38px; border-bottom: 1px solid #fed7aa; background: #fffaf5;">
                   <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px; white-space: nowrap;">Fuel Receipts</td>
-                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #16a34a; font-size: 13px; white-space: nowrap;">${Number(sData.totalDeliveries).toLocaleString()}</td>
+                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #16a34a; font-size: 13px; white-space: nowrap;">${Math.round(sData.totalDeliveries).toLocaleString()}</td>
                 </tr>
                 <tr style="height: 38px; border-bottom: 1px solid #fed7aa;">
                   <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px; white-space: nowrap;">Closing Dip</td>
-                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #1e293b; font-size: 13px; white-space: nowrap;">${Number(sData.closingDip).toLocaleString()}</td>
+                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #1e293b; font-size: 13px; white-space: nowrap;">${Math.round(sData.closingDip).toLocaleString()}</td>
                 </tr>
                 <tr style="height: 38px; border-bottom: 1px solid #fed7aa; background: #fffaf5;">
                   <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px; white-space: nowrap;">Closing Stock</td>
-                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #1e293b; font-size: 13px; white-space: nowrap;">${Number(sData.closingStock).toLocaleString()}</td>
+                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #1e293b; font-size: 13px; white-space: nowrap;">${Math.round(sData.closingStock).toLocaleString()}</td>
                 </tr>
                 <tr style="height: 38px; border-bottom: 1px solid #fed7aa;">
                   <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px; white-space: nowrap;">Variance</td>
-                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; font-size: 13px; color: ${sData.variance >= 0 ? '#15803d' : '#b91c1c'}; white-space: nowrap;">${sData.variance >= 0 ? '+' : ''}${sData.variance.toLocaleString()}</td>
+                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; font-size: 13px; color: ${sData.variance >= 0 ? '#15803d' : '#b91c1c'}; white-space: nowrap;">${Math.round(sData.variance) >= 0 ? '+' : ''}${Math.round(sData.variance).toLocaleString()}</td>
                 </tr>
                 <tr style="height: 38px; background: #fffaf5;">
                   <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px; white-space: nowrap;">%</td>
@@ -1546,7 +1546,7 @@ export async function generateReportData(
               <tbody>
                 <tr style="height: 38px; border-bottom: 1px solid #bbf7d0; background: #f0fdf4;">
                   <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px; white-space: nowrap;">Stock</td>
-                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px; white-space: nowrap;">${Number(sData.closingDip).toLocaleString()}</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px; white-space: nowrap;">${Math.round(sData.closingDip).toLocaleString()}</td>
                   <td style="padding: 8px 10px; color: #475569; font-size: 12px; white-space: nowrap;">Balance remaining in the tank.</td>
                 </tr>
                 <tr style="height: 38px; border-bottom: 1px solid #bbf7d0;">
@@ -1561,7 +1561,7 @@ export async function generateReportData(
                 </tr>
                 <tr style="height: 38px; border-bottom: 1px solid #bbf7d0;">
                   <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px; white-space: nowrap;">Min Stock</td>
-                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px; white-space: nowrap;">${Number(sData.minStock).toLocaleString()}</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px; white-space: nowrap;">${Math.round(sData.minStock).toLocaleString()}</td>
                   <td style="padding: 8px 10px; color: #475569; font-size: 12px; white-space: nowrap;">Critical Tank Level for Main Tank.</td>
                 </tr>
                 <tr style="height: 38px; border-bottom: 1px solid #bbf7d0; background: #f0fdf4;">
