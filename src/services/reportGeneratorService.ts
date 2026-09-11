@@ -1413,14 +1413,14 @@ export async function generateReportData(
         const isDelivPos = r.deliveries > 0;
         return `
           <tr style="background-color: ${isEven ? '#ffffff' : '#f8fafc'}; border-bottom: 1px solid #e2e8f0; font-size: 13px;">
-            <td style="padding: 10px 12px; font-weight: 700; color: #1e293b; font-size: 13px;">${r.date}</td>
-            <td style="padding: 10px 12px; text-align: right; color: #334155; font-size: 13px;">${Number(r.openingBalance).toLocaleString()} L</td>
-            <td style="padding: 10px 12px; text-align: right; font-weight: 700; color: ${isDelivPos ? '#15803d' : '#64748b'}; font-size: 13px;">+${Number(r.deliveries).toLocaleString()} L</td>
-            <td style="padding: 10px 12px; text-align: right; font-weight: 700; color: #ea580c; font-size: 13px;">-${Number(r.fuelIssues).toLocaleString()} L</td>
-            <td style="padding: 10px 12px; text-align: right; color: #334155; font-size: 13px;">${Number(r.expectedClosing).toLocaleString()} L</td>
-            <td style="padding: 10px 12px; text-align: right; font-weight: 700; color: #1e293b; font-size: 13px;">${Number(r.actualClosing).toLocaleString()} L</td>
-            <td style="padding: 10px 12px; text-align: right; font-weight: 800; color: ${vColor}; font-size: 13px;">${r.variance >= 0 ? '+' : ''}${r.variance} L</td>
-            <td style="padding: 10px 12px; text-align: right; font-weight: 800; color: ${vColor}; font-size: 13px;">${vPercent >= 0 ? '+' : ''}${vPercent.toFixed(1)}%</td>
+            <td style="padding: 8px 12px; font-weight: 700; color: #1e293b; font-size: 13px;">${r.date}</td>
+            <td style="padding: 8px 12px; text-align: right; color: #334155; font-size: 13px;">${Number(r.openingBalance).toLocaleString()} L</td>
+            <td style="padding: 8px 12px; text-align: right; font-weight: 700; color: ${isDelivPos ? '#15803d' : '#64748b'}; font-size: 13px;">+${Number(r.deliveries).toLocaleString()} L</td>
+            <td style="padding: 8px 12px; text-align: right; font-weight: 700; color: #ea580c; font-size: 13px;">-${Number(r.fuelIssues).toLocaleString()} L</td>
+            <td style="padding: 8px 12px; text-align: right; color: #334155; font-size: 13px;">${Number(r.expectedClosing).toLocaleString()} L</td>
+            <td style="padding: 8px 12px; text-align: right; font-weight: 700; color: #1e293b; font-size: 13px;">${Number(r.actualClosing).toLocaleString()} L</td>
+            <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: ${vColor}; font-size: 13px;">${r.variance >= 0 ? '+' : ''}${r.variance} L</td>
+            <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: ${vColor}; font-size: 13px;">${vPercent >= 0 ? '+' : ''}${vPercent.toFixed(1)}%</td>
           </tr>
         `;
       })
@@ -1488,96 +1488,96 @@ export async function generateReportData(
       <table width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: separate;">
         <tr>
           <!-- STOCK RECONCILIATION SUMMARY (Orange Header) -->
-          <td width="48%" valign="top" style="vertical-align: top;">
-            <table width="100%" cellpadding="8" cellspacing="0" style="width: 100%; border-collapse: collapse; font-size: 13px; border: 2px solid #ea580c; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+          <td width="38%" valign="top" style="width: 38%; vertical-align: top;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; font-size: 13px; border: 2px solid #ea580c; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
               <thead>
-                <tr>
-                  <th colspan="2" style="background: #ea580c; color: #ffffff; text-align: center; font-size: 14px; font-weight: 800; padding: 10px 12px; letter-spacing: 0.5px; text-transform: uppercase;">
+                <tr style="height: 38px;">
+                  <th colspan="2" style="background: #ea580c; color: #ffffff; text-align: center; font-size: 13px; font-weight: 800; padding: 9px 12px; letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap;">
                     STOCK RECONCILIATION SUMMARY
                   </th>
                 </tr>
               </thead>
               <tbody>
-                <tr style="border-bottom: 1px solid #fed7aa; background: #fffaf5;">
-                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px;">Opening Dip</td>
-                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #1e293b; font-size: 14px;">${Number(sData.openingDip).toLocaleString()}</td>
+                <tr style="height: 38px; border-bottom: 1px solid #fed7aa; background: #fffaf5;">
+                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px; white-space: nowrap;">Opening Dip</td>
+                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #1e293b; font-size: 13px; white-space: nowrap;">${Number(sData.openingDip).toLocaleString()}</td>
                 </tr>
-                <tr style="border-bottom: 1px solid #fed7aa;">
-                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px;">Fuel Issues</td>
-                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #ea580c; font-size: 14px;">${Number(sData.totalIssues).toLocaleString()}</td>
+                <tr style="height: 38px; border-bottom: 1px solid #fed7aa;">
+                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px; white-space: nowrap;">Fuel Issues</td>
+                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #ea580c; font-size: 13px; white-space: nowrap;">${Number(sData.totalIssues).toLocaleString()}</td>
                 </tr>
-                <tr style="border-bottom: 1px solid #fed7aa; background: #fffaf5;">
-                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px;">Fuel Receipts</td>
-                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #16a34a; font-size: 14px;">${Number(sData.totalDeliveries).toLocaleString()}</td>
+                <tr style="height: 38px; border-bottom: 1px solid #fed7aa; background: #fffaf5;">
+                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px; white-space: nowrap;">Fuel Receipts</td>
+                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #16a34a; font-size: 13px; white-space: nowrap;">${Number(sData.totalDeliveries).toLocaleString()}</td>
                 </tr>
-                <tr style="border-bottom: 1px solid #fed7aa;">
-                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px;">Closing Dip</td>
-                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #1e293b; font-size: 14px;">${Number(sData.closingDip).toLocaleString()}</td>
+                <tr style="height: 38px; border-bottom: 1px solid #fed7aa;">
+                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px; white-space: nowrap;">Closing Dip</td>
+                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #1e293b; font-size: 13px; white-space: nowrap;">${Number(sData.closingDip).toLocaleString()}</td>
                 </tr>
-                <tr style="border-bottom: 1px solid #fed7aa; background: #fffaf5;">
-                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px;">Closing Stock</td>
-                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #1e293b; font-size: 14px;">${Number(sData.closingStock).toLocaleString()}</td>
+                <tr style="height: 38px; border-bottom: 1px solid #fed7aa; background: #fffaf5;">
+                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px; white-space: nowrap;">Closing Stock</td>
+                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #1e293b; font-size: 13px; white-space: nowrap;">${Number(sData.closingStock).toLocaleString()}</td>
                 </tr>
-                <tr style="border-bottom: 1px solid #fed7aa;">
-                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px;">Variance</td>
-                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; font-size: 14px; color: ${sData.variance >= 0 ? '#15803d' : '#b91c1c'};">${sData.variance >= 0 ? '+' : ''}${sData.variance.toLocaleString()}</td>
+                <tr style="height: 38px; border-bottom: 1px solid #fed7aa;">
+                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px; white-space: nowrap;">Variance</td>
+                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; font-size: 13px; color: ${sData.variance >= 0 ? '#15803d' : '#b91c1c'}; white-space: nowrap;">${sData.variance >= 0 ? '+' : ''}${sData.variance.toLocaleString()}</td>
                 </tr>
-                <tr style="background: #fffaf5;">
-                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px;">%</td>
-                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; font-size: 14px; color: ${sData.variancePercent >= 0 ? '#15803d' : '#b91c1c'};">${sData.variancePercent >= 0 ? '+' : ''}${sData.variancePercent.toFixed(1)}%</td>
+                <tr style="height: 38px; background: #fffaf5;">
+                  <td style="padding: 8px 12px; font-weight: 700; color: #7c2d12; font-size: 13px; white-space: nowrap;">%</td>
+                  <td style="padding: 8px 12px; text-align: right; font-weight: 800; font-size: 13px; color: ${sData.variancePercent >= 0 ? '#15803d' : '#b91c1c'}; white-space: nowrap;">${sData.variancePercent >= 0 ? '+' : ''}${sData.variancePercent.toFixed(1)}%</td>
                 </tr>
               </tbody>
             </table>
           </td>
 
           <!-- Dedicated Middle Spacer Column between the two top tables -->
-          <td width="4%" style="width: 4%; min-width: 16px;">&nbsp;</td>
+          <td width="3%" style="width: 3%; min-width: 14px;">&nbsp;</td>
 
           <!-- STOCK DEMAND PLAN (Green Header) -->
-          <td width="48%" valign="top" style="vertical-align: top;">
-            <table width="100%" cellpadding="8" cellspacing="0" style="width: 100%; border-collapse: collapse; font-size: 13px; border: 2px solid #16a34a; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+          <td width="59%" valign="top" style="width: 59%; vertical-align: top;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; font-size: 13px; border: 2px solid #16a34a; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
               <thead>
-                <tr>
-                  <th colspan="3" style="background: #15803d; color: #ffffff; text-align: center; font-size: 14px; font-weight: 800; padding: 10px 12px; letter-spacing: 0.5px; text-transform: uppercase;">
+                <tr style="height: 38px;">
+                  <th colspan="3" style="background: #15803d; color: #ffffff; text-align: center; font-size: 13px; font-weight: 800; padding: 9px 12px; letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap;">
                     STOCK DEMAND PLAN
                   </th>
                 </tr>
               </thead>
               <tbody>
-                <tr style="border-bottom: 1px solid #bbf7d0; background: #f0fdf4;">
-                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px;">Stock</td>
-                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px;">${Number(sData.closingDip).toLocaleString()}</td>
-                  <td style="padding: 8px 10px; color: #475569; font-size: 11px;">Balance remaining in the tank.</td>
+                <tr style="height: 38px; border-bottom: 1px solid #bbf7d0; background: #f0fdf4;">
+                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px; white-space: nowrap;">Stock</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px; white-space: nowrap;">${Number(sData.closingDip).toLocaleString()}</td>
+                  <td style="padding: 8px 10px; color: #475569; font-size: 12px; white-space: nowrap;">Balance remaining in the tank.</td>
                 </tr>
-                <tr style="border-bottom: 1px solid #bbf7d0;">
-                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px;">Av Daily Cons.</td>
-                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px;">${Math.round(sData.avDailyCons).toLocaleString()}</td>
-                  <td style="padding: 8px 10px; color: #475569; font-size: 11px;">Average Fuel Consumption/Day MTD.</td>
+                <tr style="height: 38px; border-bottom: 1px solid #bbf7d0;">
+                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px; white-space: nowrap;">Av Daily Cons.</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px; white-space: nowrap;">${Math.round(sData.avDailyCons).toLocaleString()}</td>
+                  <td style="padding: 8px 10px; color: #475569; font-size: 12px; white-space: nowrap;">Average Fuel Consumption/Day MTD.</td>
                 </tr>
-                <tr style="border-bottom: 1px solid #bbf7d0; background: #f0fdf4;">
-                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px;">Days Stock</td>
-                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px;">${sData.daysStock}</td>
-                  <td style="padding: 8px 10px; color: #475569; font-size: 11px;">Days left before Stock run Out.</td>
+                <tr style="height: 38px; border-bottom: 1px solid #bbf7d0; background: #f0fdf4;">
+                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px; white-space: nowrap;">Days Stock</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px; white-space: nowrap;">${sData.daysStock}</td>
+                  <td style="padding: 8px 10px; color: #475569; font-size: 12px; white-space: nowrap;">Days left before Stock run Out.</td>
                 </tr>
-                <tr style="border-bottom: 1px solid #bbf7d0;">
-                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px;">Min Stock</td>
-                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px;">${Number(sData.minStock).toLocaleString()}</td>
-                  <td style="padding: 8px 10px; color: #475569; font-size: 11px;">Critical Tank Level for Main Tank.</td>
+                <tr style="height: 38px; border-bottom: 1px solid #bbf7d0;">
+                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px; white-space: nowrap;">Min Stock</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px; white-space: nowrap;">${Number(sData.minStock).toLocaleString()}</td>
+                  <td style="padding: 8px 10px; color: #475569; font-size: 12px; white-space: nowrap;">Critical Tank Level for Main Tank.</td>
                 </tr>
-                <tr style="border-bottom: 1px solid #bbf7d0; background: #f0fdf4;">
-                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px;">Re-Order</td>
-                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px;">${sData.reorderDays}</td>
-                  <td style="padding: 8px 10px; color: #475569; font-size: 11px;">Days to prepare for New Purchase.</td>
+                <tr style="height: 38px; border-bottom: 1px solid #bbf7d0; background: #f0fdf4;">
+                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px; white-space: nowrap;">Re-Order</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px; white-space: nowrap;">${sData.reorderDays}</td>
+                  <td style="padding: 8px 10px; color: #475569; font-size: 12px; white-space: nowrap;">Days to prepare for New Purchase.</td>
                 </tr>
-                <tr style="border-bottom: 1px solid #bbf7d0;">
-                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px;">Re-Order</td>
-                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px;">${sData.reorderDate}</td>
-                  <td style="padding: 8px 10px; color: #475569; font-size: 11px;">Placing ST order Date</td>
+                <tr style="height: 38px; border-bottom: 1px solid #bbf7d0;">
+                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px; white-space: nowrap;">Re-Order</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px; white-space: nowrap;">${sData.reorderDate}</td>
+                  <td style="padding: 8px 10px; color: #475569; font-size: 12px; white-space: nowrap;">Placing ST order Date</td>
                 </tr>
-                <tr style="background: #f0fdf4;">
-                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px;">Stock Arrival</td>
-                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px;">${sData.arrivalDate}</td>
-                  <td style="padding: 8px 10px; color: #475569; font-size: 11px;">Delivery of stock Date</td>
+                <tr style="height: 38px; background: #f0fdf4;">
+                  <td style="padding: 8px 10px; font-weight: 700; color: #14532d; font-size: 13px; white-space: nowrap;">Stock Arrival</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 800; color: #1e293b; font-size: 13px; white-space: nowrap;">${sData.arrivalDate}</td>
+                  <td style="padding: 8px 10px; color: #475569; font-size: 12px; white-space: nowrap;">Delivery of stock Date</td>
                 </tr>
               </tbody>
             </table>
@@ -1600,14 +1600,14 @@ export async function generateReportData(
       <table width="100%" cellpadding="8" cellspacing="0" style="border-collapse: collapse; font-size: 13px; margin-bottom: 32px; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
         <thead>
           <tr style="color: #ffffff; font-size: 13px; font-weight: 800;">
-            <th style="background: #0f172a; padding: 11px 12px; border: 1px solid #334155; text-align: left;">Date</th>
-            <th style="background: #0f172a; padding: 11px 12px; border: 1px solid #334155; text-align: right;">Opening Balance</th>
-            <th style="background: #15803d; padding: 11px 12px; border: 1px solid #16a34a; text-align: right;">Deliveries</th>
-            <th style="background: #ea580c; padding: 11px 12px; border: 1px solid #f97316; text-align: right;">Fuel Issues</th>
-            <th style="background: #0f172a; padding: 11px 12px; border: 1px solid #334155; text-align: right;">Expected Closing</th>
-            <th style="background: #0f172a; padding: 11px 12px; border: 1px solid #334155; text-align: right;">Actual Closing</th>
-            <th style="background: #0f172a; padding: 11px 12px; border: 1px solid #334155; text-align: right;">Variance</th>
-            <th style="background: #0f172a; padding: 11px 12px; border: 1px solid #334155; text-align: right;">Variance %</th>
+            <th style="background: #0f172a; padding: 10px 12px; border: 1px solid #334155; text-align: left;">Date</th>
+            <th style="background: #0f172a; padding: 10px 12px; border: 1px solid #334155; text-align: right;">Opening Balance</th>
+            <th style="background: #15803d; padding: 10px 12px; border: 1px solid #16a34a; text-align: right;">Deliveries</th>
+            <th style="background: #ea580c; padding: 10px 12px; border: 1px solid #f97316; text-align: right;">Fuel Issues</th>
+            <th style="background: #0f172a; padding: 10px 12px; border: 1px solid #334155; text-align: right;">Expected Closing</th>
+            <th style="background: #0f172a; padding: 10px 12px; border: 1px solid #334155; text-align: right;">Actual Closing</th>
+            <th style="background: #0f172a; padding: 10px 12px; border: 1px solid #334155; text-align: right;">Variance</th>
+            <th style="background: #0f172a; padding: 10px 12px; border: 1px solid #334155; text-align: right;">Variance %</th>
           </tr>
         </thead>
         <tbody>
