@@ -367,14 +367,14 @@ export default function ReportsFullPage() {
       <div className="space-y-6 pb-12">
 
         {/* Tab Navigation Navigation Bar */}
-        <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-2 overflow-x-auto">
+        <div className="flex items-center gap-2 border-b border-zinc-200 pb-2 overflow-x-auto">
           <button
             onClick={() => setActiveTab('list')}
             className={cn(
-              'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all',
+              'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer',
               activeTab === 'list'
                 ? 'bg-[#f26522] text-white shadow-md'
-                : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white border border-zinc-200 dark:border-zinc-800'
+                : 'bg-white text-zinc-700 hover:text-zinc-900 hover:bg-zinc-50 border border-zinc-200 shadow-xs'
             )}
           >
             <Clock className="h-4 w-4" />
@@ -384,10 +384,10 @@ export default function ReportsFullPage() {
           <button
             onClick={() => handleOpenCreate(null)}
             className={cn(
-              'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all',
+              'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer',
               activeTab === 'form'
                 ? 'bg-[#f26522] text-white shadow-md'
-                : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white border border-zinc-200 dark:border-zinc-800'
+                : 'bg-white text-zinc-700 hover:text-zinc-900 hover:bg-zinc-50 border border-zinc-200 shadow-xs'
             )}
           >
             <Plus className="h-4 w-4" />
@@ -397,10 +397,10 @@ export default function ReportsFullPage() {
           <button
             onClick={() => setActiveTab('quick')}
             className={cn(
-              'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all',
+              'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer',
               activeTab === 'quick'
                 ? 'bg-[#f26522] text-white shadow-md'
-                : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white border border-zinc-200 dark:border-zinc-800'
+                : 'bg-white text-zinc-700 hover:text-zinc-900 hover:bg-zinc-50 border border-zinc-200 shadow-xs'
             )}
           >
             <Send className="h-4 w-4" />
@@ -415,15 +415,15 @@ export default function ReportsFullPage() {
           <div className="space-y-6">
             {/* Top Metric Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm">
+              <Card className="bg-white border border-zinc-200/90 shadow-sm">
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="space-y-0.5">
                     <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
                       Active Schedules
                     </span>
-                    <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                    <p className="text-2xl font-black text-zinc-900">
                       {activeSchedulesCount}{' '}
-                      <span className="text-xs text-zinc-400 font-medium">/ {schedules.length} Total</span>
+                      <span className="text-xs text-zinc-500 font-semibold">/ {schedules.length} Total</span>
                     </p>
                   </div>
                   <div className="h-11 w-11 rounded-2xl bg-orange-500/10 text-[#f26522] flex items-center justify-center font-bold">
@@ -432,13 +432,13 @@ export default function ReportsFullPage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm">
+              <Card className="bg-white border border-zinc-200/90 shadow-sm">
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="space-y-0.5">
                     <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
                       Email Engine Status
                     </span>
-                    <p className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 pt-1">
+                    <p className="text-sm font-black text-emerald-600 flex items-center gap-1.5 pt-1">
                       <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
                       Connected via Graph
                     </p>
@@ -449,13 +449,13 @@ export default function ReportsFullPage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm">
+              <Card className="bg-white border border-zinc-200/90 shadow-sm">
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="space-y-0.5">
                     <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
                       Sender Mailbox
                     </span>
-                    <p className="text-xs font-bold text-zinc-900 dark:text-white truncate max-w-[150px] pt-1">
+                    <p className="text-xs font-black text-zinc-800 truncate max-w-[170px] pt-1" title={graphStatus?.sender || 'support@yourcompany.com'}>
                       {graphStatus?.sender || 'support@yourcompany.com'}
                     </p>
                   </div>
@@ -465,15 +465,15 @@ export default function ReportsFullPage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm">
+              <Card className="bg-white border border-zinc-200/90 shadow-sm">
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="space-y-0.5">
                     <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
                       Supported Clients
                     </span>
-                    <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                    <p className="text-2xl font-black text-zinc-900">
                       {CLIENTS.length}{' '}
-                      <span className="text-xs text-zinc-400 font-medium">Locations</span>
+                      <span className="text-xs text-zinc-500 font-semibold">Locations</span>
                     </p>
                   </div>
                   <div className="h-11 w-11 rounded-2xl bg-purple-500/10 text-purple-600 flex items-center justify-center font-bold">
@@ -487,10 +487,10 @@ export default function ReportsFullPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-base font-bold text-zinc-900 dark:text-white">
+                  <h2 className="text-base font-black text-zinc-900">
                     Configured Daily Automated Schedules
                   </h2>
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-xs text-zinc-600 font-medium">
                     Reports will automatically generate and email at their preset times
                   </p>
                 </div>
@@ -499,7 +499,7 @@ export default function ReportsFullPage() {
                   <Button
                     size="sm"
                     onClick={() => handleOpenCreate(null)}
-                    className="bg-[#f26522] hover:bg-[#d9531e] text-white text-xs font-bold gap-1.5"
+                    className="bg-[#f26522] hover:bg-[#d9531e] text-white text-xs font-bold gap-1.5 cursor-pointer"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     + New Schedule
@@ -508,9 +508,9 @@ export default function ReportsFullPage() {
               </div>
 
               {schedules.length === 0 ? (
-                <Card className="p-12 text-center border-dashed border-2 bg-white dark:bg-zinc-900">
+                <Card className="p-12 text-center border-dashed border-2 bg-white">
                   <Mail className="h-12 w-12 text-zinc-400 mx-auto mb-3" />
-                  <h3 className="text-sm font-bold text-zinc-800 dark:text-zinc-200">
+                  <h3 className="text-sm font-bold text-zinc-800">
                     No automated schedules created yet
                   </h3>
                   <p className="text-xs text-zinc-500 max-w-sm mx-auto mt-1 mb-4">
@@ -538,65 +538,65 @@ export default function ReportsFullPage() {
                       <Card
                         key={sched.id}
                         className={cn(
-                          'transition-all duration-200 border overflow-hidden hover:shadow-md bg-white dark:bg-zinc-900',
+                          'transition-all duration-200 border overflow-hidden hover:shadow-md bg-white',
                           sched.enabled
-                            ? 'border-zinc-200 dark:border-zinc-800'
-                            : 'border-zinc-200/50 dark:border-zinc-800/50 opacity-70 bg-zinc-50 dark:bg-zinc-950/40'
+                            ? 'border-zinc-200/90 shadow-sm'
+                            : 'border-zinc-200/60 opacity-75 bg-zinc-50/80'
                         )}
                       >
                         <CardContent className="p-5">
                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div className="flex items-start gap-4 min-w-0">
-                              <div className="h-12 w-12 rounded-2xl bg-orange-500/10 text-[#f26522] flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                              <div className="h-12 w-12 rounded-2xl bg-orange-500/10 text-[#f26522] flex items-center justify-center shrink-0 mt-0.5 shadow-xs border border-orange-500/20">
                                 <Icon className="h-6 w-6" />
                               </div>
 
                               <div className="space-y-1.5 min-w-0 flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                                  <h3 className="text-base font-black text-zinc-900">
                                     {sched.name}
                                   </h3>
                                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-[#f26522]/10 text-[#f26522] border border-[#f26522]/20">
                                     {sched.clientName}
                                   </span>
-                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-zinc-100 text-zinc-800 border border-zinc-200">
                                     {repMeta.name}
                                   </span>
                                 </div>
 
-                                <div className="flex items-center gap-5 text-xs text-zinc-500 pt-0.5 flex-wrap">
-                                  <span className="flex items-center gap-1.5 font-bold text-amber-600 dark:text-amber-400">
-                                    <Clock className="h-4 w-4" />
+                                <div className="flex items-center gap-5 text-xs text-zinc-600 pt-0.5 flex-wrap">
+                                  <span className="flex items-center gap-1.5 font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60">
+                                    <Clock className="h-3.5 w-3.5" />
                                     {formatTime12H(sched.time)} ({sched.frequency})
                                   </span>
-                                  <span className="flex items-center gap-1.5">
-                                    <Calendar className="h-4 w-4" />
+                                  <span className="flex items-center gap-1.5 font-medium text-zinc-700">
+                                    <Calendar className="h-3.5 w-3.5 text-zinc-500" />
                                     Window: {DATE_PRESET_OPTIONS.find((d) => d.id === sched.datePreset)?.label || sched.datePreset}
                                   </span>
-                                  <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
-                                    <FileSpreadsheet className="h-4 w-4" />
+                                  <span className="flex items-center gap-1.5 text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">
+                                    <FileSpreadsheet className="h-3.5 w-3.5" />
                                     {sched.formats.join(' + ').toUpperCase()}
                                   </span>
                                 </div>
 
-                                <div className="flex items-center gap-2 text-xs text-zinc-500 pt-1">
-                                  <Mail className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                                <div className="flex items-center gap-2 text-xs text-zinc-600 pt-1">
+                                  <Mail className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
                                   <span>
                                     Recipients:{' '}
-                                    <strong className="text-zinc-800 dark:text-zinc-200">
+                                    <strong className="text-zinc-900 font-bold">
                                       {sched.recipients.join(', ')}
                                     </strong>
                                   </span>
                                 </div>
 
                                 {sched.lastRunAt && (
-                                  <p className="text-[11px] text-zinc-400 pt-1">
+                                  <p className="text-[11px] text-zinc-500 font-medium pt-1">
                                     Last run: {new Date(sched.lastRunAt).toLocaleString()} •{' '}
                                     <span
                                       className={
                                         sched.lastRunStatus === 'success'
-                                          ? 'text-emerald-600 dark:text-emerald-400 font-bold'
-                                          : 'text-rose-600 dark:text-rose-400 font-bold'
+                                          ? 'text-emerald-700 font-bold'
+                                          : 'text-rose-600 font-bold'
                                       }
                                     >
                                       {sched.lastRunStatus === 'success' ? 'Delivered' : 'Failed'}
@@ -607,15 +607,15 @@ export default function ReportsFullPage() {
                             </div>
 
                             {/* Action Buttons */}
-                            <div className="flex items-center gap-2 shrink-0 border-t md:border-t-0 pt-3 md:pt-0 border-zinc-100 dark:border-zinc-800 self-end md:self-center">
+                            <div className="flex items-center gap-2 shrink-0 border-t md:border-t-0 pt-3 md:pt-0 border-zinc-100 self-end md:self-center">
                               <button
                                 title="Click to toggle Active / Paused"
                                 onClick={() => toggleSchedule(sched.id)}
                                 className={cn(
                                   'h-9 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer',
                                   sched.enabled
-                                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25'
-                                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:bg-zinc-200'
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100'
+                                    : 'bg-zinc-100 text-zinc-500 border border-zinc-200 hover:bg-zinc-200'
                                 )}
                               >
                                 {sched.enabled ? 'Active' : 'Paused'}
@@ -625,7 +625,7 @@ export default function ReportsFullPage() {
                                 title="Run & Send Report Immediately Right Now"
                                 disabled={runningScheduleId === sched.id}
                                 onClick={() => handleRunNow(sched.id)}
-                                className="h-9 px-3 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-[#f26522] font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                                className="h-9 px-3 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#f26522] border border-orange-200/80 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                               >
                                 {runningScheduleId === sched.id ? (
                                   <RefreshCw className="h-4 w-4 animate-spin" />
@@ -638,7 +638,7 @@ export default function ReportsFullPage() {
                               <button
                                 title="Edit Schedule in Full Page"
                                 onClick={() => handleOpenCreate(sched)}
-                                className="p-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer"
+                                className="p-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border border-zinc-200 transition-colors cursor-pointer"
                               >
                                 <Edit2 className="h-4 w-4" />
                               </button>
@@ -650,7 +650,7 @@ export default function ReportsFullPage() {
                                     deleteSchedule(sched.id);
                                   }
                                 }}
-                                className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 transition-colors cursor-pointer"
+                                className="p-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-colors cursor-pointer"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
@@ -671,15 +671,15 @@ export default function ReportsFullPage() {
         {/* ========================================================================= */}
         {activeTab === 'form' && (
           <div className="space-y-6">
-            <Card className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-md overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-orange-500/10 via-transparent to-transparent border-b border-zinc-200 dark:border-zinc-800 p-6">
+            <Card className="bg-white border border-zinc-200 shadow-md overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-orange-500/10 via-orange-50/50 to-transparent border-b border-zinc-200 p-6">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
-                    <CardTitle className="text-xl font-black text-zinc-900 dark:text-white flex items-center gap-2">
+                    <CardTitle className="text-xl font-black text-zinc-900 flex items-center gap-2">
                       <Sparkles className="h-5 w-5 text-[#f26522]" />
                       {editingSchedule ? 'Edit Automated Report Schedule' : 'Configure New Automated Report Schedule'}
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-xs text-zinc-600 font-medium">
                       Fill in the target client, report type, date window, daily dispatch time, and receiver email IDs.
                     </CardDescription>
                   </div>
@@ -688,7 +688,7 @@ export default function ReportsFullPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => setActiveTab('list')}
-                    className="text-xs text-zinc-600 dark:text-zinc-300 gap-1 cursor-pointer"
+                    className="text-xs text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-300 font-bold gap-1 cursor-pointer"
                   >
                     <X className="h-4 w-4" />
                     Cancel
@@ -699,7 +699,7 @@ export default function ReportsFullPage() {
               <CardContent className="p-6 sm:p-8 space-y-8">
                 {/* 1. Schedule Name */}
                 <div className="space-y-2">
-                  <label className="text-xs font-extrabold tracking-wider uppercase text-zinc-700 dark:text-zinc-300">
+                  <label className="text-xs font-extrabold tracking-wider uppercase text-zinc-800">
                     Schedule Name
                   </label>
                   <input
@@ -707,17 +707,17 @@ export default function ReportsFullPage() {
                     value={scheduleName}
                     onChange={(e) => setScheduleName(e.target.value)}
                     placeholder="e.g. Daily Digicel POM Reconciliation"
-                    className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm font-semibold text-zinc-900 dark:text-white focus:outline-none focus:border-[#f26522]"
+                    className="w-full bg-white border border-zinc-300 rounded-xl px-4 py-3 text-sm font-semibold text-zinc-900 focus:outline-none focus:border-[#f26522] focus:ring-1 focus:ring-[#f26522]"
                   />
                 </div>
 
                 {/* 2. Target Client Selection */}
                 <div className="space-y-2.5">
-                  <label className="text-xs font-extrabold tracking-wider uppercase text-zinc-700 dark:text-zinc-300 flex items-center justify-between">
+                  <label className="text-xs font-extrabold tracking-wider uppercase text-zinc-800 flex items-center justify-between">
                     <span>1. Target Client</span>
                     <span className="text-xs font-bold text-[#f26522]">Selected: {selectedClient}</span>
                   </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 max-h-56 overflow-y-auto p-2 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-zinc-50 dark:bg-zinc-950/40">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 max-h-56 overflow-y-auto p-2 border border-zinc-200 rounded-2xl bg-zinc-50">
                     {CLIENTS.map((client) => {
                       const isSelected = selectedClient === client.name;
                       return (
@@ -729,11 +729,11 @@ export default function ReportsFullPage() {
                             'flex items-center justify-between p-3 rounded-xl text-left text-xs font-bold transition-all border cursor-pointer',
                             isSelected
                               ? 'bg-[#f26522] text-white border-[#f26522] shadow-sm'
-                              : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400'
+                              : 'bg-white text-zinc-800 border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50'
                           )}
                         >
                           <span className="truncate">{client.name}</span>
-                          {isSelected && <Check className="h-4 w-4 shrink-0 ml-1" />}
+                          {isSelected && <Check className="h-4 w-4 shrink-0 ml-1 stroke-[3]" />}
                         </button>
                       );
                     })}
@@ -742,7 +742,7 @@ export default function ReportsFullPage() {
 
                 {/* 3. Report Type Selection */}
                 <div className="space-y-2.5">
-                  <label className="text-xs font-extrabold tracking-wider uppercase text-zinc-700 dark:text-zinc-300">
+                  <label className="text-xs font-extrabold tracking-wider uppercase text-zinc-800">
                     2. Report Type
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -757,23 +757,23 @@ export default function ReportsFullPage() {
                           className={cn(
                             'flex items-start gap-3.5 p-4 rounded-2xl text-left transition-all border cursor-pointer',
                             isSelected
-                              ? 'bg-orange-500/10 border-[#f26522] ring-2 ring-[#f26522]/30 shadow-sm'
-                              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'
+                              ? 'bg-orange-50 border-[#f26522] ring-2 ring-[#f26522]/30 shadow-sm'
+                              : 'bg-white border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50'
                           )}
                         >
                           <div
                             className={cn(
                               'p-2.5 rounded-xl shrink-0 mt-0.5',
-                              isSelected ? 'bg-[#f26522] text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'
+                              isSelected ? 'bg-[#f26522] text-white' : 'bg-zinc-100 text-zinc-600'
                             )}
                           >
                             <Icon className="h-5 w-5" />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-bold text-zinc-900 dark:text-white leading-tight">
+                            <p className="text-sm font-bold text-zinc-900 leading-tight">
                               {rep.name}
                             </p>
-                            <p className="text-xs text-zinc-500 line-clamp-2 mt-1">{rep.desc}</p>
+                            <p className="text-xs text-zinc-600 line-clamp-2 mt-1">{rep.desc}</p>
                           </div>
                         </button>
                       );
@@ -783,7 +783,7 @@ export default function ReportsFullPage() {
 
                 {/* 4. Date Range Window Selection */}
                 <div className="space-y-2.5">
-                  <label className="text-xs font-extrabold tracking-wider uppercase text-zinc-700 dark:text-zinc-300">
+                  <label className="text-xs font-extrabold tracking-wider uppercase text-zinc-800">
                     3. Date Range Period
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -798,34 +798,34 @@ export default function ReportsFullPage() {
                             'p-3.5 rounded-2xl text-left transition-all border flex flex-col justify-between cursor-pointer',
                             isSelected
                               ? 'bg-[#f26522] text-white border-[#f26522] shadow-sm'
-                              : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400'
+                              : 'bg-white text-zinc-800 border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50'
                           )}
                         >
                           <span className="text-xs font-bold">{preset.label}</span>
-                          <span className="text-[11px] opacity-80 mt-1 line-clamp-1">{preset.desc}</span>
+                          <span className={cn('text-[11px] mt-1 line-clamp-1', isSelected ? 'text-orange-100' : 'text-zinc-500')}>{preset.desc}</span>
                         </button>
                       );
                     })}
                   </div>
 
                   {selectedDatePreset === 'custom' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-2xl mt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-zinc-50 border border-zinc-200 rounded-2xl mt-2">
                       <div>
-                        <label className="text-xs font-bold text-zinc-600 dark:text-zinc-300">Start Date</label>
+                        <label className="text-xs font-bold text-zinc-700">Start Date</label>
                         <input
                           type="date"
                           value={customStart}
                           onChange={(e) => setCustomStart(e.target.value)}
-                          className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl p-2.5 text-xs text-zinc-900 dark:text-white mt-1"
+                          className="w-full bg-white border border-zinc-300 rounded-xl p-2.5 text-xs text-zinc-900 font-semibold mt-1"
                         />
                       </div>
                       <div>
-                        <label className="text-xs font-bold text-zinc-600 dark:text-zinc-300">End Date</label>
+                        <label className="text-xs font-bold text-zinc-700">End Date</label>
                         <input
                           type="date"
                           value={customEnd}
                           onChange={(e) => setCustomEnd(e.target.value)}
-                          className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl p-2.5 text-xs text-zinc-900 dark:text-white mt-1"
+                          className="w-full bg-white border border-zinc-300 rounded-xl p-2.5 text-xs text-zinc-900 font-semibold mt-1"
                         />
                       </div>
                     </div>
@@ -835,7 +835,7 @@ export default function ReportsFullPage() {
                 {/* 5. Dispatch Timing & Frequency */}
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-extrabold tracking-wider uppercase text-zinc-700 dark:text-zinc-300">
+                    <label className="text-xs font-extrabold tracking-wider uppercase text-zinc-800">
                       4. Dispatch Timing
                     </label>
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-orange-500/10 text-[#f26522] border border-orange-500/30">
@@ -846,14 +846,14 @@ export default function ReportsFullPage() {
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {/* Time Custom Builder Card */}
-                    <div className="p-4 bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800 rounded-2xl space-y-3.5">
-                      <span className="text-xs font-bold text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5">
+                    <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl space-y-3.5">
+                      <span className="text-xs font-bold text-zinc-700 flex items-center gap-1.5">
                         <Clock className="h-4 w-4 text-[#f26522]" />
                         Exact Delivery Time Builder
                       </span>
 
                       {/* Hour, Continuous Minute 00-59, AM/PM Selectors */}
-                      <div className="grid grid-cols-3 gap-2.5 bg-white dark:bg-zinc-900 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800">
+                      <div className="grid grid-cols-3 gap-2.5 bg-white p-3 rounded-xl border border-zinc-200">
                         {/* Hour */}
                         <div>
                           <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
@@ -868,7 +868,7 @@ export default function ReportsFullPage() {
                               setSelectedTime(t24);
                               if (!timePresets.includes(t24)) setTimePresets([...timePresets, t24].sort());
                             }}
-                            className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg p-2 text-xs font-bold text-zinc-900 dark:text-white"
+                            className="w-full bg-zinc-50 border border-zinc-300 rounded-lg p-2 text-xs font-bold text-zinc-900"
                           >
                             {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
                               <option key={h} value={h}>
@@ -892,7 +892,7 @@ export default function ReportsFullPage() {
                               setSelectedTime(t24);
                               if (!timePresets.includes(t24)) setTimePresets([...timePresets, t24].sort());
                             }}
-                            className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg p-2 text-xs font-bold text-zinc-900 dark:text-white"
+                            className="w-full bg-zinc-50 border border-zinc-300 rounded-lg p-2 text-xs font-bold text-zinc-900"
                           >
                             {Array.from({ length: 60 }, (_, i) => i).map((m) => (
                               <option key={m} value={m}>
@@ -920,7 +920,7 @@ export default function ReportsFullPage() {
                                 'flex-1 py-1.5 rounded-lg text-xs font-extrabold border transition-all cursor-pointer',
                                 customAmPm === 'AM'
                                   ? 'bg-[#f26522] text-white border-[#f26522]'
-                                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'
+                                  : 'bg-zinc-100 text-zinc-700 border-zinc-200'
                               )}
                             >
                               AM
@@ -937,7 +937,7 @@ export default function ReportsFullPage() {
                                 'flex-1 py-1.5 rounded-lg text-xs font-extrabold border transition-all cursor-pointer',
                                 customAmPm === 'PM'
                                   ? 'bg-[#f26522] text-white border-[#f26522]'
-                                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'
+                                  : 'bg-zinc-100 text-zinc-700 border-zinc-200'
                               )}
                             >
                               PM
@@ -961,7 +961,7 @@ export default function ReportsFullPage() {
                                   'text-xs font-bold px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 cursor-pointer',
                                   isSelected
                                     ? 'bg-[#f26522] text-white border-[#f26522] shadow-sm'
-                                    : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400'
+                                    : 'bg-white text-zinc-800 border-zinc-200 hover:border-zinc-400'
                                 )}
                               >
                                 {formatTime12H(t)}
@@ -974,9 +974,9 @@ export default function ReportsFullPage() {
                     </div>
 
                     {/* Frequency Card */}
-                    <div className="p-4 bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800 rounded-2xl space-y-3.5 flex flex-col justify-between">
+                    <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl space-y-3.5 flex flex-col justify-between">
                       <div className="space-y-2">
-                        <span className="text-xs font-bold text-zinc-600 dark:text-zinc-400 block flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-zinc-700 block flex items-center gap-1.5">
                           <Calendar className="h-4 w-4 text-[#f26522]" />
                           Schedule Frequency
                         </span>
@@ -995,7 +995,7 @@ export default function ReportsFullPage() {
                                 'text-xs font-bold py-3 px-2.5 rounded-xl border text-center transition-all cursor-pointer',
                                 selectedFrequency === freq.id
                                   ? 'bg-[#f26522] text-white border-[#f26522] shadow-sm'
-                                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400'
+                                  : 'bg-white text-zinc-800 border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50'
                               )}
                             >
                               {freq.label}
@@ -1004,8 +1004,8 @@ export default function ReportsFullPage() {
                         </div>
                       </div>
 
-                      <div className="p-3 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                        🔔 Email report will dispatch <strong>{selectedFrequency === 'daily' ? 'every day' : selectedFrequency}</strong> at <strong>{formatTime12H(selectedTime)}</strong>.
+                      <div className="p-3 bg-white rounded-xl border border-zinc-200 text-xs text-zinc-700 leading-relaxed font-medium">
+                        🔔 Email report will dispatch <strong className="text-zinc-900">{selectedFrequency === 'daily' ? 'every day' : selectedFrequency}</strong> at <strong className="text-zinc-900">{formatTime12H(selectedTime)}</strong>.
                       </div>
                     </div>
                   </div>
@@ -1013,13 +1013,12 @@ export default function ReportsFullPage() {
 
                 {/* 6. Recipient Emails Input */}
                 <div className="space-y-2.5">
-                  <label className="text-xs font-extrabold tracking-wider uppercase text-zinc-700 dark:text-zinc-300">
+                  <label className="text-xs font-extrabold tracking-wider uppercase text-zinc-800">
                     5. Receiver Email Addresses
                   </label>
-                  <div className="p-4 bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800 rounded-2xl space-y-3">
+                  <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl space-y-3">
                     <div className="flex gap-2.5">
                       <input
-
                         type="email"
                         value={recipientInput}
                         onChange={(e) => setRecipientInput(e.target.value)}
@@ -1030,7 +1029,7 @@ export default function ReportsFullPage() {
                           }
                         }}
                         placeholder="Type recipient email address and click Add or press Enter..."
-                        className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-[#f26522]"
+                        className="flex-1 bg-white border border-zinc-300 rounded-xl px-4 py-2.5 text-xs text-zinc-900 font-semibold focus:outline-none focus:border-[#f26522]"
                       />
                       <Button
                         type="button"
@@ -1042,23 +1041,23 @@ export default function ReportsFullPage() {
                     </div>
 
                     {/* Chips */}
-                    <div className="flex flex-wrap gap-2 min-h-[44px] items-center p-3 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800">
+                    <div className="flex flex-wrap gap-2 min-h-[44px] items-center p-3 bg-white rounded-xl border border-zinc-200">
                       {recipients.length === 0 ? (
-                        <span className="text-xs text-zinc-400 italic">
+                        <span className="text-xs text-zinc-500 italic font-medium">
                           No recipients added yet. Add at least one receiver email address above.
                         </span>
                       ) : (
                         recipients.map((email) => (
                           <span
                             key={email}
-                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-orange-500/15 text-orange-700 dark:text-orange-300 border border-orange-500/30"
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-orange-50 text-orange-900 border border-orange-200"
                           >
                             <Mail className="h-3.5 w-3.5 text-[#f26522]" />
                             {email}
                             <button
                               type="button"
                               onClick={() => handleRemoveRecipient(email)}
-                              className="ml-1 text-zinc-400 hover:text-rose-500 cursor-pointer"
+                              className="ml-1 text-zinc-500 hover:text-rose-600 cursor-pointer"
                             >
                               <X className="h-3.5 w-3.5" />
                             </button>
@@ -1071,7 +1070,7 @@ export default function ReportsFullPage() {
 
                 {/* 7. Attachment Formats */}
                 <div className="space-y-2.5">
-                  <label className="text-xs font-extrabold tracking-wider uppercase text-zinc-700 dark:text-zinc-300">
+                  <label className="text-xs font-extrabold tracking-wider uppercase text-zinc-800">
                     6. File Attachments & Format
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1079,7 +1078,6 @@ export default function ReportsFullPage() {
                       { id: 'excel', label: 'Excel (.xlsx)', icon: FileSpreadsheet },
                       { id: 'pdf', label: 'PDF Document', icon: FileText },
                       { id: 'csv', label: 'CSV File', icon: FileDown },
-                      // { id: 'inlineHtml', label: 'HTML Table', icon: Mail },
                     ].map((fmt) => {
                       const isChecked = selectedFormats.includes(fmt.id as ReportFormat);
                       const Icon = fmt.icon;
@@ -1089,18 +1087,18 @@ export default function ReportsFullPage() {
                           type="button"
                           onClick={() => handleToggleFormat(fmt.id as ReportFormat)}
                           className={cn(
-                            'p-3.5 rounded-2xl text-left border flex items-center gap-2.5 transition-all cursor-pointer',
+                            'p-3.5 rounded-2xl text-left border flex items-center gap-2.5 transition-all cursor-pointer font-bold',
                             isChecked
-                              ? 'bg-emerald-500/10 border-emerald-500 text-emerald-700 dark:text-emerald-400 font-bold'
-                              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-400'
+                              ? 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-xs'
+                              : 'bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300'
                           )}
                         >
                           <div
                             className={cn(
                               'h-4 w-4 rounded border flex items-center justify-center text-[10px]',
                               isChecked
-                                ? 'bg-emerald-500 border-emerald-500 text-white font-extrabold'
-                                : 'border-zinc-400'
+                                ? 'bg-emerald-600 border-emerald-600 text-white font-extrabold'
+                                : 'border-zinc-400 bg-white'
                             )}
                           >
                             {isChecked && <Check className="h-3 w-3 stroke-[3]" />}
@@ -1115,15 +1113,15 @@ export default function ReportsFullPage() {
 
                 {/* Alerts / Feedback */}
                 {formError && (
-                  <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-center gap-2 text-xs text-rose-600 dark:text-rose-400 font-semibold">
-                    <AlertTriangle className="h-4 w-4 text-rose-500 shrink-0" />
+                  <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-2 text-xs text-rose-700 font-semibold">
+                    <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />
                     <span>{formError}</span>
                   </div>
                 )}
 
                 {formSuccess && (
-                  <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
-                    <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-2 text-xs text-emerald-700 font-semibold">
+                    <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />
                     <span>{formSuccess}</span>
                   </div>
                 )}
@@ -1131,21 +1129,21 @@ export default function ReportsFullPage() {
                 {lastTestResult && (
                   <div
                     className={cn(
-                      'p-4 rounded-2xl border text-xs leading-relaxed space-y-1',
+                      'p-4 rounded-2xl border text-xs leading-relaxed space-y-1 font-medium',
                       lastTestResult.success
-                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
-                        : 'bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                        : 'bg-rose-50 border-rose-200 text-rose-800'
                     )}
                   >
                     <div className="flex items-center gap-1.5 font-bold">
                       {lastTestResult.success ? (
-                        <CheckCircle className="h-4 w-4 text-emerald-500" />
+                        <CheckCircle className="h-4 w-4 text-emerald-600" />
                       ) : (
-                        <AlertTriangle className="h-4 w-4 text-rose-500" />
+                        <AlertTriangle className="h-4 w-4 text-rose-600" />
                       )}
                       <span>Test Dispatch Result</span>
                     </div>
-                    <p className="text-xs opacity-90">{lastTestResult.message}</p>
+                    <p className="text-xs">{lastTestResult.message}</p>
                   </div>
                 )}
 
@@ -1154,9 +1152,9 @@ export default function ReportsFullPage() {
                   <Button
                     type="button"
                     onClick={handleSaveSchedule}
-                    className="flex-1 bg-[#f26522] hover:bg-[#d9531e] text-white font-extrabold text-sm py-6 rounded-2xl shadow-lg shadow-orange-950/50 gap-2 cursor-pointer"
+                    className="flex-1 bg-[#f26522] hover:bg-[#d9531e] text-white font-black text-sm py-6 rounded-2xl shadow-md gap-2 cursor-pointer"
                   >
-                    <Check className="h-4 w-4" />
+                    <Check className="h-4 w-4 stroke-[3]" />
                     {editingSchedule ? 'Update Schedule' : 'Save & Activate Schedule'}
                   </Button>
 
@@ -1165,7 +1163,7 @@ export default function ReportsFullPage() {
                     variant="outline"
                     disabled={isSendingTest}
                     onClick={handleTestNow}
-                    className="bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold text-xs py-6 px-6 rounded-2xl gap-2 cursor-pointer"
+                    className="bg-white border-zinc-300 text-zinc-900 font-bold text-xs py-6 px-6 rounded-2xl gap-2 hover:bg-zinc-50 cursor-pointer shadow-xs"
                   >
                     {isSendingTest ? (
                       <>
@@ -1190,23 +1188,23 @@ export default function ReportsFullPage() {
         {/* ========================================================================= */}
         {activeTab === 'quick' && (
           <div className="max-w-2xl mx-auto space-y-6">
-            <Card className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-md">
-              <CardHeader className="p-6 border-b border-zinc-100 dark:border-zinc-800">
-                <CardTitle className="text-lg font-black text-zinc-900 dark:text-white flex items-center gap-2">
+            <Card className="bg-white border border-zinc-200 shadow-md">
+              <CardHeader className="p-6 border-b border-zinc-100">
+                <CardTitle className="text-lg font-black text-zinc-900 flex items-center gap-2">
                   <Send className="h-5 w-5 text-[#f26522]" />
                   Instant Live Report Dispatcher
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-xs text-zinc-600 font-medium">
                   Generate real-time live report data and dispatch directly to any email address via Microsoft Graph API.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-6 space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Target Client</label>
+                  <label className="text-xs font-extrabold uppercase tracking-wider text-zinc-800">Target Client</label>
                   <select
                     value={quickClient}
                     onChange={(e) => setQuickClient(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl p-3 text-xs font-bold text-zinc-900 dark:text-white"
+                    className="w-full bg-white border border-zinc-300 rounded-xl p-3 text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#f26522]"
                   >
                     {CLIENTS.map((c) => (
                       <option key={c.name} value={c.name}>
@@ -1217,11 +1215,11 @@ export default function ReportsFullPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Report Type</label>
+                  <label className="text-xs font-extrabold uppercase tracking-wider text-zinc-800">Report Type</label>
                   <select
                     value={quickReport}
                     onChange={(e) => setQuickReport(e.target.value as ReportType)}
-                    className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl p-3 text-xs font-bold text-zinc-900 dark:text-white"
+                    className="w-full bg-white border border-zinc-300 rounded-xl p-3 text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#f26522]"
                   >
                     <option value="fuel-levels">Fuel Levels</option>
                     <option value="deliveries">Deliveries</option>
@@ -1234,11 +1232,11 @@ export default function ReportsFullPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Date Window</label>
+                  <label className="text-xs font-extrabold uppercase tracking-wider text-zinc-800">Date Window</label>
                   <select
                     value={quickDatePreset}
                     onChange={(e) => setQuickDatePreset(e.target.value as DateWindowPreset)}
-                    className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl p-3 text-xs font-bold text-zinc-900 dark:text-white"
+                    className="w-full bg-white border border-zinc-300 rounded-xl p-3 text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#f26522]"
                   >
                     <option value="yesterday">Yesterday (Full Day)</option>
                     <option value="today">Today (So Far)</option>
@@ -1249,26 +1247,26 @@ export default function ReportsFullPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Receiver Email ID</label>
+                  <label className="text-xs font-extrabold uppercase tracking-wider text-zinc-800">Receiver Email ID</label>
                   <input
                     type="email"
                     value={quickRecipient}
                     onChange={(e) => setQuickRecipient(e.target.value)}
                     placeholder="Enter receiver email address..."
-                    className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl p-3 text-xs text-zinc-900 dark:text-white"
+                    className="w-full bg-white border border-zinc-300 rounded-xl p-3 text-xs font-semibold text-zinc-900 focus:outline-none focus:border-[#f26522]"
                   />
                 </div>
 
                 {quickError && (
-                  <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-600 dark:text-rose-400 flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-semibold flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
                     <span>{quickError}</span>
                   </div>
                 )}
 
                 {quickSuccess && (
-                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 shrink-0" />
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 font-semibold flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 shrink-0 text-emerald-600" />
                     <span>{quickSuccess}</span>
                   </div>
                 )}
@@ -1277,7 +1275,7 @@ export default function ReportsFullPage() {
                   type="button"
                   disabled={isSendingTest}
                   onClick={handleQuickSend}
-                  className="w-full bg-[#f26522] hover:bg-[#d9531e] text-white font-extrabold text-sm py-6 rounded-2xl gap-2 shadow-lg"
+                  className="w-full bg-[#f26522] hover:bg-[#d9531e] text-white font-black text-sm py-6 rounded-2xl gap-2 shadow-md cursor-pointer"
                 >
                   {isSendingTest ? (
                     <>
