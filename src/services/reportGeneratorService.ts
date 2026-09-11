@@ -79,8 +79,12 @@ export function computeDatesFromPreset(
 
     case 'monthToDate': {
       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      const endDay = yesterday < firstDay ? firstDay : yesterday;
       const startStr = formatYMD(firstDay);
-      return { startDate: startStr, endDate: todayStr, label: `Month to Date (${startStr} to ${todayStr})` };
+      const endStr = formatYMD(endDay);
+      return { startDate: startStr, endDate: endStr, label: `Month to Date (${startStr} to ${endStr})` };
     }
 
     case 'lastMonth': {

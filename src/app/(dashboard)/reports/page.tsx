@@ -98,7 +98,7 @@ const DATE_PRESET_OPTIONS: { id: DateWindowPreset; label: string; desc: string }
   { id: 'last7days', label: 'Last 7 Days Rolling', desc: 'Trailing 7 days data' },
   { id: 'last14days', label: 'Last 14 Days Rolling', desc: 'Trailing 2 weeks overview' },
   { id: 'last30days', label: 'Last 30 Days Rolling', desc: 'Trailing month rolling data' },
-  { id: 'monthToDate', label: 'Month-to-Date (MTD)', desc: 'From 1st of current month up to today' },
+  { id: 'monthToDate', label: 'Month-to-Date (MTD)', desc: 'From 1st of current month up to yesterday' },
   { id: 'lastMonth', label: 'Previous Month (Full)', desc: 'Complete 1st to last day of previous month' },
   { id: 'custom', label: 'Custom Date Range', desc: 'Specify custom start and end date' },
 ];

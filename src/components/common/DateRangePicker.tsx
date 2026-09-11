@@ -82,7 +82,10 @@ export function getDateRangeFromPreset(preset: DateRangePreset, customStart?: st
     }
     case 'monthToDate': {
       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-      return { preset: 'monthToDate', startDate: formatYMD(firstDay), endDate: todayStr, label: 'Month to Date' };
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      const endDay = yesterday < firstDay ? firstDay : yesterday;
+      return { preset: 'monthToDate', startDate: formatYMD(firstDay), endDate: formatYMD(endDay), label: 'Month to Date' };
     }
     case 'lastMonth': {
       const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
