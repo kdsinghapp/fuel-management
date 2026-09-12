@@ -939,25 +939,24 @@ export async function generateReportData(
     const uniqueDates = Array.from(new Set(levels.map((l) => l.date)));
     uniqueDates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
-    const getClosestTo4PM = (items: typeof levels) => {
-      return items.reduce((prev, curr) => {
-        const prevDiff = Math.abs(new Date(`${curr.date}T${curr.time || '00:00:00'}Z`).getTime() - new Date(`${curr.date}T16:00:00Z`).getTime());
-        const currDiff = Math.abs(new Date(`${prev.date}T${prev.time || '00:00:00'}Z`).getTime() - new Date(`${prev.date}T16:00:00Z`).getTime());
-        return prevDiff < currDiff ? curr : prev;
-      });
+    const timeToSeconds = (t?: string) => {
+      if (!t) return 0;
+      const parts = t.split(':').map(Number);
+      return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
     };
 
     const reconRecords: any[] = [];
-    for (let i = 0; i < uniqueDates.length - 1; i++) {
-      const curDate = uniqueDates[i];
-      const prevDate = uniqueDates[i + 1];
-
-      const prevLevels = levels.filter((l) => l.date === prevDate);
+    for (const curDate of uniqueDates) {
       const curLevels = levels.filter((l) => l.date === curDate);
-      if (prevLevels.length === 0 || curLevels.length === 0) continue;
+      if (curLevels.length === 0) continue;
 
-      const openingRecord = getClosestTo4PM(prevLevels);
-      const closingRecord = getClosestTo4PM(curLevels);
+      // Sort by time ascending to get earliest (00:00 AM) and latest (23:59 PM)
+      const sortedLevels = [...curLevels].sort((a, b) => timeToSeconds(a.time) - timeToSeconds(b.time));
+
+      // Opening Balance: Earliest reading of the day (~00:00:00 AM / 00:04:59 AM)
+      const openingRecord = sortedLevels[0];
+      // Actual Closing: Latest reading of the day (~23:59:59 PM / 23:55:00 PM)
+      const closingRecord = sortedLevels[sortedLevels.length - 1];
 
       const opening = openingRecord.level;
       const actualClosing = closingRecord.level;

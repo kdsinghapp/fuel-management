@@ -39,34 +39,26 @@ export const reconciliationService = {
       const uniqueDates = Array.from(new Set(levels.map(l => l.date)));
       uniqueDates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
+      const timeToSeconds = (t?: string) => {
+        if (!t) return 0;
+        const parts = t.split(':').map(Number);
+        return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
+      };
+
       const records: Reconciliation[] = [];
 
-      for (let i = 0; i < uniqueDates.length - 1; i++) {
-        const currentDateStr = uniqueDates[i];
-        const prevDateStr = uniqueDates[i + 1];
-
-        // 4 PM to 4 PM interval:
-        const prevIntervalStart = new Date(`${prevDateStr}T16:00:00Z`);
-        const currentIntervalEnd = new Date(`${currentDateStr}T16:00:00Z`);
-
-        // Find opening level (closest to prevDate 4 PM)
-        const prevLevels = levels.filter(l => l.date === prevDateStr);
-        // Find closing level (closest to currentDate 4 PM)
+      for (const currentDateStr of uniqueDates) {
+        // Find all levels for this calendar day
         const currentLevels = levels.filter(l => l.date === currentDateStr);
+        if (currentLevels.length === 0) continue;
 
-        if (prevLevels.length === 0 || currentLevels.length === 0) continue;
+        // Sort by time ascending to get earliest (00:00 AM) and latest (23:59 PM)
+        const sortedLevels = [...currentLevels].sort((a, b) => timeToSeconds(a.time) - timeToSeconds(b.time));
 
-        // Closest to 16:00
-        const getClosestTo4PM = (items: typeof levels) => {
-          return items.reduce((prev, curr) => {
-            const prevDiff = Math.abs(new Date(`${curr.date}T${curr.time}Z`).getTime() - new Date(`${curr.date}T16:00:00Z`).getTime());
-            const currDiff = Math.abs(new Date(`${prev.date}T${prev.time}Z`).getTime() - new Date(`${prev.date}T16:00:00Z`).getTime());
-            return prevDiff < currDiff ? curr : prev;
-          });
-        };
-
-        const openingRecord = getClosestTo4PM(prevLevels);
-        const closingRecord = getClosestTo4PM(currentLevels);
+        // Opening Balance: Earliest reading of the day (~00:00:00 AM / 00:04:59 AM)
+        const openingRecord = sortedLevels[0];
+        // Actual Closing: Latest reading of the day (~23:59:59 PM / 23:55:00 PM)
+        const closingRecord = sortedLevels[sortedLevels.length - 1];
 
         const openingBalance = openingRecord.fuelLevel;
         const actualClosing = closingRecord.fuelLevel;
@@ -100,8 +92,8 @@ export const reconciliationService = {
           actualClosing,
           variance: Number(recon.variance.toFixed(2)),
           status: recon.status,
-          createdAt: `${currentDateStr}T16:00:00Z`,
-          updatedAt: `${currentDateStr}T16:00:00Z`,
+          createdAt: `${currentDateStr}T00:00:00Z`,
+          updatedAt: `${currentDateStr}T23:59:59Z`,
         });
       }
 
