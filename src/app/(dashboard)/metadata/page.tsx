@@ -20,7 +20,8 @@ import {
     AlertTriangle,
     CheckCircle2,
     RefreshCw,
-    Database
+    Database,
+    Sparkles
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,9 +29,10 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { formatNumber, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils';
 import { useClientStore } from '@/services/api';
+import { fuelIssueService } from '@/services/fuelIssueService';
 
 export interface VehicleDetailRecord {
-    VehicleId?: number;
+    VehicleId?: number; // Present if saved in Azure SQL
     Asset: string;
     FleetId: string;
     Department: string;
@@ -48,6 +50,7 @@ export interface VehicleDetailRecord {
     CreatedBy?: string;
     UpdatedAt?: string;
     UpdatedBy?: string;
+    isSavedInDb?: boolean;
 }
 
 export default function VehicleDetailsPage() {
@@ -102,25 +105,190 @@ export default function VehicleDetailsPage() {
 
     // Load data on mount or client change
     useEffect(() => {
-        loadVehicles();
+        loadAllVehicles();
     }, [selectedClient]);
 
-    const loadVehicles = async () => {
+    const loadAllVehicles = async () => {
         try {
             setLoading(true);
-            const res = await fetch('/api/vehicles');
-            const result = await res.json();
 
-            if (result.success && Array.isArray(result.data)) {
-                setRecords(result.data);
-            } else {
-                throw new Error(result.message || 'Failed to load vehicles from database');
+            // 1. Fetch live transactions from Fuel Issues API
+            const issuesRes = await fuelIssueService.getFuelIssues({
+                page: 1,
+                pageSize: 100000,
+            });
+            const rawTransactions = issuesRes.data || [];
+
+            // 2. Fetch saved vehicle records from Azure SQL Database
+            let dbRecords: any[] = [];
+            try {
+                const dbRes = await fetch('/api/vehicles');
+                const dbJson = await dbRes.json();
+                if (dbJson.success && Array.isArray(dbJson.data)) {
+                    dbRecords = dbJson.data;
+                }
+            } catch (sqlErr) {
+                console.warn('Could not fetch from Azure SQL:', sqlErr);
             }
+
+            // Create lookup map of Azure SQL records by Asset (normalized upper case)
+            const sqlMap = new Map<string, any>();
+            dbRecords.forEach((rec) => {
+                if (rec.Asset) {
+                    sqlMap.set(rec.Asset.trim().toUpperCase(), rec);
+                }
+            });
+
+            // 3. Extract and group unique vehicles from live transactions (same as Fuel Limits)
+            const liveMap = new Map<string, {
+                asset: string;
+                fleetId: string;
+                dept: string;
+                litres: number;
+                odometers: { odo: number; date: string; time: string }[];
+            }>();
+
+            rawTransactions.forEach((tx: any) => {
+                const assetKey = (tx.registrationNo || tx.vehicleId || tx.fleetId || tx.driverAttendant || '').toString().trim().toUpperCase();
+                if (!assetKey) return;
+
+                if (!liveMap.has(assetKey)) {
+                    liveMap.set(assetKey, {
+                        asset: assetKey,
+                        fleetId: tx.fleetId || tx.vehicleId || '',
+                        dept: tx.depot || tx.department || selectedClient?.name || 'General',
+                        litres: 0,
+                        odometers: [],
+                    });
+                }
+
+                const entry = liveMap.get(assetKey)!;
+                if (tx.fleetId && (!entry.fleetId || entry.fleetId === '-')) {
+                    entry.fleetId = tx.fleetId;
+                }
+                if (tx.depot && (!entry.dept || entry.dept === 'General')) {
+                    entry.dept = tx.depot;
+                }
+
+                const qty = Number(tx.fuelQuantity) || 0;
+                const odo = Number(tx.odometer) || 0;
+                entry.litres += qty;
+
+                if (odo > 0) {
+                    entry.odometers.push({
+                        odo,
+                        date: tx.date || '',
+                        time: tx.time || '',
+                    });
+                }
+            });
+
+            const mergedList: VehicleDetailRecord[] = [];
+            const seenAssets = new Set<string>();
+
+            // Process all vehicles derived from live transactions
+            liveMap.forEach((v, assetKey) => {
+                seenAssets.add(assetKey);
+
+                // Calculate burn rate from odometers if available
+                let calculatedBurnRate: number | string = '-';
+                if (v.odometers.length >= 2) {
+                    v.odometers.sort((a, b) => {
+                        const timeA = new Date(`${a.date}T${a.time || '00:00:00'}`).getTime();
+                        const timeB = new Date(`${b.date}T${b.time || '00:00:00'}`).getTime();
+                        return timeA - timeB;
+                    });
+                    const minOdo = v.odometers[0].odo;
+                    const maxOdo = v.odometers[v.odometers.length - 1].odo;
+                    const dist = maxOdo - minOdo;
+                    if (dist > 0 && v.litres > 0) {
+                        calculatedBurnRate = Number(((v.litres / dist) * 100).toFixed(2));
+                    }
+                }
+
+                const sqlItem = sqlMap.get(assetKey);
+                if (sqlItem) {
+                    // Vehicle exists in Azure SQL
+                    mergedList.push({
+                        VehicleId: sqlItem.VehicleId,
+                        Asset: sqlItem.Asset || assetKey,
+                        FleetId: sqlItem.FleetId || v.fleetId || '-',
+                        Department: sqlItem.Department || v.dept || selectedClient?.name || 'Operations',
+                        VehicleYear: sqlItem.VehicleYear ?? '-',
+                        Make: sqlItem.Make || '-',
+                        Model: sqlItem.Model || '-',
+                        VehicleClass: sqlItem.VehicleClass || 'Light Vehicle',
+                        ModeOfUse: sqlItem.ModeOfUse || 'Operational',
+                        MonthlyMileageAllowanceKm: sqlItem.MonthlyMileageAllowanceKm != null ? sqlItem.MonthlyMileageAllowanceKm : '-',
+                        BurnRateLPer100Km: sqlItem.BurnRateLPer100Km != null ? sqlItem.BurnRateLPer100Km : calculatedBurnRate,
+                        FuelLimitLitres: sqlItem.FuelLimitLitres != null ? sqlItem.FuelLimitLitres : '-',
+                        StandardBurnRate: sqlItem.StandardBurnRate != null ? sqlItem.StandardBurnRate : 12.0,
+                        Status: sqlItem.Status || 'Active',
+                        CreatedAt: sqlItem.CreatedAt,
+                        CreatedBy: sqlItem.CreatedBy,
+                        UpdatedAt: sqlItem.UpdatedAt,
+                        UpdatedBy: sqlItem.UpdatedBy,
+                        isSavedInDb: true,
+                    });
+                } else {
+                    // Vehicle from live transactions not yet customized in Azure SQL
+                    mergedList.push({
+                        Asset: assetKey,
+                        FleetId: v.fleetId || '-',
+                        Department: v.dept || selectedClient?.name || 'Operations',
+                        VehicleYear: '-',
+                        Make: '-',
+                        Model: '-',
+                        VehicleClass: 'Light Vehicle',
+                        ModeOfUse: 'Operational',
+                        MonthlyMileageAllowanceKm: '-',
+                        BurnRateLPer100Km: calculatedBurnRate,
+                        FuelLimitLitres: '-',
+                        StandardBurnRate: 12.0,
+                        Status: 'Active',
+                        isSavedInDb: false,
+                    });
+                }
+            });
+
+            // Also include any custom vehicles in Azure SQL that had no transactions in current range
+            dbRecords.forEach((sqlItem) => {
+                const assetKey = (sqlItem.Asset || '').trim().toUpperCase();
+                if (assetKey && !seenAssets.has(assetKey)) {
+                    seenAssets.add(assetKey);
+                    mergedList.push({
+                        VehicleId: sqlItem.VehicleId,
+                        Asset: sqlItem.Asset,
+                        FleetId: sqlItem.FleetId || '-',
+                        Department: sqlItem.Department || selectedClient?.name || 'Operations',
+                        VehicleYear: sqlItem.VehicleYear ?? '-',
+                        Make: sqlItem.Make || '-',
+                        Model: sqlItem.Model || '-',
+                        VehicleClass: sqlItem.VehicleClass || 'Light Vehicle',
+                        ModeOfUse: sqlItem.ModeOfUse || 'Operational',
+                        MonthlyMileageAllowanceKm: sqlItem.MonthlyMileageAllowanceKm != null ? sqlItem.MonthlyMileageAllowanceKm : '-',
+                        BurnRateLPer100Km: sqlItem.BurnRateLPer100Km != null ? sqlItem.BurnRateLPer100Km : '-',
+                        FuelLimitLitres: sqlItem.FuelLimitLitres != null ? sqlItem.FuelLimitLitres : '-',
+                        StandardBurnRate: sqlItem.StandardBurnRate != null ? sqlItem.StandardBurnRate : 12.0,
+                        Status: sqlItem.Status || 'Active',
+                        CreatedAt: sqlItem.CreatedAt,
+                        CreatedBy: sqlItem.CreatedBy,
+                        UpdatedAt: sqlItem.UpdatedAt,
+                        UpdatedBy: sqlItem.UpdatedBy,
+                        isSavedInDb: true,
+                    });
+                }
+            });
+
+            // Sort alphabetically by Asset
+            mergedList.sort((a, b) => a.Asset.localeCompare(b.Asset));
+
+            setRecords(mergedList);
         } catch (err: any) {
-            console.error('Failed to load vehicle details from Azure SQL:', err);
+            console.error('Failed to load vehicles:', err);
             setNotification({
                 type: 'error',
-                message: err.message || 'Could not connect to Azure SQL Database',
+                message: err.message || 'Error loading vehicle list',
             });
         } finally {
             setLoading(false);
@@ -215,11 +383,17 @@ export default function VehicleDetailsPage() {
         setEditingRecord(rec);
         setFormData({
             ...rec,
-            VehicleYear: rec.VehicleYear ?? '',
-            MonthlyMileageAllowanceKm: rec.MonthlyMileageAllowanceKm ?? '',
-            BurnRateLPer100Km: rec.BurnRateLPer100Km ?? '',
-            FuelLimitLitres: rec.FuelLimitLitres ?? '',
-            StandardBurnRate: rec.StandardBurnRate ?? '',
+            FleetId: rec.FleetId === '-' ? '' : rec.FleetId,
+            Department: rec.Department === '-' ? '' : rec.Department,
+            VehicleYear: rec.VehicleYear === '-' ? '' : rec.VehicleYear,
+            Make: rec.Make === '-' ? '' : rec.Make,
+            Model: rec.Model === '-' ? '' : rec.Model,
+            VehicleClass: rec.VehicleClass === '-' ? '' : rec.VehicleClass,
+            ModeOfUse: rec.ModeOfUse === '-' ? '' : rec.ModeOfUse,
+            MonthlyMileageAllowanceKm: rec.MonthlyMileageAllowanceKm === '-' ? '' : rec.MonthlyMileageAllowanceKm,
+            BurnRateLPer100Km: rec.BurnRateLPer100Km === '-' ? '' : rec.BurnRateLPer100Km,
+            FuelLimitLitres: rec.FuelLimitLitres === '-' ? '' : rec.FuelLimitLitres,
+            StandardBurnRate: rec.StandardBurnRate === '-' ? '' : rec.StandardBurnRate,
             Status: rec.Status || 'Active',
         });
         setIsModalOpen(true);
@@ -235,98 +409,66 @@ export default function VehicleDetailsPage() {
         try {
             setActionLoading(true);
 
-            if (modalMode === 'add') {
-                const payload = {
-                    Asset: formData.Asset.trim().toUpperCase(),
-                    FleetId: formData.FleetId ? formData.FleetId.trim().toUpperCase() : null,
-                    Department: formData.Department?.trim() || null,
-                    VehicleYear: formData.VehicleYear ? parseInt(formData.VehicleYear.toString(), 10) : null,
-                    Make: formData.Make ? formData.Make.trim().toUpperCase() : null,
-                    Model: formData.Model ? formData.Model.trim().toUpperCase() : null,
-                    VehicleClass: formData.VehicleClass?.trim() || null,
-                    ModeOfUse: formData.ModeOfUse?.trim() || null,
-                    MonthlyMileageAllowanceKm: formData.MonthlyMileageAllowanceKm !== '' && formData.MonthlyMileageAllowanceKm !== undefined && formData.MonthlyMileageAllowanceKm !== null
-                        ? parseFloat(formData.MonthlyMileageAllowanceKm.toString())
-                        : null,
-                    BurnRateLPer100Km: formData.BurnRateLPer100Km !== '' && formData.BurnRateLPer100Km !== undefined && formData.BurnRateLPer100Km !== null
-                        ? parseFloat(formData.BurnRateLPer100Km.toString())
-                        : null,
-                    FuelLimitLitres: formData.FuelLimitLitres !== '' && formData.FuelLimitLitres !== undefined && formData.FuelLimitLitres !== null
-                        ? parseFloat(formData.FuelLimitLitres.toString())
-                        : null,
-                    StandardBurnRate: formData.StandardBurnRate !== '' && formData.StandardBurnRate !== undefined && formData.StandardBurnRate !== null
-                        ? parseFloat(formData.StandardBurnRate.toString())
-                        : null,
-                    Status: formData.Status || 'Active',
-                    CreatedBy: 'Admin',
-                };
+            const payload = {
+                VehicleId: editingRecord?.VehicleId,
+                Asset: formData.Asset.trim().toUpperCase(),
+                FleetId: formData.FleetId ? formData.FleetId.trim().toUpperCase() : null,
+                Department: formData.Department?.trim() || null,
+                VehicleYear: formData.VehicleYear && formData.VehicleYear !== '-' ? parseInt(formData.VehicleYear.toString(), 10) : null,
+                Make: formData.Make && formData.Make !== '-' ? formData.Make.trim().toUpperCase() : null,
+                Model: formData.Model && formData.Model !== '-' ? formData.Model.trim().toUpperCase() : null,
+                VehicleClass: formData.VehicleClass && formData.VehicleClass !== '-' ? formData.VehicleClass.trim() : null,
+                ModeOfUse: formData.ModeOfUse && formData.ModeOfUse !== '-' ? formData.ModeOfUse.trim() : null,
+                MonthlyMileageAllowanceKm: formData.MonthlyMileageAllowanceKm !== '' && formData.MonthlyMileageAllowanceKm !== '-' && formData.MonthlyMileageAllowanceKm != null
+                    ? parseFloat(formData.MonthlyMileageAllowanceKm.toString())
+                    : null,
+                BurnRateLPer100Km: formData.BurnRateLPer100Km !== '' && formData.BurnRateLPer100Km !== '-' && formData.BurnRateLPer100Km != null
+                    ? parseFloat(formData.BurnRateLPer100Km.toString())
+                    : null,
+                FuelLimitLitres: formData.FuelLimitLitres !== '' && formData.FuelLimitLitres !== '-' && formData.FuelLimitLitres != null
+                    ? parseFloat(formData.FuelLimitLitres.toString())
+                    : null,
+                StandardBurnRate: formData.StandardBurnRate !== '' && formData.StandardBurnRate !== '-' && formData.StandardBurnRate != null
+                    ? parseFloat(formData.StandardBurnRate.toString())
+                    : null,
+                Status: formData.Status || 'Active',
+                CreatedBy: 'Admin',
+                UpdatedBy: 'Admin',
+            };
 
-                const res = await fetch('/api/vehicles', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                });
-
-                const result = await res.json();
-                if (!res.ok || !result.success) {
-                    throw new Error(result.message || 'Failed to add vehicle');
-                }
-
-                setNotification({
-                    type: 'success',
-                    message: `Vehicle "${payload.Asset}" added successfully to Azure SQL!`,
-                });
-                setIsModalOpen(false);
-                loadVehicles();
-            } else {
-                if (!editingRecord?.VehicleId) {
-                    throw new Error('Vehicle ID missing for update.');
-                }
-
-                const payload = {
-                    VehicleId: editingRecord.VehicleId,
-                    Asset: formData.Asset.trim().toUpperCase(),
-                    FleetId: formData.FleetId ? formData.FleetId.trim().toUpperCase() : null,
-                    Department: formData.Department?.trim() || null,
-                    VehicleYear: formData.VehicleYear ? parseInt(formData.VehicleYear.toString(), 10) : null,
-                    Make: formData.Make ? formData.Make.trim().toUpperCase() : null,
-                    Model: formData.Model ? formData.Model.trim().toUpperCase() : null,
-                    VehicleClass: formData.VehicleClass?.trim() || null,
-                    ModeOfUse: formData.ModeOfUse?.trim() || null,
-                    MonthlyMileageAllowanceKm: formData.MonthlyMileageAllowanceKm !== '' && formData.MonthlyMileageAllowanceKm !== undefined && formData.MonthlyMileageAllowanceKm !== null
-                        ? parseFloat(formData.MonthlyMileageAllowanceKm.toString())
-                        : null,
-                    BurnRateLPer100Km: formData.BurnRateLPer100Km !== '' && formData.BurnRateLPer100Km !== undefined && formData.BurnRateLPer100Km !== null
-                        ? parseFloat(formData.BurnRateLPer100Km.toString())
-                        : null,
-                    FuelLimitLitres: formData.FuelLimitLitres !== '' && formData.FuelLimitLitres !== undefined && formData.FuelLimitLitres !== null
-                        ? parseFloat(formData.FuelLimitLitres.toString())
-                        : null,
-                    StandardBurnRate: formData.StandardBurnRate !== '' && formData.StandardBurnRate !== undefined && formData.StandardBurnRate !== null
-                        ? parseFloat(formData.StandardBurnRate.toString())
-                        : null,
-                    Status: formData.Status || 'Active',
-                    UpdatedBy: 'Admin',
-                };
-
+            // If it already has VehicleId, do PUT (update). If not (brand new or from live transactions), do POST (insert).
+            if (editingRecord?.VehicleId) {
                 const res = await fetch('/api/vehicles', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload),
                 });
-
                 const result = await res.json();
                 if (!res.ok || !result.success) {
                     throw new Error(result.message || 'Failed to update vehicle');
                 }
-
                 setNotification({
                     type: 'success',
-                    message: `Vehicle "${payload.Asset}" updated successfully!`,
+                    message: `Vehicle "${payload.Asset}" updated in Azure SQL Database!`,
                 });
-                setIsModalOpen(false);
-                loadVehicles();
+            } else {
+                const res = await fetch('/api/vehicles', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const result = await res.json();
+                if (!res.ok || !result.success) {
+                    throw new Error(result.message || 'Failed to add vehicle');
+                }
+                setNotification({
+                    type: 'success',
+                    message: `Vehicle "${payload.Asset}" saved to Azure SQL Database!`,
+                });
             }
+
+            setIsModalOpen(false);
+            loadAllVehicles();
         } catch (err: any) {
             console.error('Save failed:', err);
             setNotification({
@@ -343,25 +485,27 @@ export default function VehicleDetailsPage() {
     };
 
     const handleConfirmDelete = async () => {
-        if (!deleteConfirmRecord?.VehicleId) return;
+        if (!deleteConfirmRecord) return;
 
         try {
             setActionLoading(true);
-            const res = await fetch(`/api/vehicles?id=${deleteConfirmRecord.VehicleId}`, {
-                method: 'DELETE',
-            });
 
-            const result = await res.json();
-            if (!res.ok || !result.success) {
-                throw new Error(result.message || 'Failed to delete vehicle');
+            if (deleteConfirmRecord.VehicleId) {
+                const res = await fetch(`/api/vehicles?id=${deleteConfirmRecord.VehicleId}`, {
+                    method: 'DELETE',
+                });
+                const result = await res.json();
+                if (!res.ok || !result.success) {
+                    throw new Error(result.message || 'Failed to delete vehicle');
+                }
             }
 
             setNotification({
                 type: 'success',
-                message: `Vehicle "${deleteConfirmRecord.Asset}" deleted from Azure SQL.`,
+                message: `Vehicle "${deleteConfirmRecord.Asset}" removed.`,
             });
             setDeleteConfirmRecord(null);
-            loadVehicles();
+            loadAllVehicles();
         } catch (err: any) {
             console.error('Delete failed:', err);
             setNotification({
@@ -374,8 +518,8 @@ export default function VehicleDetailsPage() {
     };
 
     // Filter dropdown lists
-    const departments = Array.from(new Set(records.map((r) => r.Department).filter(Boolean)));
-    const makes = Array.from(new Set(records.map((r) => r.Make).filter(Boolean)));
+    const departments = Array.from(new Set(records.map((r) => r.Department).filter(d => d && d !== '-')));
+    const makes = Array.from(new Set(records.map((r) => r.Make).filter(m => m && m !== '-')));
 
     const filteredData = records.filter((item) => {
         const query = search.toLowerCase();
@@ -405,7 +549,6 @@ export default function VehicleDetailsPage() {
         setIsExporting(format);
         try {
             const headers = [
-                'Vehicle ID',
                 'Asset',
                 'Fleet ID',
                 'Department',
@@ -421,7 +564,6 @@ export default function VehicleDetailsPage() {
                 'Status',
             ];
             const rows = filteredData.map((item) => [
-                item.VehicleId || '-',
                 item.Asset,
                 item.FleetId || '-',
                 item.Department || '-',
@@ -430,21 +572,21 @@ export default function VehicleDetailsPage() {
                 item.Model || '-',
                 item.VehicleClass || '-',
                 item.ModeOfUse || '-',
-                item.MonthlyMileageAllowanceKm != null ? item.MonthlyMileageAllowanceKm : '-',
-                item.BurnRateLPer100Km != null ? item.BurnRateLPer100Km : '-',
-                item.FuelLimitLitres != null ? item.FuelLimitLitres : '-',
-                item.StandardBurnRate != null ? item.StandardBurnRate : '-',
+                item.MonthlyMileageAllowanceKm != null && item.MonthlyMileageAllowanceKm !== '-' ? item.MonthlyMileageAllowanceKm : '-',
+                item.BurnRateLPer100Km != null && item.BurnRateLPer100Km !== '-' ? item.BurnRateLPer100Km : '-',
+                item.FuelLimitLitres != null && item.FuelLimitLitres !== '-' ? item.FuelLimitLitres : '-',
+                item.StandardBurnRate != null && item.StandardBurnRate !== '-' ? item.StandardBurnRate : '-',
                 item.Status || 'Active',
             ]);
 
-            const clientLabel = selectedClient?.clientid || 'azure_sql';
+            const clientLabel = selectedClient?.clientid || 'vehicles';
 
             if (format === 'csv') {
                 exportToCSV(`vehicle_details_${clientLabel}.csv`, headers, rows);
             } else if (format === 'excel') {
                 exportToExcel(`vehicle_details_${clientLabel}.xlsx`, headers, rows, 'Vehicle Details');
             } else if (format === 'pdf') {
-                exportToPDF('Vehicle Details Report (Azure SQL)', headers, rows);
+                exportToPDF('Vehicle Details Report', headers, rows);
             }
         } catch (err) {
             console.error('Failed to export vehicle details:', err);
@@ -459,7 +601,7 @@ export default function VehicleDetailsPage() {
             <PageContainer>
                 <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
                     <LoadingSpinner size="lg" />
-                    <p className="text-xs text-slate-500 font-medium">Connecting to Azure SQL Database...</p>
+                    <p className="text-xs text-slate-500 font-medium">Loading fleet vehicles & Azure SQL records...</p>
                 </div>
             </PageContainer>
         );
@@ -503,7 +645,7 @@ export default function VehicleDetailsPage() {
                                 {/* Total Assets Metric */}
                                 <div className="flex flex-col gap-1 shrink-0">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
-                                        Total Records
+                                        Total Fleet Vehicles
                                     </label>
                                     <div className="flex items-center px-2.5 border border-slate-200 bg-white rounded h-8 shadow-xs">
                                         <Database className="h-3 w-3 text-[#138024] mr-1.5" />
@@ -516,7 +658,7 @@ export default function VehicleDetailsPage() {
                                 {/* Search Input Group */}
                                 <div className="flex flex-col gap-1 w-[180px] lg:w-[210px] shrink-0">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
-                                        Search Asset / Fleet
+                                        Search Rego / Fleet
                                     </label>
                                     <div className="flex h-8">
                                         <span className="flex items-center px-2.5 border border-r-0 border-slate-200 bg-slate-50 rounded-l text-slate-400">
@@ -524,7 +666,7 @@ export default function VehicleDetailsPage() {
                                         </span>
                                         <input
                                             type="text"
-                                            placeholder="Search asset, fleet, model..."
+                                            placeholder="Search asset, fleet, make..."
                                             value={searchInput}
                                             onChange={(e) => setSearchInput(e.target.value)}
                                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -599,14 +741,14 @@ export default function VehicleDetailsPage() {
 
                             {/* Right Action Buttons Group */}
                             <div className="flex items-end gap-1.5 shrink-0">
-                                {/* Refresh Button */}
+                                {/* Refresh / Sync Button */}
                                 <Button
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    onClick={loadVehicles}
+                                    onClick={loadAllVehicles}
                                     className="h-8 px-2.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-1 text-xs font-semibold whitespace-nowrap cursor-pointer"
-                                    title="Reload from Azure SQL"
+                                    title="Reload all fleet vehicles"
                                 >
                                     <RefreshCw className="h-3 w-3" />
                                     <span>Sync</span>
@@ -767,17 +909,28 @@ export default function VehicleDetailsPage() {
                                 {paginatedData.length === 0 ? (
                                     <tr>
                                         <td colSpan={14} className="p-8 text-center text-slate-400 bg-slate-50">
-                                            No vehicle records found in Azure SQL Database. Click "Add Vehicle" to insert one.
+                                            No vehicle records found.
                                         </td>
                                     </tr>
                                 ) : (
                                     paginatedData.map((item, idx) => (
                                         <tr
-                                            key={item.VehicleId || idx}
+                                            key={item.VehicleId ? `db-${item.VehicleId}` : `live-${item.Asset}-${idx}`}
                                             className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors odd:bg-white even:bg-[#fff9f5]"
                                         >
                                             <td className="py-1.5 px-3 font-bold text-slate-900 align-middle">
-                                                {item.Asset}
+                                                <div className="flex items-center gap-1.5">
+                                                    <span>{item.Asset}</span>
+                                                    {item.isSavedInDb && (
+                                                        <span
+                                                            title="Saved in Azure SQL Database"
+                                                            className="inline-flex items-center text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200"
+                                                        >
+                                                            <Database className="h-2.5 w-2.5 mr-0.5" />
+                                                            DB
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle font-medium">
                                                 {item.FleetId || '-'}
@@ -801,24 +954,24 @@ export default function VehicleDetailsPage() {
                                                 {item.ModeOfUse || '-'}
                                             </td>
                                             <td className="py-1.5 px-3 text-right font-bold text-slate-900 align-middle">
-                                                {item.MonthlyMileageAllowanceKm != null
-                                                    ? formatNumber(Number(item.MonthlyMileageAllowanceKm))
-                                                    : '-'}
+                                                {typeof item.MonthlyMileageAllowanceKm === 'number'
+                                                    ? formatNumber(item.MonthlyMileageAllowanceKm)
+                                                    : item.MonthlyMileageAllowanceKm || '-'}
                                             </td>
                                             <td className="py-1.5 px-3 text-right font-medium text-[#0070c0] align-middle">
-                                                {item.BurnRateLPer100Km != null
-                                                    ? formatNumber(Number(item.BurnRateLPer100Km), 2)
-                                                    : '-'}
+                                                {typeof item.BurnRateLPer100Km === 'number'
+                                                    ? formatNumber(item.BurnRateLPer100Km, 2)
+                                                    : item.BurnRateLPer100Km || '-'}
                                             </td>
                                             <td className="py-1.5 px-3 text-right font-bold text-slate-900 align-middle">
-                                                {item.FuelLimitLitres != null
-                                                    ? `${formatNumber(Number(item.FuelLimitLitres))} L`
-                                                    : '-'}
+                                                {typeof item.FuelLimitLitres === 'number'
+                                                    ? `${formatNumber(item.FuelLimitLitres)} L`
+                                                    : item.FuelLimitLitres || '-'}
                                             </td>
                                             <td className="py-1.5 px-3 text-right text-slate-700 font-medium align-middle">
-                                                {item.StandardBurnRate != null
-                                                    ? formatNumber(Number(item.StandardBurnRate), 2)
-                                                    : '-'}
+                                                {typeof item.StandardBurnRate === 'number'
+                                                    ? formatNumber(item.StandardBurnRate, 2)
+                                                    : item.StandardBurnRate || '-'}
                                             </td>
                                             <td className="py-1.5 px-3 text-center align-middle">
                                                 <span
@@ -868,7 +1021,7 @@ export default function VehicleDetailsPage() {
                         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 pb-0.5 px-2 shrink-0 border-t border-slate-100">
                             <div className="flex items-center gap-4 flex-wrap">
                                 <p className="text-xs sm:text-sm text-slate-500">
-                                    Showing <span className="font-semibold text-slate-800">{paginatedData.length}</span> of <span className="font-semibold text-slate-800">{filteredData.length}</span> entries (from Azure SQL)
+                                    Showing <span className="font-semibold text-slate-800">{paginatedData.length}</span> of <span className="font-semibold text-slate-800">{filteredData.length}</span> fleet vehicles
                                 </p>
                                 <div className="flex items-center gap-1.5 text-xs text-slate-500">
                                     <span>Rows:</span>
@@ -944,7 +1097,7 @@ export default function VehicleDetailsPage() {
                                         {modalMode === 'add' ? (
                                             'Save new vehicle directly to dbo.VehicleDetails table'
                                         ) : (
-                                            <>Vehicle ID: <span className="font-bold text-slate-800">{editingRecord?.VehicleId}</span> - Asset: <span className="font-bold text-slate-800">{editingRecord?.Asset}</span></>
+                                            <>Asset: <span className="font-bold text-slate-800">{editingRecord?.Asset}</span> ({editingRecord?.FleetId || 'No Fleet ID'})</>
                                         )}
                                     </p>
                                 </div>
@@ -1152,7 +1305,7 @@ export default function VehicleDetailsPage() {
                                     ) : (
                                         <Save className="h-3.5 w-3.5" />
                                     )}
-                                    {actionLoading ? 'Saving...' : modalMode === 'add' ? 'Add Vehicle' : 'Save Changes'}
+                                    {actionLoading ? 'Saving...' : modalMode === 'add' ? 'Add Vehicle' : 'Save to Azure SQL'}
                                 </Button>
                             </div>
                         </form>
@@ -1174,17 +1327,19 @@ export default function VehicleDetailsPage() {
                             </div>
                             <div>
                                 <h3 className="font-bold text-slate-900 text-base">
-                                    Delete Vehicle from Database
+                                    Delete Vehicle
                                 </h3>
                                 <p className="text-xs text-slate-500">
-                                    This action will permanently delete the row from Azure SQL.
+                                    {deleteConfirmRecord.isSavedInDb
+                                        ? 'This will permanently delete the row from Azure SQL Database.'
+                                        : 'This will remove the vehicle from the current list.'}
                                 </p>
                             </div>
                         </div>
 
                         <p className="text-xs text-slate-600 leading-relaxed">
                             Are you sure you want to delete vehicle{' '}
-                            <span className="font-bold text-slate-900">{deleteConfirmRecord.Asset}</span> (VehicleId: {deleteConfirmRecord.VehicleId})?
+                            <span className="font-bold text-slate-900">{deleteConfirmRecord.Asset}</span> ({deleteConfirmRecord.FleetId || 'No Fleet ID'})?
                         </p>
 
                         <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
