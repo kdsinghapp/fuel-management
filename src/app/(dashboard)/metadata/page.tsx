@@ -483,7 +483,7 @@ export default function VehicleDetailsPage() {
             <PageContainer>
                 <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
                     <LoadingSpinner size="lg" />
-                    <p className="text-xs text-slate-500 font-medium">Loading fleet vehicles & Azure SQL records...</p>
+                    <p className="text-xs text-slate-500 font-medium">Loading vehicles</p>
                 </div>
             </PageContainer>
         );
@@ -494,11 +494,10 @@ export default function VehicleDetailsPage() {
             {/* Notification Banner */}
             {notification && (
                 <div
-                    className={`mb-2 p-3 rounded-lg flex items-center justify-between text-xs font-semibold shadow-md transition-all duration-300 animate-in fade-in slide-in-from-top-2 ${
-                        notification.type === 'success'
+                    className={`mb-2 p-3 rounded-lg flex items-center justify-between text-xs font-semibold shadow-md transition-all duration-300 animate-in fade-in slide-in-from-top-2 ${notification.type === 'success'
                             ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                             : 'bg-rose-50 text-rose-800 border border-rose-200'
-                    }`}
+                        }`}
                 >
                     <div className="flex items-center gap-2">
                         {notification.type === 'success' ? (
@@ -875,11 +874,10 @@ export default function VehicleDetailsPage() {
                                             </td>
                                             <td className="py-1.5 px-3 text-center align-middle">
                                                 <span
-                                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                                        (item.Status || 'Active') === 'Active'
+                                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${(item.Status || 'Active') === 'Active'
                                                             ? 'bg-emerald-100 text-emerald-800'
                                                             : 'bg-slate-100 text-slate-600'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     {item.Status || 'Active'}
                                                 </span>
@@ -1203,9 +1201,8 @@ export default function VehicleDetailsPage() {
                                 <Button
                                     type="submit"
                                     disabled={actionLoading}
-                                    className={`${
-                                        modalMode === 'add' ? 'bg-[#137e19] hover:bg-[#0e5c12]' : 'bg-[#f26522] hover:bg-[#d94f12]'
-                                    } text-white text-xs font-semibold h-8 px-4 flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50`}
+                                    className={`${modalMode === 'add' ? 'bg-[#137e19] hover:bg-[#0e5c12]' : 'bg-[#f26522] hover:bg-[#d94f12]'
+                                        } text-white text-xs font-semibold h-8 px-4 flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50`}
                                 >
                                     {actionLoading ? (
                                         <LoadingSpinner size="sm" />
