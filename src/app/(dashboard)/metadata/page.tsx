@@ -28,7 +28,7 @@ import { Button } from '@/components/ui/button';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { formatNumber, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils';
-import { useClientStore } from '@/services/api';
+import { useClientStore, CLIENTS } from '@/services/api';
 import { fuelIssueService } from '@/services/fuelIssueService';
 
 export interface VehicleDetailRecord {
@@ -251,10 +251,32 @@ export default function VehicleDetailsPage() {
                 }
             });
 
-            // Also include any custom vehicles in Azure SQL that had no transactions in current range
+            // Helper function to check if an Azure SQL record belongs to the selected client
+            const isRecordForCurrentClient = (sqlDept?: string) => {
+                if (!sqlDept) return false;
+                const deptNorm = sqlDept.trim().toLowerCase();
+                const currentNameNorm = (selectedClient?.name || '').trim().toLowerCase();
+
+                if (deptNorm === currentNameNorm) return true;
+
+                // If it explicitly belongs to another known client, exclude it
+                const belongsToOtherClient = CLIENTS.some((c) => {
+                    const cNameNorm = c.name.trim().toLowerCase();
+                    return cNameNorm !== currentNameNorm && (deptNorm === cNameNorm || deptNorm.includes(cNameNorm));
+                });
+                if (belongsToOtherClient) return false;
+
+                // Match substring
+                if (deptNorm.includes(currentNameNorm) || currentNameNorm.includes(deptNorm)) {
+                    return true;
+                }
+                return false;
+            };
+
+            // Also include any custom vehicles in Azure SQL that belong to THIS client and had no transactions in current range
             dbRecords.forEach((sqlItem) => {
                 const assetKey = (sqlItem.Asset || '').trim().toUpperCase();
-                if (assetKey && !seenAssets.has(assetKey)) {
+                if (assetKey && !seenAssets.has(assetKey) && isRecordForCurrentClient(sqlItem.Department)) {
                     seenAssets.add(assetKey);
                     mergedList.push({
                         VehicleId: sqlItem.VehicleId,
