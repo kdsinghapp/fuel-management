@@ -17,7 +17,10 @@ import {
     FileDown,
     Plus,
     Trash2,
-    AlertTriangle
+    AlertTriangle,
+    CheckCircle2,
+    RefreshCw,
+    Database
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,44 +28,53 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { formatNumber, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils';
 import { useClientStore } from '@/services/api';
-import { fuelIssueService } from '@/services/fuelIssueService';
 
-export interface VehicleMetadataRecord {
-    id: string;
-    asset: string; // Vehicle Rego (e.g., BFE131, BGU152)
-    fleetId: string; // Fleet ID (e.g., 1161, 1180, FL-101)
-    dept: string; // Department (e.g., Digicel POM, Security, etc.)
-    year: number | string;
-    make: string; // TOYOTA, FORD, etc.
-    model: string; // HI-ACE, RANGER, etc.
-    classType: string; // 15 SEAT, DBLCAB, etc.
-    modeOfUse: string; // On-Duty Operational (24/7), Personal (24/7), etc.
-    monthlyMileageAllowance: number | string; // KM
-    burnRate: number | string; // L/100KM
-    fuelLimit: number | string; // L or 'No Limit'
-    standardBRate: number | string;
+export interface VehicleDetailRecord {
+    VehicleId?: number;
+    Asset: string;
+    FleetId: string;
+    Department: string;
+    VehicleYear: number | string;
+    Make: string;
+    Model: string;
+    VehicleClass: string;
+    ModeOfUse: string;
+    MonthlyMileageAllowanceKm: number | string;
+    BurnRateLPer100Km: number | string;
+    FuelLimitLitres: number | string;
+    StandardBurnRate: number | string;
+    Status: string;
+    CreatedAt?: string;
+    CreatedBy?: string;
+    UpdatedAt?: string;
+    UpdatedBy?: string;
 }
 
-export default function MetadataPage() {
+export default function VehicleDetailsPage() {
     const selectedClient = useClientStore((state) => state.selectedClient);
-    const [records, setRecords] = useState<VehicleMetadataRecord[]>([]);
+    const [records, setRecords] = useState<VehicleDetailRecord[]>([]);
     const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState(false);
     const [search, setSearch] = useState('');
     const [searchInput, setSearchInput] = useState('');
     const [selectedDept, setSelectedDept] = useState('');
     const [selectedMake, setSelectedMake] = useState('');
+    const [selectedStatus, setSelectedStatus] = useState('');
+
+    // Notification banner state
+    const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
     // Modal Popup state for Add / Edit
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
-    const [editingRecord, setEditingRecord] = useState<VehicleMetadataRecord | null>(null);
-    const [formData, setFormData] = useState<Partial<VehicleMetadataRecord>>({});
+    const [editingRecord, setEditingRecord] = useState<VehicleDetailRecord | null>(null);
+    const [formData, setFormData] = useState<Partial<VehicleDetailRecord>>({});
     const [exportOpen, setExportOpen] = useState(false);
     const [isExporting, setIsExporting] = useState<string | null>(null);
     const exportRef = useRef<HTMLDivElement>(null);
 
     // Delete confirmation state
-    const [deleteConfirmRecord, setDeleteConfirmRecord] = useState<VehicleMetadataRecord | null>(null);
+    const [deleteConfirmRecord, setDeleteConfirmRecord] = useState<VehicleDetailRecord | null>(null);
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
@@ -77,177 +89,46 @@ export default function MetadataPage() {
     // Pagination & Dynamic display size state
     const tableContainerRef = useRef<HTMLDivElement>(null);
     const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(8);
+    const [pageSize, setPageSize] = useState(10);
     const [pageSizeMode, setPageSizeMode] = useState<'auto' | number>('auto');
 
-    // Fetch live vehicles and overlay stored metadata from LocalStorage
+    // Auto dismiss notification after 4s
     useEffect(() => {
-        loadMetadata();
+        if (notification) {
+            const timer = setTimeout(() => setNotification(null), 4000);
+            return () => clearTimeout(timer);
+        }
+    }, [notification]);
+
+    // Load data on mount or client change
+    useEffect(() => {
+        loadVehicles();
     }, [selectedClient]);
 
-    const loadMetadata = async () => {
+    const loadVehicles = async () => {
         try {
             setLoading(true);
-            const response = await fuelIssueService.getFuelIssues({
-                page: 1,
-                pageSize: 100000,
-            });
+            const res = await fetch('/api/vehicles');
+            const result = await res.json();
 
-            const rawTransactions = response.data || [];
-
-            // Load saved customizations from localStorage
-            let storedRecords: VehicleMetadataRecord[] = [];
-            if (typeof window !== 'undefined') {
-                const storageKey = `vehicle_metadata_${selectedClient.clientid}`;
-                const stored = localStorage.getItem(storageKey);
-                if (stored) {
-                    try {
-                        storedRecords = JSON.parse(stored);
-                    } catch {
-                        storedRecords = [];
-                    }
-                }
+            if (result.success && Array.isArray(result.data)) {
+                setRecords(result.data);
+            } else {
+                throw new Error(result.message || 'Failed to load vehicles from database');
             }
-
-            const storedMap = new Map<string, VehicleMetadataRecord>();
-            storedRecords.forEach((rec) => {
-                if (rec.asset) {
-                    storedMap.set(rec.asset.trim().toUpperCase(), rec);
-                }
+        } catch (err: any) {
+            console.error('Failed to load vehicle details from Azure SQL:', err);
+            setNotification({
+                type: 'error',
+                message: err.message || 'Could not connect to Azure SQL Database',
             });
-
-            // Group transactions by vehicle / asset
-            const vehicleMap = new Map<string, {
-                asset: string;
-                fleetId: string;
-                dept: string;
-                litres: number;
-                odometers: { odo: number; date: string; time: string }[];
-            }>();
-
-            rawTransactions.forEach((tx: any) => {
-                const assetKey = (tx.vehicleId || tx.registrationNo || tx.fleetId || tx.driverAttendant || '').toString().trim().toUpperCase();
-                if (!assetKey) return;
-
-                if (!vehicleMap.has(assetKey)) {
-                    vehicleMap.set(assetKey, {
-                        asset: assetKey,
-                        fleetId: tx.fleetId || '',
-                        dept: tx.depot || tx.department || 'General',
-                        litres: 0,
-                        odometers: [],
-                    });
-                }
-
-                const entry = vehicleMap.get(assetKey)!;
-                if (tx.fleetId && (!entry.fleetId || entry.fleetId === '-')) {
-                    entry.fleetId = tx.fleetId;
-                }
-                if (tx.depot && (!entry.dept || entry.dept === 'General')) {
-                    entry.dept = tx.depot;
-                }
-
-                const qty = Number(tx.fuelQuantity) || 0;
-                const odo = Number(tx.odometer) || 0;
-                entry.litres += qty;
-
-                if (odo > 0) {
-                    entry.odometers.push({
-                        odo,
-                        date: tx.date || '',
-                        time: tx.time || '',
-                    });
-                }
-            });
-
-            const mergedRecords: VehicleMetadataRecord[] = [];
-            const seenAssets = new Set<string>();
-
-            // 1. Process vehicles derived from live transactions
-            vehicleMap.forEach((v, assetKey) => {
-                seenAssets.add(assetKey);
-
-                let calculatedBurnRate: number | string = '-';
-                if (v.odometers.length >= 2) {
-                    v.odometers.sort((a, b) => {
-                        const timeA = new Date(`${a.date}T${a.time || '00:00:00'}`).getTime();
-                        const timeB = new Date(`${b.date}T${b.time || '00:00:00'}`).getTime();
-                        return timeA - timeB;
-                    });
-                    const minOdo = v.odometers[0].odo;
-                    const maxOdo = v.odometers[v.odometers.length - 1].odo;
-                    const dist = maxOdo - minOdo;
-                    if (dist > 0 && v.litres > 0) {
-                        calculatedBurnRate = Number(((v.litres / dist) * 100).toFixed(2));
-                    }
-                }
-
-                const stored = storedMap.get(assetKey);
-                if (stored) {
-                    mergedRecords.push({
-                        id: stored.id || assetKey,
-                        asset: assetKey,
-                        fleetId: stored.fleetId || v.fleetId || '-',
-                        dept: stored.dept || v.dept || 'General',
-                        year: stored.year !== undefined ? stored.year : '-',
-                        make: stored.make || '-',
-                        model: stored.model || '-',
-                        classType: stored.classType || '-',
-                        modeOfUse: stored.modeOfUse || 'On-Duty Operational (24/7)',
-                        monthlyMileageAllowance: stored.monthlyMileageAllowance !== undefined ? stored.monthlyMileageAllowance : '-',
-                        burnRate: stored.burnRate !== undefined && stored.burnRate !== '-' ? stored.burnRate : calculatedBurnRate,
-                        fuelLimit: stored.fuelLimit !== undefined ? stored.fuelLimit : 'No Limit',
-                        standardBRate: stored.standardBRate !== undefined && stored.standardBRate !== '-' ? stored.standardBRate : 7.0,
-                    });
-                } else {
-                    mergedRecords.push({
-                        id: assetKey,
-                        asset: assetKey,
-                        fleetId: v.fleetId || '-',
-                        dept: v.dept || 'General',
-                        year: '-',
-                        make: '-',
-                        model: '-',
-                        classType: '-',
-                        modeOfUse: '-',
-                        monthlyMileageAllowance: '-',
-                        burnRate: calculatedBurnRate,
-                        fuelLimit: 'No Limit',
-                        standardBRate: 7.0,
-                    });
-                }
-            });
-
-            // 2. Include any stored custom records that weren't in live transactions
-            storedRecords.forEach((stored) => {
-                const assetKey = (stored.asset || '').trim().toUpperCase();
-                if (assetKey && !seenAssets.has(assetKey)) {
-                    seenAssets.add(assetKey);
-                    mergedRecords.push(stored);
-                }
-            });
-
-            // Sort alphabetically by asset
-            mergedRecords.sort((a, b) => a.asset.localeCompare(b.asset));
-
-            setRecords(mergedRecords);
-        } catch (err) {
-            console.error('Failed to load vehicle metadata:', err);
         } finally {
             setLoading(false);
             useClientStore.getState().setClientLoading(false);
         }
     };
 
-    const saveRecordsToStorage = (updatedRecords: VehicleMetadataRecord[]) => {
-        setRecords(updatedRecords);
-        if (typeof window !== 'undefined') {
-            const storageKey = `vehicle_metadata_${selectedClient.clientid}`;
-            localStorage.setItem(storageKey, JSON.stringify(updatedRecords));
-        }
-    };
-
-    // Calculate dynamic rows to fit viewport without scroll overflow
+    // Calculate dynamic rows to fit viewport
     useEffect(() => {
         if (pageSizeMode !== 'auto') {
             setPageSize(pageSizeMode);
@@ -257,9 +138,9 @@ export default function MetadataPage() {
         const computeRows = () => {
             if (tableContainerRef.current) {
                 const containerHeight = tableContainerRef.current.clientHeight;
-                const headerHeight = 34; // <thead> height
-                const scrollbarHeight = 10; // horizontal scrollbar allowance
-                const rowHeight = 33; // precise <tr> height with py-1.5
+                const headerHeight = 34;
+                const scrollbarHeight = 10;
+                const rowHeight = 36;
                 const availableForRows = containerHeight - headerHeight - scrollbarHeight;
                 if (availableForRows > 0) {
                     const exactFit = Math.max(5, Math.floor(availableForRows / rowHeight));
@@ -268,7 +149,7 @@ export default function MetadataPage() {
             } else if (typeof window !== 'undefined') {
                 const overhead = 280;
                 const availableHeight = window.innerHeight - overhead;
-                const rowHeight = 33;
+                const rowHeight = 36;
                 const calculatedRows = Math.max(5, Math.floor(availableHeight / rowHeight));
                 setPageSize(calculatedRows);
             }
@@ -301,6 +182,7 @@ export default function MetadataPage() {
         setSearch('');
         setSelectedDept('');
         setSelectedMake('');
+        setSelectedStatus('');
         setPage(1);
     };
 
@@ -309,109 +191,207 @@ export default function MetadataPage() {
         setModalMode('add');
         setEditingRecord(null);
         setFormData({
-            asset: '',
-            fleetId: '',
-            dept: selectedClient?.name || 'General',
-            year: new Date().getFullYear(),
-            make: '',
-            model: '',
-            classType: '',
-            modeOfUse: 'On-Duty Operational (24/7)',
-            monthlyMileageAllowance: '-',
-            burnRate: '',
-            fuelLimit: 'No Limit',
-            standardBRate: '7.0',
+            Asset: '',
+            FleetId: '',
+            Department: selectedClient?.name || 'Operations',
+            VehicleYear: new Date().getFullYear(),
+            Make: '',
+            Model: '',
+            VehicleClass: 'Light Vehicle',
+            ModeOfUse: 'Operational',
+            MonthlyMileageAllowanceKm: 3000,
+            BurnRateLPer100Km: 12.5,
+            FuelLimitLitres: 300,
+            StandardBurnRate: 12.0,
+            Status: 'Active',
+            CreatedBy: 'Admin',
         });
         setIsModalOpen(true);
     };
 
     // Open modal to edit existing vehicle
-    const handleOpenEdit = (rec: VehicleMetadataRecord) => {
+    const handleOpenEdit = (rec: VehicleDetailRecord) => {
         setModalMode('edit');
         setEditingRecord(rec);
-        setFormData({ ...rec });
+        setFormData({
+            ...rec,
+            VehicleYear: rec.VehicleYear ?? '',
+            MonthlyMileageAllowanceKm: rec.MonthlyMileageAllowanceKm ?? '',
+            BurnRateLPer100Km: rec.BurnRateLPer100Km ?? '',
+            FuelLimitLitres: rec.FuelLimitLitres ?? '',
+            StandardBurnRate: rec.StandardBurnRate ?? '',
+            Status: rec.Status || 'Active',
+        });
         setIsModalOpen(true);
     };
 
-    const handleSave = (e: React.FormEvent) => {
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (modalMode === 'add') {
-            if (!formData.asset?.trim()) {
-                return;
+        if (!formData.Asset?.trim()) {
+            setNotification({ type: 'error', message: 'Asset (Registration) is required.' });
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+
+            if (modalMode === 'add') {
+                const payload = {
+                    Asset: formData.Asset.trim().toUpperCase(),
+                    FleetId: formData.FleetId ? formData.FleetId.trim().toUpperCase() : null,
+                    Department: formData.Department?.trim() || null,
+                    VehicleYear: formData.VehicleYear ? parseInt(formData.VehicleYear.toString(), 10) : null,
+                    Make: formData.Make ? formData.Make.trim().toUpperCase() : null,
+                    Model: formData.Model ? formData.Model.trim().toUpperCase() : null,
+                    VehicleClass: formData.VehicleClass?.trim() || null,
+                    ModeOfUse: formData.ModeOfUse?.trim() || null,
+                    MonthlyMileageAllowanceKm: formData.MonthlyMileageAllowanceKm !== '' && formData.MonthlyMileageAllowanceKm !== undefined && formData.MonthlyMileageAllowanceKm !== null
+                        ? parseFloat(formData.MonthlyMileageAllowanceKm.toString())
+                        : null,
+                    BurnRateLPer100Km: formData.BurnRateLPer100Km !== '' && formData.BurnRateLPer100Km !== undefined && formData.BurnRateLPer100Km !== null
+                        ? parseFloat(formData.BurnRateLPer100Km.toString())
+                        : null,
+                    FuelLimitLitres: formData.FuelLimitLitres !== '' && formData.FuelLimitLitres !== undefined && formData.FuelLimitLitres !== null
+                        ? parseFloat(formData.FuelLimitLitres.toString())
+                        : null,
+                    StandardBurnRate: formData.StandardBurnRate !== '' && formData.StandardBurnRate !== undefined && formData.StandardBurnRate !== null
+                        ? parseFloat(formData.StandardBurnRate.toString())
+                        : null,
+                    Status: formData.Status || 'Active',
+                    CreatedBy: 'Admin',
+                };
+
+                const res = await fetch('/api/vehicles', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+
+                const result = await res.json();
+                if (!res.ok || !result.success) {
+                    throw new Error(result.message || 'Failed to add vehicle');
+                }
+
+                setNotification({
+                    type: 'success',
+                    message: `Vehicle "${payload.Asset}" added successfully to Azure SQL!`,
+                });
+                setIsModalOpen(false);
+                loadVehicles();
+            } else {
+                if (!editingRecord?.VehicleId) {
+                    throw new Error('Vehicle ID missing for update.');
+                }
+
+                const payload = {
+                    VehicleId: editingRecord.VehicleId,
+                    Asset: formData.Asset.trim().toUpperCase(),
+                    FleetId: formData.FleetId ? formData.FleetId.trim().toUpperCase() : null,
+                    Department: formData.Department?.trim() || null,
+                    VehicleYear: formData.VehicleYear ? parseInt(formData.VehicleYear.toString(), 10) : null,
+                    Make: formData.Make ? formData.Make.trim().toUpperCase() : null,
+                    Model: formData.Model ? formData.Model.trim().toUpperCase() : null,
+                    VehicleClass: formData.VehicleClass?.trim() || null,
+                    ModeOfUse: formData.ModeOfUse?.trim() || null,
+                    MonthlyMileageAllowanceKm: formData.MonthlyMileageAllowanceKm !== '' && formData.MonthlyMileageAllowanceKm !== undefined && formData.MonthlyMileageAllowanceKm !== null
+                        ? parseFloat(formData.MonthlyMileageAllowanceKm.toString())
+                        : null,
+                    BurnRateLPer100Km: formData.BurnRateLPer100Km !== '' && formData.BurnRateLPer100Km !== undefined && formData.BurnRateLPer100Km !== null
+                        ? parseFloat(formData.BurnRateLPer100Km.toString())
+                        : null,
+                    FuelLimitLitres: formData.FuelLimitLitres !== '' && formData.FuelLimitLitres !== undefined && formData.FuelLimitLitres !== null
+                        ? parseFloat(formData.FuelLimitLitres.toString())
+                        : null,
+                    StandardBurnRate: formData.StandardBurnRate !== '' && formData.StandardBurnRate !== undefined && formData.StandardBurnRate !== null
+                        ? parseFloat(formData.StandardBurnRate.toString())
+                        : null,
+                    Status: formData.Status || 'Active',
+                    UpdatedBy: 'Admin',
+                };
+
+                const res = await fetch('/api/vehicles', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+
+                const result = await res.json();
+                if (!res.ok || !result.success) {
+                    throw new Error(result.message || 'Failed to update vehicle');
+                }
+
+                setNotification({
+                    type: 'success',
+                    message: `Vehicle "${payload.Asset}" updated successfully!`,
+                });
+                setIsModalOpen(false);
+                loadVehicles();
             }
-            const assetUpper = formData.asset.trim().toUpperCase();
-            const newRecord: VehicleMetadataRecord = {
-                id: assetUpper,
-                asset: assetUpper,
-                fleetId: (formData.fleetId || '').trim().toUpperCase() || '-',
-                dept: formData.dept?.trim() || selectedClient?.name || 'General',
-                year: formData.year || '-',
-                make: (formData.make || '').trim().toUpperCase() || '-',
-                model: (formData.model || '').trim().toUpperCase() || '-',
-                classType: formData.classType?.trim() || '-',
-                modeOfUse: formData.modeOfUse?.trim() || 'On-Duty Operational (24/7)',
-                monthlyMileageAllowance: formData.monthlyMileageAllowance !== undefined && formData.monthlyMileageAllowance !== ''
-                    ? (isNaN(Number(formData.monthlyMileageAllowance)) ? formData.monthlyMileageAllowance : Number(formData.monthlyMileageAllowance))
-                    : '-',
-                burnRate: formData.burnRate !== undefined && formData.burnRate !== ''
-                    ? (isNaN(Number(formData.burnRate)) ? formData.burnRate : Number(formData.burnRate))
-                    : '-',
-                fuelLimit: formData.fuelLimit !== undefined && formData.fuelLimit !== ''
-                    ? (isNaN(Number(formData.fuelLimit)) ? formData.fuelLimit : Number(formData.fuelLimit))
-                    : 'No Limit',
-                standardBRate: formData.standardBRate !== undefined && formData.standardBRate !== ''
-                    ? (isNaN(Number(formData.standardBRate)) ? formData.standardBRate : Number(formData.standardBRate))
-                    : 7.0,
-            };
-            const updated = [newRecord, ...records.filter(r => r.asset !== assetUpper)];
-            saveRecordsToStorage(updated);
-            setIsModalOpen(false);
-        } else {
-            if (!editingRecord) return;
-            const updated = records.map((r) =>
-                r.id === editingRecord.id || r.asset === editingRecord.asset
-                    ? ({
-                        ...r,
-                        ...formData,
-                        asset: formData.asset ? formData.asset.trim().toUpperCase() : r.asset,
-                        fleetId: formData.fleetId ? formData.fleetId.trim().toUpperCase() : r.fleetId,
-                    } as VehicleMetadataRecord)
-                    : r
-            );
-            saveRecordsToStorage(updated);
-            setIsModalOpen(false);
+        } catch (err: any) {
+            console.error('Save failed:', err);
+            setNotification({
+                type: 'error',
+                message: err.message || 'Failed to save vehicle details',
+            });
+        } finally {
+            setActionLoading(false);
         }
     };
 
-    const handleDeleteClick = (rec: VehicleMetadataRecord) => {
+    const handleDeleteClick = (rec: VehicleDetailRecord) => {
         setDeleteConfirmRecord(rec);
     };
 
-    const handleConfirmDelete = () => {
-        if (!deleteConfirmRecord) return;
-        const updated = records.filter((r) => r.id !== deleteConfirmRecord.id && r.asset !== deleteConfirmRecord.asset);
-        saveRecordsToStorage(updated);
-        setDeleteConfirmRecord(null);
+    const handleConfirmDelete = async () => {
+        if (!deleteConfirmRecord?.VehicleId) return;
+
+        try {
+            setActionLoading(true);
+            const res = await fetch(`/api/vehicles?id=${deleteConfirmRecord.VehicleId}`, {
+                method: 'DELETE',
+            });
+
+            const result = await res.json();
+            if (!res.ok || !result.success) {
+                throw new Error(result.message || 'Failed to delete vehicle');
+            }
+
+            setNotification({
+                type: 'success',
+                message: `Vehicle "${deleteConfirmRecord.Asset}" deleted from Azure SQL.`,
+            });
+            setDeleteConfirmRecord(null);
+            loadVehicles();
+        } catch (err: any) {
+            console.error('Delete failed:', err);
+            setNotification({
+                type: 'error',
+                message: err.message || 'Failed to delete vehicle',
+            });
+        } finally {
+            setActionLoading(false);
+        }
     };
 
-    // Filter data
-    const departments = Array.from(new Set(records.map((r) => r.dept).filter(d => d && d !== '-')));
-    const makes = Array.from(new Set(records.map((r) => r.make).filter(m => m && m !== '-')));
+    // Filter dropdown lists
+    const departments = Array.from(new Set(records.map((r) => r.Department).filter(Boolean)));
+    const makes = Array.from(new Set(records.map((r) => r.Make).filter(Boolean)));
 
     const filteredData = records.filter((item) => {
         const query = search.toLowerCase();
         const matchesSearch =
             !search ||
-            item.asset.toLowerCase().includes(query) ||
-            item.fleetId.toLowerCase().includes(query) ||
-            item.make.toLowerCase().includes(query) ||
-            item.model.toLowerCase().includes(query) ||
-            item.dept.toLowerCase().includes(query);
+            (item.Asset && item.Asset.toLowerCase().includes(query)) ||
+            (item.FleetId && item.FleetId.toLowerCase().includes(query)) ||
+            (item.Make && item.Make.toLowerCase().includes(query)) ||
+            (item.Model && item.Model.toLowerCase().includes(query)) ||
+            (item.Department && item.Department.toLowerCase().includes(query));
 
-        const matchesDept = !selectedDept || item.dept === selectedDept;
-        const matchesMake = !selectedMake || item.make === selectedMake;
+        const matchesDept = !selectedDept || item.Department === selectedDept;
+        const matchesMake = !selectedMake || item.Make === selectedMake;
+        const matchesStatus = !selectedStatus || item.Status === selectedStatus;
 
-        return matchesSearch && matchesDept && matchesMake;
+        return matchesSearch && matchesDept && matchesMake && matchesStatus;
     });
 
     const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
@@ -425,45 +405,49 @@ export default function MetadataPage() {
         setIsExporting(format);
         try {
             const headers = [
+                'Vehicle ID',
                 'Asset',
                 'Fleet ID',
-                'Dept',
+                'Department',
                 'Year',
                 'Make',
                 'Model',
                 'Class',
                 'Mode of Use',
-                'MONTHLY MILEAGE ALLOWANCE(KM)',
-                'BURN RATE (L/100KM)',
-                'FUEL LIMIT (L)',
-                'Standard B/Rate',
+                'Monthly Mileage (KM)',
+                'Burn Rate (L/100KM)',
+                'Fuel Limit (L)',
+                'Standard Burn Rate',
+                'Status',
             ];
             const rows = filteredData.map((item) => [
-                item.asset,
-                item.fleetId,
-                item.dept,
-                item.year,
-                item.make,
-                item.model,
-                item.classType,
-                item.modeOfUse,
-                item.monthlyMileageAllowance,
-                item.burnRate,
-                item.fuelLimit,
-                item.standardBRate,
+                item.VehicleId || '-',
+                item.Asset,
+                item.FleetId || '-',
+                item.Department || '-',
+                item.VehicleYear || '-',
+                item.Make || '-',
+                item.Model || '-',
+                item.VehicleClass || '-',
+                item.ModeOfUse || '-',
+                item.MonthlyMileageAllowanceKm != null ? item.MonthlyMileageAllowanceKm : '-',
+                item.BurnRateLPer100Km != null ? item.BurnRateLPer100Km : '-',
+                item.FuelLimitLitres != null ? item.FuelLimitLitres : '-',
+                item.StandardBurnRate != null ? item.StandardBurnRate : '-',
+                item.Status || 'Active',
             ]);
 
-            const clientLabel = selectedClient?.clientid || 'metadata';
+            const clientLabel = selectedClient?.clientid || 'azure_sql';
 
             if (format === 'csv') {
-                exportToCSV(`vehicle_metadata_${clientLabel}.csv`, headers, rows);
+                exportToCSV(`vehicle_details_${clientLabel}.csv`, headers, rows);
             } else if (format === 'excel') {
-                exportToExcel(`vehicle_metadata_${clientLabel}.xlsx`, headers, rows, 'Vehicle Metadata');
+                exportToExcel(`vehicle_details_${clientLabel}.xlsx`, headers, rows, 'Vehicle Details');
             } else if (format === 'pdf') {
-                exportToPDF('Vehicle Metadata Report', headers, rows);
+                exportToPDF('Vehicle Details Report (Azure SQL)', headers, rows);
             }
         } catch (err) {
-            console.error('Failed to export vehicle metadata:', err);
+            console.error('Failed to export vehicle details:', err);
         } finally {
             setIsExporting(null);
             setExportOpen(false);
@@ -473,8 +457,9 @@ export default function MetadataPage() {
     if (loading) {
         return (
             <PageContainer>
-                <div className="flex items-center justify-center min-h-[400px]">
+                <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
                     <LoadingSpinner size="lg" />
+                    <p className="text-xs text-slate-500 font-medium">Connecting to Azure SQL Database...</p>
                 </div>
             </PageContainer>
         );
@@ -482,9 +467,35 @@ export default function MetadataPage() {
 
     return (
         <PageContainer className="p-2 sm:p-3 space-y-0 h-full flex flex-col overflow-hidden relative">
-            <Card className="rounded border border-slate-200 shadow-sm p-2.5 mb-0 flex-1 flex flex-col overflow-hidden">
+            {/* Notification Banner */}
+            {notification && (
+                <div
+                    className={`mb-2 p-3 rounded-lg flex items-center justify-between text-xs font-semibold shadow-md transition-all duration-300 animate-in fade-in slide-in-from-top-2 ${
+                        notification.type === 'success'
+                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                            : 'bg-rose-50 text-rose-800 border border-rose-200'
+                    }`}
+                >
+                    <div className="flex items-center gap-2">
+                        {notification.type === 'success' ? (
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                        ) : (
+                            <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />
+                        )}
+                        <span>{notification.message}</span>
+                    </div>
+                    <button
+                        onClick={() => setNotification(null)}
+                        className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                        <X className="h-3.5 w-3.5" />
+                    </button>
+                </div>
+            )}
+
+            <Card className="rounded border border-slate-200 shadow-sm p-2.5 mb-0 flex-1 flex flex-col overflow-hidden bg-white">
                 <CardContent className="p-0 flex-1 flex flex-col overflow-hidden justify-between">
-                    {/* Filter bar container matching single horizontal row structure */}
+                    {/* Filter bar container */}
                     <div className="mb-2 py-1.5 px-3 bg-[#eefcf2] border border-[#d6f2e1] rounded w-full shrink-0 relative z-20 overflow-x-auto overflow-y-visible">
                         <div className="flex items-end justify-between gap-2 min-w-max">
                             {/* Left Filters Group */}
@@ -492,9 +503,10 @@ export default function MetadataPage() {
                                 {/* Total Assets Metric */}
                                 <div className="flex flex-col gap-1 shrink-0">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
-                                        Total Assets
+                                        Total Records
                                     </label>
                                     <div className="flex items-center px-2.5 border border-slate-200 bg-white rounded h-8 shadow-xs">
+                                        <Database className="h-3 w-3 text-[#138024] mr-1.5" />
                                         <span className="text-xs font-bold text-[#138024] whitespace-nowrap">
                                             {filteredData.length} Vehicles
                                         </span>
@@ -504,7 +516,7 @@ export default function MetadataPage() {
                                 {/* Search Input Group */}
                                 <div className="flex flex-col gap-1 w-[180px] lg:w-[210px] shrink-0">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
-                                        Search Rego / Fleet
+                                        Search Asset / Fleet
                                     </label>
                                     <div className="flex h-8">
                                         <span className="flex items-center px-2.5 border border-r-0 border-slate-200 bg-slate-50 rounded-l text-slate-400">
@@ -512,7 +524,7 @@ export default function MetadataPage() {
                                         </span>
                                         <input
                                             type="text"
-                                            placeholder="Search asset, fleet, make..."
+                                            placeholder="Search asset, fleet, model..."
                                             value={searchInput}
                                             onChange={(e) => setSearchInput(e.target.value)}
                                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -564,10 +576,42 @@ export default function MetadataPage() {
                                         ))}
                                     </select>
                                 </div>
+
+                                {/* Status Filter */}
+                                <div className="flex flex-col gap-1 w-[100px] shrink-0">
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                                        Status
+                                    </label>
+                                    <select
+                                        value={selectedStatus}
+                                        onChange={(e) => {
+                                            setSelectedStatus(e.target.value);
+                                            setPage(1);
+                                        }}
+                                        className="w-full h-8 px-2 text-xs border border-slate-200 rounded bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522]"
+                                    >
+                                        <option value="">All Status</option>
+                                        <option value="Active">Active</option>
+                                        <option value="Inactive">Inactive</option>
+                                    </select>
+                                </div>
                             </div>
 
                             {/* Right Action Buttons Group */}
                             <div className="flex items-end gap-1.5 shrink-0">
+                                {/* Refresh Button */}
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={loadVehicles}
+                                    className="h-8 px-2.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-1 text-xs font-semibold whitespace-nowrap cursor-pointer"
+                                    title="Reload from Azure SQL"
+                                >
+                                    <RefreshCw className="h-3 w-3" />
+                                    <span>Sync</span>
+                                </Button>
+
                                 {/* Add Vehicle Button */}
                                 <Button
                                     type="button"
@@ -667,7 +711,7 @@ export default function MetadataPage() {
                         </div>
                     </div>
 
-                    {/* Metadata Table matching the standard design */}
+                    {/* Table matching standard theme */}
                     <div
                         ref={tableContainerRef}
                         className="overflow-x-auto overflow-y-auto border border-slate-200 shadow-xs rounded mb-1.5 flex-1 min-h-0"
@@ -682,7 +726,7 @@ export default function MetadataPage() {
                                         Fleet ID
                                     </th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">
-                                        Dept
+                                        Department
                                     </th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-center font-semibold sticky top-0 z-10">
                                         Year
@@ -700,16 +744,19 @@ export default function MetadataPage() {
                                         Mode of Use
                                     </th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-right font-semibold sticky top-0 z-10">
-                                        MONTHLY MILEAGE ALLOWANCE(KM)
+                                        Monthly Mileage (KM)
                                     </th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-right font-semibold sticky top-0 z-10">
-                                        BURN RATE (L/100KM)
+                                        Burn Rate (L/100KM)
                                     </th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-right font-semibold sticky top-0 z-10">
-                                        FUEL LIMIT (L)
+                                        Fuel Limit (L)
                                     </th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-right font-semibold sticky top-0 z-10">
                                         Standard B/Rate
+                                    </th>
+                                    <th className="bg-[#137e19] text-white py-2 px-3 text-center font-semibold sticky top-0 z-10">
+                                        Status
                                     </th>
                                     <th className="bg-[#222222] text-white py-2 px-3 text-center font-semibold sticky top-0 z-10">
                                         Action
@@ -719,55 +766,70 @@ export default function MetadataPage() {
                             <tbody>
                                 {paginatedData.length === 0 ? (
                                     <tr>
-                                        <td colSpan={13} className="p-8 text-center text-slate-400 bg-slate-50">
-                                            No vehicle metadata found.
+                                        <td colSpan={14} className="p-8 text-center text-slate-400 bg-slate-50">
+                                            No vehicle records found in Azure SQL Database. Click "Add Vehicle" to insert one.
                                         </td>
                                     </tr>
                                 ) : (
                                     paginatedData.map((item, idx) => (
                                         <tr
-                                            key={item.id || idx}
+                                            key={item.VehicleId || idx}
                                             className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors odd:bg-white even:bg-[#fff9f5]"
                                         >
                                             <td className="py-1.5 px-3 font-bold text-slate-900 align-middle">
-                                                {item.asset}
+                                                {item.Asset}
                                             </td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle font-medium">
-                                                {item.fleetId}
+                                                {item.FleetId || '-'}
                                             </td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">
-                                                {item.dept}
+                                                {item.Department || '-'}
                                             </td>
                                             <td className="py-1.5 px-3 text-center text-slate-600 align-middle">
-                                                {item.year}
+                                                {item.VehicleYear || '-'}
                                             </td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">
-                                                {item.make}
+                                                {item.Make || '-'}
                                             </td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">
-                                                {item.model}
+                                                {item.Model || '-'}
                                             </td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">
-                                                {item.classType}
+                                                {item.VehicleClass || '-'}
                                             </td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle text-xs">
-                                                {item.modeOfUse}
+                                                {item.ModeOfUse || '-'}
                                             </td>
                                             <td className="py-1.5 px-3 text-right font-bold text-slate-900 align-middle">
-                                                {typeof item.monthlyMileageAllowance === 'number'
-                                                    ? formatNumber(item.monthlyMileageAllowance)
-                                                    : item.monthlyMileageAllowance}
+                                                {item.MonthlyMileageAllowanceKm != null
+                                                    ? formatNumber(Number(item.MonthlyMileageAllowanceKm))
+                                                    : '-'}
                                             </td>
                                             <td className="py-1.5 px-3 text-right font-medium text-[#0070c0] align-middle">
-                                                {typeof item.burnRate === 'number' ? formatNumber(item.burnRate, 2) : item.burnRate}
+                                                {item.BurnRateLPer100Km != null
+                                                    ? formatNumber(Number(item.BurnRateLPer100Km), 2)
+                                                    : '-'}
                                             </td>
                                             <td className="py-1.5 px-3 text-right font-bold text-slate-900 align-middle">
-                                                {typeof item.fuelLimit === 'number'
-                                                    ? `${formatNumber(item.fuelLimit)} L`
-                                                    : item.fuelLimit}
+                                                {item.FuelLimitLitres != null
+                                                    ? `${formatNumber(Number(item.FuelLimitLitres))} L`
+                                                    : '-'}
                                             </td>
                                             <td className="py-1.5 px-3 text-right text-slate-700 font-medium align-middle">
-                                                {typeof item.standardBRate === 'number' ? formatNumber(item.standardBRate, 2) : item.standardBRate}
+                                                {item.StandardBurnRate != null
+                                                    ? formatNumber(Number(item.StandardBurnRate), 2)
+                                                    : '-'}
+                                            </td>
+                                            <td className="py-1.5 px-3 text-center align-middle">
+                                                <span
+                                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                                        (item.Status || 'Active') === 'Active'
+                                                            ? 'bg-emerald-100 text-emerald-800'
+                                                            : 'bg-slate-100 text-slate-600'
+                                                    }`}
+                                                >
+                                                    {item.Status || 'Active'}
+                                                </span>
                                             </td>
                                             <td className="py-1.5 px-3 text-center align-middle">
                                                 <div className="flex items-center justify-center gap-1.5">
@@ -806,7 +868,7 @@ export default function MetadataPage() {
                         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 pb-0.5 px-2 shrink-0 border-t border-slate-100">
                             <div className="flex items-center gap-4 flex-wrap">
                                 <p className="text-xs sm:text-sm text-slate-500">
-                                    Showing <span className="font-semibold text-slate-800">{paginatedData.length}</span> of <span className="font-semibold text-slate-800">{filteredData.length}</span> entries
+                                    Showing <span className="font-semibold text-slate-800">{paginatedData.length}</span> of <span className="font-semibold text-slate-800">{filteredData.length}</span> entries (from Azure SQL)
                                 </p>
                                 <div className="flex items-center gap-1.5 text-xs text-slate-500">
                                     <span>Rows:</span>
@@ -860,12 +922,12 @@ export default function MetadataPage() {
                 </CardContent>
             </Card>
 
-            {/* Centered Modal Popup for Add / Edit Vehicle */}
+            {/* Modal Popup for Add / Edit Vehicle */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs transition-opacity duration-200">
                     <div
                         className="fixed inset-0"
-                        onClick={() => setIsModalOpen(false)}
+                        onClick={() => !actionLoading && setIsModalOpen(false)}
                     />
                     <div className="relative w-full max-w-xl bg-white shadow-2xl rounded-2xl z-10 border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
                         {/* Modal Header */}
@@ -876,13 +938,13 @@ export default function MetadataPage() {
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-slate-900 text-base">
-                                        {modalMode === 'add' ? 'Add Vehicle' : 'Edit Vehicle'}
+                                        {modalMode === 'add' ? 'Add Vehicle (Azure SQL)' : 'Edit Vehicle (Azure SQL)'}
                                     </h3>
                                     <p className="text-xs text-slate-500 font-medium">
                                         {modalMode === 'add' ? (
-                                            'Enter new fleet vehicle specifications, allowances and fuel limits'
+                                            'Save new vehicle directly to dbo.VehicleDetails table'
                                         ) : (
-                                            <>Asset: <span className="font-bold text-slate-800">{editingRecord?.asset}</span> ({editingRecord?.fleetId})</>
+                                            <>Vehicle ID: <span className="font-bold text-slate-800">{editingRecord?.VehicleId}</span> - Asset: <span className="font-bold text-slate-800">{editingRecord?.Asset}</span></>
                                         )}
                                     </p>
                                 </div>
@@ -890,6 +952,7 @@ export default function MetadataPage() {
                             <Button
                                 variant="ghost"
                                 size="sm"
+                                disabled={actionLoading}
                                 onClick={() => setIsModalOpen(false)}
                                 className="h-8 w-8 p-0 rounded-full hover:bg-slate-200/60 text-slate-500 cursor-pointer"
                             >
@@ -907,9 +970,9 @@ export default function MetadataPage() {
                                     <input
                                         type="text"
                                         required
-                                        placeholder="e.g. BFE131"
-                                        value={formData.asset || ''}
-                                        onChange={(e) => setFormData({ ...formData, asset: e.target.value.toUpperCase() })}
+                                        placeholder="e.g. TEST-002, BFE131"
+                                        value={formData.Asset || ''}
+                                        onChange={(e) => setFormData({ ...formData, Asset: e.target.value.toUpperCase() })}
                                         className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900 font-semibold"
                                     />
                                 </div>
@@ -920,9 +983,9 @@ export default function MetadataPage() {
                                     </label>
                                     <input
                                         type="text"
-                                        placeholder="e.g. 1161 or FL-101"
-                                        value={formData.fleetId || ''}
-                                        onChange={(e) => setFormData({ ...formData, fleetId: e.target.value.toUpperCase() })}
+                                        placeholder="e.g. FL002, 1161"
+                                        value={formData.FleetId || ''}
+                                        onChange={(e) => setFormData({ ...formData, FleetId: e.target.value.toUpperCase() })}
                                         className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900 font-semibold"
                                     />
                                 </div>
@@ -933,9 +996,9 @@ export default function MetadataPage() {
                                     <label className="font-bold text-slate-700">Department</label>
                                     <input
                                         type="text"
-                                        placeholder="e.g. Digicel POM, Security"
-                                        value={formData.dept || ''}
-                                        onChange={(e) => setFormData({ ...formData, dept: e.target.value })}
+                                        placeholder="e.g. Operations, Logistics"
+                                        value={formData.Department || ''}
+                                        onChange={(e) => setFormData({ ...formData, Department: e.target.value })}
                                         className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
                                 </div>
@@ -943,10 +1006,10 @@ export default function MetadataPage() {
                                 <div className="space-y-1">
                                     <label className="font-bold text-slate-700">Year</label>
                                     <input
-                                        type="text"
-                                        placeholder="e.g. 2025 or -"
-                                        value={formData.year !== undefined ? formData.year : ''}
-                                        onChange={(e) => setFormData({ ...formData, year: e.target.value })}
+                                        type="number"
+                                        placeholder="e.g. 2026"
+                                        value={formData.VehicleYear ?? ''}
+                                        onChange={(e) => setFormData({ ...formData, VehicleYear: e.target.value })}
                                         className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
                                 </div>
@@ -957,9 +1020,9 @@ export default function MetadataPage() {
                                     <label className="font-bold text-slate-700">Make</label>
                                     <input
                                         type="text"
-                                        placeholder="e.g. TOYOTA, FORD"
-                                        value={formData.make || ''}
-                                        onChange={(e) => setFormData({ ...formData, make: e.target.value.toUpperCase() })}
+                                        placeholder="e.g. Toyota, Ford, Isuzu"
+                                        value={formData.Make || ''}
+                                        onChange={(e) => setFormData({ ...formData, Make: e.target.value.toUpperCase() })}
                                         className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
                                 </div>
@@ -968,9 +1031,9 @@ export default function MetadataPage() {
                                     <label className="font-bold text-slate-700">Model</label>
                                     <input
                                         type="text"
-                                        placeholder="e.g. HI-ACE, RANGER"
-                                        value={formData.model || ''}
-                                        onChange={(e) => setFormData({ ...formData, model: e.target.value.toUpperCase() })}
+                                        placeholder="e.g. Hilux, Ranger, D-Max"
+                                        value={formData.Model || ''}
+                                        onChange={(e) => setFormData({ ...formData, Model: e.target.value.toUpperCase() })}
                                         className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
                                 </div>
@@ -978,12 +1041,12 @@ export default function MetadataPage() {
 
                             <div className="grid grid-cols-2 gap-3.5">
                                 <div className="space-y-1">
-                                    <label className="font-bold text-slate-700">Class</label>
+                                    <label className="font-bold text-slate-700">Vehicle Class</label>
                                     <input
                                         type="text"
-                                        placeholder="e.g. 15 SEAT, DBLCAB"
-                                        value={formData.classType || ''}
-                                        onChange={(e) => setFormData({ ...formData, classType: e.target.value })}
+                                        placeholder="e.g. Light Vehicle, Commercial, 15 SEAT"
+                                        value={formData.VehicleClass || ''}
+                                        onChange={(e) => setFormData({ ...formData, VehicleClass: e.target.value })}
                                         className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
                                 </div>
@@ -992,9 +1055,9 @@ export default function MetadataPage() {
                                     <label className="font-bold text-slate-700">Mode of Use</label>
                                     <input
                                         type="text"
-                                        placeholder="e.g. On-Duty Operational (24/7)"
-                                        value={formData.modeOfUse || ''}
-                                        onChange={(e) => setFormData({ ...formData, modeOfUse: e.target.value })}
+                                        placeholder="e.g. Operational, 24/7, Personal"
+                                        value={formData.ModeOfUse || ''}
+                                        onChange={(e) => setFormData({ ...formData, ModeOfUse: e.target.value })}
                                         className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
                                 </div>
@@ -1004,10 +1067,11 @@ export default function MetadataPage() {
                                 <div className="space-y-1">
                                     <label className="font-bold text-slate-700">Monthly Mileage Allowance (KM)</label>
                                     <input
-                                        type="text"
-                                        placeholder="e.g. 1500 or -"
-                                        value={formData.monthlyMileageAllowance !== undefined ? formData.monthlyMileageAllowance : ''}
-                                        onChange={(e) => setFormData({ ...formData, monthlyMileageAllowance: e.target.value })}
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="e.g. 3000"
+                                        value={formData.MonthlyMileageAllowanceKm ?? ''}
+                                        onChange={(e) => setFormData({ ...formData, MonthlyMileageAllowanceKm: e.target.value })}
                                         className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
                                 </div>
@@ -1015,23 +1079,25 @@ export default function MetadataPage() {
                                 <div className="space-y-1">
                                     <label className="font-bold text-slate-700">Burn Rate (L/100KM)</label>
                                     <input
-                                        type="text"
-                                        placeholder="e.g. 17 or -"
-                                        value={formData.burnRate !== undefined ? formData.burnRate : ''}
-                                        onChange={(e) => setFormData({ ...formData, burnRate: e.target.value })}
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="e.g. 12.5"
+                                        value={formData.BurnRateLPer100Km ?? ''}
+                                        onChange={(e) => setFormData({ ...formData, BurnRateLPer100Km: e.target.value })}
                                         className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3.5">
+                            <div className="grid grid-cols-3 gap-3.5">
                                 <div className="space-y-1">
                                     <label className="font-bold text-slate-700">Fuel Limit (L)</label>
                                     <input
-                                        type="text"
-                                        placeholder="e.g. 225 or No Limit"
-                                        value={formData.fuelLimit !== undefined ? formData.fuelLimit : ''}
-                                        onChange={(e) => setFormData({ ...formData, fuelLimit: e.target.value })}
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="e.g. 300"
+                                        value={formData.FuelLimitLitres ?? ''}
+                                        onChange={(e) => setFormData({ ...formData, FuelLimitLitres: e.target.value })}
                                         className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
                                 </div>
@@ -1039,12 +1105,25 @@ export default function MetadataPage() {
                                 <div className="space-y-1">
                                     <label className="font-bold text-slate-700">Standard B/Rate</label>
                                     <input
-                                        type="text"
-                                        placeholder="e.g. 7.0"
-                                        value={formData.standardBRate !== undefined ? formData.standardBRate : ''}
-                                        onChange={(e) => setFormData({ ...formData, standardBRate: e.target.value })}
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="e.g. 12.0"
+                                        value={formData.StandardBurnRate ?? ''}
+                                        onChange={(e) => setFormData({ ...formData, StandardBurnRate: e.target.value })}
                                         className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
                                     />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="font-bold text-slate-700">Status</label>
+                                    <select
+                                        value={formData.Status || 'Active'}
+                                        onChange={(e) => setFormData({ ...formData, Status: e.target.value })}
+                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900 font-semibold"
+                                    >
+                                        <option value="Active">Active</option>
+                                        <option value="Inactive">Inactive</option>
+                                    </select>
                                 </div>
                             </div>
 
@@ -1053,6 +1132,7 @@ export default function MetadataPage() {
                                 <Button
                                     type="button"
                                     variant="outline"
+                                    disabled={actionLoading}
                                     onClick={() => setIsModalOpen(false)}
                                     className="h-8 px-3.5 text-xs font-semibold cursor-pointer"
                                 >
@@ -1060,11 +1140,19 @@ export default function MetadataPage() {
                                 </Button>
                                 <Button
                                     type="submit"
-                                    className={`${modalMode === 'add' ? 'bg-[#137e19] hover:bg-[#0e5c12]' : 'bg-[#f26522] hover:bg-[#d94f12]'
-                                        } text-white text-xs font-semibold h-8 px-4 flex items-center gap-1.5 shadow-xs cursor-pointer`}
+                                    disabled={actionLoading}
+                                    className={`${
+                                        modalMode === 'add' ? 'bg-[#137e19] hover:bg-[#0e5c12]' : 'bg-[#f26522] hover:bg-[#d94f12]'
+                                    } text-white text-xs font-semibold h-8 px-4 flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50`}
                                 >
-                                    {modalMode === 'add' ? <Plus className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
-                                    {modalMode === 'add' ? 'Add Vehicle' : 'Save Changes'}
+                                    {actionLoading ? (
+                                        <LoadingSpinner size="sm" />
+                                    ) : modalMode === 'add' ? (
+                                        <Plus className="h-3.5 w-3.5" />
+                                    ) : (
+                                        <Save className="h-3.5 w-3.5" />
+                                    )}
+                                    {actionLoading ? 'Saving...' : modalMode === 'add' ? 'Add Vehicle' : 'Save Changes'}
                                 </Button>
                             </div>
                         </form>
@@ -1077,7 +1165,7 @@ export default function MetadataPage() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs transition-opacity duration-200">
                     <div
                         className="fixed inset-0"
-                        onClick={() => setDeleteConfirmRecord(null)}
+                        onClick={() => !actionLoading && setDeleteConfirmRecord(null)}
                     />
                     <div className="relative w-full max-w-md bg-white shadow-2xl rounded-2xl z-10 border border-slate-200 overflow-hidden flex flex-col p-6 space-y-4">
                         <div className="flex items-center gap-3.5">
@@ -1086,23 +1174,24 @@ export default function MetadataPage() {
                             </div>
                             <div>
                                 <h3 className="font-bold text-slate-900 text-base">
-                                    Delete Vehicle
+                                    Delete Vehicle from Database
                                 </h3>
                                 <p className="text-xs text-slate-500">
-                                    This action cannot be undone.
+                                    This action will permanently delete the row from Azure SQL.
                                 </p>
                             </div>
                         </div>
 
                         <p className="text-xs text-slate-600 leading-relaxed">
                             Are you sure you want to delete vehicle{' '}
-                            <span className="font-bold text-slate-900">{deleteConfirmRecord.asset}</span> ({deleteConfirmRecord.fleetId})? It will be removed from vehicle metadata.
+                            <span className="font-bold text-slate-900">{deleteConfirmRecord.Asset}</span> (VehicleId: {deleteConfirmRecord.VehicleId})?
                         </p>
 
                         <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                             <Button
                                 type="button"
                                 variant="outline"
+                                disabled={actionLoading}
                                 onClick={() => setDeleteConfirmRecord(null)}
                                 className="h-8 px-3.5 text-xs font-semibold cursor-pointer"
                             >
@@ -1110,11 +1199,12 @@ export default function MetadataPage() {
                             </Button>
                             <Button
                                 type="button"
+                                disabled={actionLoading}
                                 onClick={handleConfirmDelete}
-                                className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold h-8 px-4 flex items-center gap-1.5 shadow-xs cursor-pointer"
+                                className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold h-8 px-4 flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
                             >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                Delete
+                                {actionLoading ? <LoadingSpinner size="sm" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                {actionLoading ? 'Deleting...' : 'Delete Permanently'}
                             </Button>
                         </div>
                     </div>
