@@ -3,37 +3,40 @@ import { Vehicle, FuelEfficiencyTransaction, VehicleFuelUsage } from '@/types/ve
 import { FilterParams, PaginatedResponse } from '@/types/common';
 import { fuelIssueService } from './fuelIssueService';
 
-function getVehicleMetadataLookup(): Map<string, { dept: string; standardBRate: number }> {
-  const map = new Map<string, { dept: string; standardBRate: number }>();
+async function getVehicleMetadataLookup(): Promise<Map<string, { dept: string; standardBRate: number; fuelLimit?: number }>> {
+  const map = new Map<string, { dept: string; standardBRate: number; fuelLimit?: number }>();
   
-  // Load from localStorage if present
-  if (typeof window !== 'undefined') {
-    try {
-      const storedKeys = Object.keys(localStorage).filter(k => k.startsWith('vehicle_metadata_'));
-      storedKeys.forEach(k => {
-        const item = localStorage.getItem(k);
-        if (item) {
-          const records = JSON.parse(item);
-          if (Array.isArray(records)) {
-            records.forEach((r: any) => {
-              const assetKey = (r.asset || r.fleetId || '').toString().trim().toUpperCase();
-              if (assetKey) {
-                const sRate = r.standardBRate != null && !isNaN(Number(r.standardBRate)) && Number(r.standardBRate) > 0
-                  ? Number(r.standardBRate)
-                  : (r.burnRate != null && !isNaN(Number(r.burnRate)) && Number(r.burnRate) > 0 ? Number(r.burnRate) : (map.get(assetKey)?.standardBRate || 7.0));
+  // 1. Fetch live records from Azure SQL via /api/vehicles
+  try {
+    const res = await fetch('/api/vehicles');
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        json.data.forEach((r: any) => {
+          const assetKey = (r.Asset || r.FleetId || '').toString().trim().toUpperCase();
+          if (assetKey) {
+            const sRate = r.StandardBurnRate != null && !isNaN(Number(r.StandardBurnRate)) && Number(r.StandardBurnRate) > 0
+              ? Number(r.StandardBurnRate)
+              : (r.BurnRateLPer100Km != null && !isNaN(Number(r.BurnRateLPer100Km)) && Number(r.BurnRateLPer100Km) > 0
+                  ? Number(r.BurnRateLPer100Km)
+                  : 7.0);
 
-                map.set(assetKey, {
-                  dept: r.dept || map.get(assetKey)?.dept || 'General',
-                  standardBRate: sRate
-                });
-              }
-            });
+            const entry = {
+              dept: r.Department || 'General',
+              standardBRate: sRate,
+              fuelLimit: r.FuelLimitLitres != null ? Number(r.FuelLimitLitres) : undefined,
+            };
+
+            map.set(assetKey, entry);
+            if (r.FleetId) {
+              map.set(r.FleetId.toString().trim().toUpperCase(), entry);
+            }
           }
-        }
-      });
-    } catch {
-      // ignore
+        });
+      }
     }
+  } catch (err) {
+    console.warn('Failed to fetch vehicle metadata from Azure SQL API:', err);
   }
 
   return map;
@@ -54,7 +57,7 @@ export const vehicleService = {
       });
 
       const rawTransactions = response.data || [];
-      const metaLookup = getVehicleMetadataLookup();
+      const metaLookup = await getVehicleMetadataLookup();
 
       // Group all transactions by vehicle registration / fleet id / detail
       const vehicleMap = new Map<string, any[]>();

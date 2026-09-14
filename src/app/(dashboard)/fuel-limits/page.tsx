@@ -104,7 +104,7 @@ export default function FuelLimitsPage() {
         try {
             setLoading(true);
 
-            // Fetch live transactions from API
+            // 1. Fetch live transactions from API
             const response = await fuelIssueService.getFuelIssues({
                 page: 1,
                 pageSize: 100000,
@@ -112,17 +112,30 @@ export default function FuelLimitsPage() {
                 endDate: dateRange.endDate || undefined,
             });
 
-            // Load saved limit configurations from localStorage
-            let savedConfig: Record<string, { limitType: 'No Limit' | 'Limit'; fuelLimit: number | 'No Limit' }> = {};
-            if (typeof window !== 'undefined') {
-                const stored = localStorage.getItem(`fuel_limits_config_${selectedClient.clientid}`);
-                if (stored) {
-                    try {
-                        savedConfig = JSON.parse(stored);
-                    } catch {
-                        savedConfig = {};
-                    }
+            // 2. Fetch saved vehicle details & limits from Azure SQL
+            const sqlLimitsMap = new Map<string, { fuelLimit: number | 'No Limit'; limitType: 'No Limit' | 'Limit'; department?: string }>();
+            try {
+                const dbRes = await fetch('/api/vehicles');
+                const dbJson = await dbRes.json();
+                if (dbJson.success && Array.isArray(dbJson.data)) {
+                    dbJson.data.forEach((r: any) => {
+                        const assetKey = (r.Asset || r.FleetId || '').toString().trim().toUpperCase();
+                        if (assetKey) {
+                            const hasLimit = r.FuelLimitLitres != null && !isNaN(Number(r.FuelLimitLitres)) && Number(r.FuelLimitLitres) > 0;
+                            const limitEntry = {
+                                limitType: (hasLimit ? 'Limit' : 'No Limit') as 'No Limit' | 'Limit',
+                                fuelLimit: (hasLimit ? Number(r.FuelLimitLitres) : 'No Limit') as number | 'No Limit',
+                                department: r.Department || undefined,
+                            };
+                            sqlLimitsMap.set(assetKey, limitEntry);
+                            if (r.FleetId) {
+                                sqlLimitsMap.set(r.FleetId.toString().trim().toUpperCase(), limitEntry);
+                            }
+                        }
+                    });
                 }
+            } catch (sqlErr) {
+                console.warn('Could not fetch vehicle limits from Azure SQL:', sqlErr);
             }
 
             // Group transactions by vehicle / asset
@@ -153,18 +166,18 @@ export default function FuelLimitsPage() {
                 }
             });
 
-            // Map grouped vehicles to FuelLimitRecord
+            // Map grouped vehicles to FuelLimitRecord using Azure SQL data
             const records: FuelLimitRecord[] = Object.keys(usageMap).map((vehicleId, idx) => {
                 const live = usageMap[vehicleId];
-                const custom = savedConfig[vehicleId] || { limitType: 'No Limit', fuelLimit: 'No Limit' };
+                const sqlMeta = sqlLimitsMap.get(vehicleId) || { limitType: 'No Limit', fuelLimit: 'No Limit' as const };
 
                 return {
                     id: `${vehicleId}-${idx}`,
                     asset: vehicleId,
                     vehicleName: live.name,
-                    department: live.dept,
-                    limitType: custom.limitType,
-                    fuelLimit: custom.fuelLimit,
+                    department: sqlMeta.department || live.dept,
+                    limitType: sqlMeta.limitType,
+                    fuelLimit: sqlMeta.fuelLimit,
                     monthlyFuelUsed: Number(live.ltrs.toFixed(2)),
                 };
             });
