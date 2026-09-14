@@ -239,13 +239,12 @@ export default function FuelLimitsPage() {
         }
         setIsExporting(format);
         try {
-            const headers = ['Asset (Rego)', 'Vehicle Name', 'Department', 'Limit Type', 'Fuel Limit (L)', 'Monthly Fuel Used (L)', 'Fuel Balance Remaining'];
+            const headers = ['Vehicle Rego', 'Department', 'Limit Type', 'Fuel Limit (L)', 'Monthly Fuel Used (L)', 'Fuel Balance Remaining'];
             const rows = filteredData.map(item => {
                 const limitVal = item.fuelLimit;
                 const remaining = limitVal === 'No Limit' ? 'No Limit' : limitVal - item.monthlyFuelUsed;
                 return [
                     item.asset,
-                    item.vehicleName,
                     item.department,
                     item.limitType,
                     item.fuelLimit,
@@ -253,7 +252,7 @@ export default function FuelLimitsPage() {
                     typeof remaining === 'number' ? Number(remaining.toFixed(2)) : remaining
                 ];
             });
-            rows.push(['TOTAL', '', '', '', '', Number(totalFuelUsed.toFixed(2)), '']);
+            rows.push(['TOTAL', '', '', '', Number(totalFuelUsed.toFixed(2)), '']);
             const dateLabel = dateRange.preset || 'custom';
 
             if (format === 'csv') {
@@ -292,12 +291,12 @@ export default function FuelLimitsPage() {
                         <div className="flex flex-wrap items-end justify-between gap-2.5">
                             {/* Left Filters Group - All in 1 line */}
                             <div className="flex flex-wrap items-end gap-2.5 shrink-0">
-                                {/* Total Summary Field */}
+                                {/* Vehicle Reg Sum Summary Field */}
                                 <div className="flex flex-col gap-1 shrink-0">
-                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Total Fuel Used</label>
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Vehicle Reg Sum</label>
                                     <div className="flex items-center px-3 border border-slate-200 bg-white rounded h-8 shadow-xs">
                                         <span className="text-xs font-bold text-[#138024] whitespace-nowrap">
-                                            {formatNumber(totalFuelUsed, 1)} L
+                                            {filteredData.length} Vehicles
                                         </span>
                                     </div>
                                 </div>
@@ -443,8 +442,7 @@ export default function FuelLimitsPage() {
                         <table className="w-full text-sm border-collapse whitespace-nowrap">
                             <thead className="sticky top-0 z-10 shadow-xs">
                                 <tr>
-                                    <th className="bg-[#f26522] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Asset (Rego)</th>
-                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Vehicle Name</th>
+                                    <th className="bg-[#f26522] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Vehicle Rego</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Department</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Limit Type</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">FUEL LIMIT (L)</th>
@@ -455,7 +453,7 @@ export default function FuelLimitsPage() {
                             <tbody>
                                 {paginatedData.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="p-8 text-center text-slate-400 bg-slate-50">
+                                        <td colSpan={6} className="p-8 text-center text-slate-400 bg-slate-50">
                                             No limits configuration found.
                                         </td>
                                     </tr>
@@ -466,7 +464,6 @@ export default function FuelLimitsPage() {
                                         return (
                                             <tr key={item.id || idx} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors odd:bg-white even:bg-[#fff9f5]">
                                                 <td className="py-1.5 px-3 font-semibold text-slate-800 align-middle">{item.asset}</td>
-                                                <td className="py-1.5 px-3 text-slate-600 align-middle">{item.vehicleName}</td>
                                                 <td className="py-1.5 px-3 text-slate-500 align-middle">{item.department}</td>
                                                 <td className="py-1.5 px-3 text-slate-600 align-middle">{item.limitType}</td>
                                                 <td className="py-1.5 px-3 font-semibold text-slate-800 align-middle">
