@@ -20,8 +20,7 @@ import {
     AlertTriangle,
     CheckCircle2,
     RefreshCw,
-    Database,
-    Sparkles
+    Database
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,7 +28,6 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { formatNumber, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils';
 import { useClientStore, CLIENTS } from '@/services/api';
-import { fuelIssueService } from '@/services/fuelIssueService';
 
 export interface VehicleDetailRecord {
     VehicleId?: number; // Present if saved in Azure SQL
@@ -112,14 +110,7 @@ export default function VehicleDetailsPage() {
         try {
             setLoading(true);
 
-            // 1. Fetch live transactions from Fuel Issues API
-            const issuesRes = await fuelIssueService.getFuelIssues({
-                page: 1,
-                pageSize: 100000,
-            });
-            const rawTransactions = issuesRes.data || [];
-
-            // 2. Fetch saved vehicle records from Azure SQL Database
+            // Fetch saved vehicle records exclusively from Azure SQL Database
             let dbRecords: any[] = [];
             try {
                 const dbRes = await fetch('/api/vehicles');
@@ -131,126 +122,6 @@ export default function VehicleDetailsPage() {
                 console.warn('Could not fetch from Azure SQL:', sqlErr);
             }
 
-            // Create lookup map of Azure SQL records by Asset (normalized upper case)
-            const sqlMap = new Map<string, any>();
-            dbRecords.forEach((rec) => {
-                if (rec.Asset) {
-                    sqlMap.set(rec.Asset.trim().toUpperCase(), rec);
-                }
-            });
-
-            // 3. Extract and group unique vehicles from live transactions (same as Fuel Limits)
-            const liveMap = new Map<string, {
-                asset: string;
-                fleetId: string;
-                dept: string;
-                litres: number;
-                odometers: { odo: number; date: string; time: string }[];
-            }>();
-
-            rawTransactions.forEach((tx: any) => {
-                const assetKey = (tx.registrationNo || tx.vehicleId || tx.fleetId || tx.driverAttendant || '').toString().trim().toUpperCase();
-                if (!assetKey) return;
-
-                if (!liveMap.has(assetKey)) {
-                    liveMap.set(assetKey, {
-                        asset: assetKey,
-                        fleetId: tx.fleetId || tx.vehicleId || '',
-                        dept: tx.depot || tx.department || selectedClient?.name || 'General',
-                        litres: 0,
-                        odometers: [],
-                    });
-                }
-
-                const entry = liveMap.get(assetKey)!;
-                if (tx.fleetId && (!entry.fleetId || entry.fleetId === '-')) {
-                    entry.fleetId = tx.fleetId;
-                }
-                if (tx.depot && (!entry.dept || entry.dept === 'General')) {
-                    entry.dept = tx.depot;
-                }
-
-                const qty = Number(tx.fuelQuantity) || 0;
-                const odo = Number(tx.odometer) || 0;
-                entry.litres += qty;
-
-                if (odo > 0) {
-                    entry.odometers.push({
-                        odo,
-                        date: tx.date || '',
-                        time: tx.time || '',
-                    });
-                }
-            });
-
-            const mergedList: VehicleDetailRecord[] = [];
-            const seenAssets = new Set<string>();
-
-            // Process all vehicles derived from live transactions
-            liveMap.forEach((v, assetKey) => {
-                seenAssets.add(assetKey);
-
-                // Calculate burn rate from odometers if available
-                let calculatedBurnRate: number | string = '-';
-                if (v.odometers.length >= 2) {
-                    v.odometers.sort((a, b) => {
-                        const timeA = new Date(`${a.date}T${a.time || '00:00:00'}`).getTime();
-                        const timeB = new Date(`${b.date}T${b.time || '00:00:00'}`).getTime();
-                        return timeA - timeB;
-                    });
-                    const minOdo = v.odometers[0].odo;
-                    const maxOdo = v.odometers[v.odometers.length - 1].odo;
-                    const dist = maxOdo - minOdo;
-                    if (dist > 0 && v.litres > 0) {
-                        calculatedBurnRate = Number(((v.litres / dist) * 100).toFixed(2));
-                    }
-                }
-
-                const sqlItem = sqlMap.get(assetKey);
-                if (sqlItem) {
-                    // Vehicle exists in Azure SQL
-                    mergedList.push({
-                        VehicleId: sqlItem.VehicleId,
-                        Asset: sqlItem.Asset || assetKey,
-                        FleetId: sqlItem.FleetId || v.fleetId || '-',
-                        Department: sqlItem.Department || v.dept || selectedClient?.name || 'Operations',
-                        VehicleYear: sqlItem.VehicleYear ?? '-',
-                        Make: sqlItem.Make || '-',
-                        Model: sqlItem.Model || '-',
-                        VehicleClass: sqlItem.VehicleClass || 'Light Vehicle',
-                        ModeOfUse: sqlItem.ModeOfUse || 'Operational',
-                        MonthlyMileageAllowanceKm: sqlItem.MonthlyMileageAllowanceKm != null ? sqlItem.MonthlyMileageAllowanceKm : '-',
-                        BurnRateLPer100Km: sqlItem.BurnRateLPer100Km != null ? sqlItem.BurnRateLPer100Km : calculatedBurnRate,
-                        FuelLimitLitres: sqlItem.FuelLimitLitres != null ? sqlItem.FuelLimitLitres : '-',
-                        StandardBurnRate: sqlItem.StandardBurnRate != null ? sqlItem.StandardBurnRate : 12.0,
-                        Status: sqlItem.Status || 'Active',
-                        CreatedAt: sqlItem.CreatedAt,
-                        CreatedBy: sqlItem.CreatedBy,
-                        UpdatedAt: sqlItem.UpdatedAt,
-                        UpdatedBy: sqlItem.UpdatedBy,
-                        isSavedInDb: true,
-                    });
-                } else {
-                    // Vehicle from live transactions not yet customized in Azure SQL
-                    mergedList.push({
-                        Asset: assetKey,
-                        FleetId: v.fleetId || '-',
-                        Department: v.dept || selectedClient?.name || 'Operations',
-                        VehicleYear: '-',
-                        Make: '-',
-                        Model: '-',
-                        VehicleClass: 'Light Vehicle',
-                        ModeOfUse: 'Operational',
-                        MonthlyMileageAllowanceKm: '-',
-                        BurnRateLPer100Km: calculatedBurnRate,
-                        FuelLimitLitres: '-',
-                        StandardBurnRate: 12.0,
-                        Status: 'Active',
-                        isSavedInDb: false,
-                    });
-                }
-            });
-
             // Helper function to check if an Azure SQL record belongs to the selected client
             const isRecordForCurrentClient = (sqlDept?: string) => {
                 if (!sqlDept) return false;
@@ -259,13 +130,6 @@ export default function VehicleDetailsPage() {
 
                 if (deptNorm === currentNameNorm) return true;
 
-                // If it explicitly belongs to another known client, exclude it
-                const belongsToOtherClient = CLIENTS.some((c) => {
-                    const cNameNorm = c.name.trim().toLowerCase();
-                    return cNameNorm !== currentNameNorm && (deptNorm === cNameNorm || deptNorm.includes(cNameNorm));
-                });
-                if (belongsToOtherClient) return false;
-
                 // Match substring
                 if (deptNorm.includes(currentNameNorm) || currentNameNorm.includes(deptNorm)) {
                     return true;
@@ -273,39 +137,35 @@ export default function VehicleDetailsPage() {
                 return false;
             };
 
-            // Also include any custom vehicles in Azure SQL that belong to THIS client and had no transactions in current range
-            dbRecords.forEach((sqlItem) => {
-                const assetKey = (sqlItem.Asset || '').trim().toUpperCase();
-                if (assetKey && !seenAssets.has(assetKey) && isRecordForCurrentClient(sqlItem.Department)) {
-                    seenAssets.add(assetKey);
-                    mergedList.push({
-                        VehicleId: sqlItem.VehicleId,
-                        Asset: sqlItem.Asset,
-                        FleetId: sqlItem.FleetId || '-',
-                        Department: sqlItem.Department || selectedClient?.name || 'Operations',
-                        VehicleYear: sqlItem.VehicleYear ?? '-',
-                        Make: sqlItem.Make || '-',
-                        Model: sqlItem.Model || '-',
-                        VehicleClass: sqlItem.VehicleClass || 'Light Vehicle',
-                        ModeOfUse: sqlItem.ModeOfUse || 'Operational',
-                        MonthlyMileageAllowanceKm: sqlItem.MonthlyMileageAllowanceKm != null ? sqlItem.MonthlyMileageAllowanceKm : '-',
-                        BurnRateLPer100Km: sqlItem.BurnRateLPer100Km != null ? sqlItem.BurnRateLPer100Km : '-',
-                        FuelLimitLitres: sqlItem.FuelLimitLitres != null ? sqlItem.FuelLimitLitres : '-',
-                        StandardBurnRate: sqlItem.StandardBurnRate != null ? sqlItem.StandardBurnRate : 12.0,
-                        Status: sqlItem.Status || 'Active',
-                        CreatedAt: sqlItem.CreatedAt,
-                        CreatedBy: sqlItem.CreatedBy,
-                        UpdatedAt: sqlItem.UpdatedAt,
-                        UpdatedBy: sqlItem.UpdatedBy,
-                        isSavedInDb: true,
-                    });
-                }
-            });
+            // Filter SQL records strictly for the currently selected client
+            const clientVehicles: VehicleDetailRecord[] = dbRecords
+                .filter((rec) => isRecordForCurrentClient(rec.Department))
+                .map((sqlItem) => ({
+                    VehicleId: sqlItem.VehicleId,
+                    Asset: sqlItem.Asset || '',
+                    FleetId: sqlItem.FleetId || '-',
+                    Department: sqlItem.Department || selectedClient?.name || 'Operations',
+                    VehicleYear: sqlItem.VehicleYear ?? '-',
+                    Make: sqlItem.Make || '-',
+                    Model: sqlItem.Model || '-',
+                    VehicleClass: sqlItem.VehicleClass || 'Light Vehicle',
+                    ModeOfUse: sqlItem.ModeOfUse || 'Operational',
+                    MonthlyMileageAllowanceKm: sqlItem.MonthlyMileageAllowanceKm != null ? sqlItem.MonthlyMileageAllowanceKm : '-',
+                    BurnRateLPer100Km: sqlItem.BurnRateLPer100Km != null ? sqlItem.BurnRateLPer100Km : '-',
+                    FuelLimitLitres: sqlItem.FuelLimitLitres != null ? sqlItem.FuelLimitLitres : '-',
+                    StandardBurnRate: sqlItem.StandardBurnRate != null ? sqlItem.StandardBurnRate : 12.0,
+                    Status: sqlItem.Status || 'Active',
+                    CreatedAt: sqlItem.CreatedAt,
+                    CreatedBy: sqlItem.CreatedBy,
+                    UpdatedAt: sqlItem.UpdatedAt,
+                    UpdatedBy: sqlItem.UpdatedBy,
+                    isSavedInDb: true,
+                }));
 
             // Sort alphabetically by Asset
-            mergedList.sort((a, b) => a.Asset.localeCompare(b.Asset));
+            clientVehicles.sort((a, b) => a.Asset.localeCompare(b.Asset));
 
-            setRecords(mergedList);
+            setRecords(clientVehicles);
         } catch (err: any) {
             console.error('Failed to load vehicles:', err);
             setNotification({
@@ -930,28 +790,46 @@ export default function VehicleDetailsPage() {
                             <tbody>
                                 {paginatedData.length === 0 ? (
                                     <tr>
-                                        <td colSpan={14} className="p-8 text-center text-slate-400 bg-slate-50">
-                                            No vehicle records found.
+                                        <td colSpan={14} className="py-12 px-4 text-center bg-slate-50/50">
+                                            <div className="flex flex-col items-center justify-center gap-3 max-w-md mx-auto">
+                                                <div className="h-12 w-12 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#138024] shadow-xs">
+                                                    <Database className="h-6 w-6" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <p className="text-sm font-bold text-slate-800">
+                                                        No vehicles added for {selectedClient?.name || 'this client'}
+                                                    </p>
+                                                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                                                        Vehicles for this client are maintained separately in Azure SQL. Click below to add the first vehicle.
+                                                    </p>
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    onClick={handleOpenAdd}
+                                                    className="mt-1 bg-[#137e19] hover:bg-[#0e5c12] text-xs font-semibold text-white px-3.5 h-8 rounded border border-[#137e19] flex items-center gap-1.5 shadow-xs cursor-pointer"
+                                                >
+                                                    <Plus className="h-3.5 w-3.5" />
+                                                    <span>Add Vehicle</span>
+                                                </Button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ) : (
                                     paginatedData.map((item, idx) => (
                                         <tr
-                                            key={item.VehicleId ? `db-${item.VehicleId}` : `live-${item.Asset}-${idx}`}
+                                            key={item.VehicleId ? `db-${item.VehicleId}` : `veh-${item.Asset}-${idx}`}
                                             className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors odd:bg-white even:bg-[#fff9f5]"
                                         >
                                             <td className="py-1.5 px-3 font-bold text-slate-900 align-middle">
                                                 <div className="flex items-center gap-1.5">
                                                     <span>{item.Asset}</span>
-                                                    {item.isSavedInDb && (
-                                                        <span
-                                                            title="Saved in Azure SQL Database"
-                                                            className="inline-flex items-center text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200"
-                                                        >
-                                                            <Database className="h-2.5 w-2.5 mr-0.5" />
-                                                            DB
-                                                        </span>
-                                                    )}
+                                                    <span
+                                                        title="Stored in Azure SQL Database"
+                                                        className="inline-flex items-center text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200"
+                                                    >
+                                                        <Database className="h-2.5 w-2.5 mr-0.5" />
+                                                        SQL
+                                                    </span>
                                                 </div>
                                             </td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle font-medium">
@@ -1168,14 +1046,23 @@ export default function VehicleDetailsPage() {
 
                             <div className="grid grid-cols-2 gap-3.5">
                                 <div className="space-y-1">
-                                    <label className="font-bold text-slate-700">Department</label>
-                                    <input
-                                        type="text"
-                                        placeholder="e.g. Operations, Logistics"
-                                        value={formData.Department || ''}
+                                    <label className="font-bold text-slate-700">
+                                        Assigned Client / Department <span className="text-rose-500">*</span>
+                                    </label>
+                                    <select
+                                        value={formData.Department || selectedClient?.name || ''}
                                         onChange={(e) => setFormData({ ...formData, Department: e.target.value })}
-                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900"
-                                    />
+                                        className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900 font-medium text-xs"
+                                    >
+                                        {CLIENTS.map((c) => (
+                                            <option key={c.clientid} value={c.name}>
+                                                {c.name}
+                                            </option>
+                                        ))}
+                                        {formData.Department && !CLIENTS.some(c => c.name === formData.Department) && (
+                                            <option value={formData.Department}>{formData.Department}</option>
+                                        )}
+                                    </select>
                                 </div>
 
                                 <div className="space-y-1">
@@ -1352,9 +1239,7 @@ export default function VehicleDetailsPage() {
                                     Delete Vehicle
                                 </h3>
                                 <p className="text-xs text-slate-500">
-                                    {deleteConfirmRecord.isSavedInDb
-                                        ? 'This will permanently delete the row from Azure SQL Database.'
-                                        : 'This will remove the vehicle from the current list.'}
+                                    This will permanently delete the vehicle from the Azure SQL Database.
                                 </p>
                             </div>
                         </div>
