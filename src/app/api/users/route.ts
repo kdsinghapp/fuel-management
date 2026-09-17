@@ -133,29 +133,32 @@ export async function POST(request: NextRequest) {
     // Send email notification if requested
     if (sendNotificationEmail) {
       try {
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://fuel-management-kd.vercel.app';
-        const loginUrl = `${appUrl}/login`;
+        const origin = request.headers.get('origin');
+        const forwardedHost = request.headers.get('x-forwarded-host');
+        const forwardedProto = request.headers.get('x-forwarded-proto') || 'https';
+        const host = request.headers.get('host');
+        const baseUrl =
+          origin ||
+          (forwardedHost ? `${forwardedProto}://${forwardedHost}` : '') ||
+          (host ? `${host.includes('localhost') ? 'http' : 'https'}://${host}` : '') ||
+          process.env.NEXT_PUBLIC_APP_URL ||
+          'https://fuelleshh.vercel.app';
 
-        const response = await fetch(`${appUrl}/api/email/user-account`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        const { sendUserAccountEmail } = await import('@/lib/userAccountEmail');
+        const emailResult = await sendUserAccountEmail(
+          {
             type: 'account_created',
             recipientEmail: newUser.email,
             recipientName: newUser.name,
             role: newUser.role,
             tempPassword: tempPassword || 'Password123!',
             assignedClients: newUser.assignedClients,
-            loginUrl,
-          }),
-        });
+          },
+          baseUrl
+        );
 
-        if (response.ok) {
-          emailSent = true;
-        } else {
-          const errData = await response.json().catch(() => ({}));
-          emailError = errData.error || 'Failed to dispatch email';
-        }
+        emailSent = emailResult.success;
+        emailError = emailResult.error;
       } catch (err: any) {
         console.warn('Could not dispatch welcome email:', err.message);
         emailError = err.message;

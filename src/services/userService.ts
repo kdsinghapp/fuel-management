@@ -98,7 +98,7 @@ export const userService = {
     return res.ok;
   },
 
-  async sendPasswordResetEmail(email: string, name?: string): Promise<{ success: boolean; error?: string }> {
+  async sendPasswordResetEmail(email: string, name?: string): Promise<{ success: boolean; error?: string; resetUrl?: string }> {
     try {
       const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
@@ -106,7 +106,11 @@ export const userService = {
         body: JSON.stringify({ email }),
       });
       const result = await res.json();
-      return { success: res.ok && result.success, error: result.error || result.emailError };
+      return {
+        success: res.ok && result.success && result.emailSent !== false,
+        error: result.emailError || result.error,
+        resetUrl: result.resetUrl,
+      };
     } catch (err: any) {
       return { success: false, error: err?.message || 'Network error dispatching reset email' };
     }

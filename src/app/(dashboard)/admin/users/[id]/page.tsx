@@ -93,12 +93,14 @@ export default function ViewUserPage() {
             if (res.success) {
                 setNotification({
                     type: 'success',
-                    message: `Password reset link dispatched to ${user.email} from noreply@mastersystems.com.pg`,
+                    message: `Password reset link successfully dispatched to ${user.email} from noreply@mastersystems.com.pg`,
                 });
             } else {
                 setNotification({
                     type: 'info',
-                    message: `Password reset link triggered. Notice: ${res.error || 'Dispatched'} (Sender: noreply@mastersystems.com.pg)`,
+                    message: res.error
+                        ? `Password reset link generated for ${user.email}. Status: ${res.error}`
+                        : `Password reset link dispatched to ${user.email} from noreply@mastersystems.com.pg`,
                 });
             }
         } catch (e: any) {

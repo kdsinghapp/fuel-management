@@ -31,20 +31,27 @@ export async function POST(request: NextRequest) {
     await user.save();
 
     // Send confirmation email
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://fuel-management-kd.vercel.app';
-    const loginUrl = `${appUrl}/login`;
-
     try {
-      await fetch(`${appUrl}/api/email/user-account`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const origin = request.headers.get('origin');
+      const forwardedHost = request.headers.get('x-forwarded-host');
+      const forwardedProto = request.headers.get('x-forwarded-proto') || 'https';
+      const host = request.headers.get('host');
+      const baseUrl =
+        origin ||
+        (forwardedHost ? `${forwardedProto}://${forwardedHost}` : '') ||
+        (host ? `${host.includes('localhost') ? 'http' : 'https'}://${host}` : '') ||
+        process.env.NEXT_PUBLIC_APP_URL ||
+        'https://fuelleshh.vercel.app';
+
+      const { sendUserAccountEmail } = await import('@/lib/userAccountEmail');
+      await sendUserAccountEmail(
+        {
           type: 'password_changed_confirmation',
           recipientEmail: user.email,
           recipientName: user.name,
-          loginUrl,
-        }),
-      });
+        },
+        baseUrl
+      );
     } catch (err: any) {
       console.warn('Could not dispatch password changed confirmation email:', err.message);
     }

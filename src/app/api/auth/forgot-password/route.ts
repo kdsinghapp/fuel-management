@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { UserModel } from '@/models/User';
 import { generateId } from '@/lib/utils';
+import { sendUserAccountEmail } from '@/lib/userAccountEmail';
+
+function getBaseUrl(req: NextRequest): string {
+  const origin = req.headers.get('origin');
+  if (origin) return origin;
+  const forwardedHost = req.headers.get('x-forwarded-host');
+  const forwardedProto = req.headers.get('x-forwarded-proto') || 'https';
+  if (forwardedHost) return `${forwardedProto}://${forwardedHost}`;
+  const host = req.headers.get('host');
+  if (host) {
+    const protocol = host.includes('localhost') ? 'http' : 'https';
+    return `${protocol}://${host}`;
+  }
+  return process.env.NEXT_PUBLIC_APP_URL || 'https://fuelleshh.vercel.app';
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,44 +42,34 @@ export async function POST(request: NextRequest) {
     user.resetTokenExpiry = expiry;
     await user.save();
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://fuel-management-kd.vercel.app';
-    const resetUrl = `${appUrl}/reset-password?email=${encodeURIComponent(user.email)}&token=${token}`;
+    const baseUrl = getBaseUrl(request);
+    const resetUrl = `${baseUrl}/reset-password?email=${encodeURIComponent(user.email)}&token=${encodeURIComponent(token)}`;
 
-    let emailSent = false;
-    let emailError: string | undefined;
-
-    try {
-      const response = await fetch(`${appUrl}/api/email/user-account`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'password_reset',
-          recipientEmail: user.email,
-          recipientName: user.name,
-          resetUrl,
-        }),
-      });
-
-      if (response.ok) {
-        emailSent = true;
-      } else {
-        const errData = await response.json().catch(() => ({}));
-        emailError = errData.error || 'Failed to dispatch email';
-      }
-    } catch (err: any) {
-      console.warn('Could not dispatch password reset email:', err.message);
-      emailError = err.message;
-    }
+    // Dispatch email directly
+    const emailResult = await sendUserAccountEmail(
+      {
+        type: 'password_reset',
+        recipientEmail: user.email,
+        recipientName: user.name,
+        resetLink: resetUrl,
+      },
+      baseUrl
+    );
 
     return NextResponse.json({
       success: true,
-      message: 'Password reset link sent to your email',
+      message: emailResult.success
+        ? `Password reset link dispatched from noreply@mastersystems.com.pg to ${user.email}`
+        : `Reset token created. Notice: ${emailResult.error || 'Email dispatch failed'}`,
       resetUrl,
-      emailSent,
-      emailError,
+      emailSent: emailResult.success,
+      emailError: emailResult.error,
     });
   } catch (error: any) {
     console.error('Error handling forgot password:', error);
-    return NextResponse.json({ error: 'Failed to process password reset request', details: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to process password reset request', details: error.message },
+      { status: 500 }
+    );
   }
 }
