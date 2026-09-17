@@ -35,9 +35,18 @@ export const reconciliationService = {
         return { data: [], total: 0, page: 1, pageSize: 10, totalPages: 0 };
       }
 
-      // Group by date. Let's take unique dates from levels
-      const uniqueDates = Array.from(new Set(levels.map(l => l.date)));
-      uniqueDates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+      // Helper to generate all consecutive dates between two YYYY-MM-DD strings
+      const getDatesInRange = (startStr: string, endStr: string): string[] => {
+        const dates: string[] = [];
+        const curr = new Date(startStr + 'T00:00:00');
+        const end = new Date(endStr + 'T00:00:00');
+        if (isNaN(curr.getTime()) || isNaN(end.getTime())) return [];
+        while (curr <= end) {
+          dates.push(curr.toISOString().split('T')[0]);
+          curr.setDate(curr.getDate() + 1);
+        }
+        return dates;
+      };
 
       const timeToSeconds = (t?: string) => {
         if (!t) return 0;
@@ -45,35 +54,78 @@ export const reconciliationService = {
         return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
       };
 
-      const records: Reconciliation[] = [];
+      // Determine date range boundaries
+      const todayStr = new Date().toISOString().split('T')[0];
+      const allDataDates = [
+        ...levels.map(l => l.date),
+        ...deliveries.map(d => (d.date ? d.date.split('T')[0] : '')),
+        ...issues.map(i => (i.date ? i.date.split('T')[0] : ''))
+      ].filter(Boolean);
 
-      for (const currentDateStr of uniqueDates) {
-        // Find all levels for this calendar day
+      const minDataDate = allDataDates.length > 0
+        ? allDataDates.reduce((min, d) => (d < min ? d : min), allDataDates[0])
+        : rawStart;
+      const maxDataDate = allDataDates.length > 0
+        ? allDataDates.reduce((max, d) => (d > max ? d : max), allDataDates[0])
+        : todayStr;
+
+      const genStart = rawStart < minDataDate ? rawStart : minDataDate;
+      const genEnd = params.endDate || (maxDataDate > todayStr ? maxDataDate : todayStr);
+
+      const continuousDates = getDatesInRange(genStart, genEnd);
+      if (continuousDates.length === 0) {
+        return { data: [], total: 0, page: 1, pageSize: 10, totalPages: 0 };
+      }
+
+      // Sort all levels by date & time ascending for reliable historical lookups
+      const allLevelsSorted = [...levels].sort((a, b) => {
+        const diff = a.date.localeCompare(b.date);
+        return diff !== 0 ? diff : timeToSeconds(a.time) - timeToSeconds(b.time);
+      });
+
+      let lastKnownClosing: number | null = null;
+      const allRecords: Reconciliation[] = [];
+
+      for (const currentDateStr of continuousDates) {
         const currentLevels = levels.filter(l => l.date === currentDateStr);
-        if (currentLevels.length === 0) continue;
-
-        // Sort by time ascending to get earliest (00:00 AM) and latest (23:59 PM)
         const sortedLevels = [...currentLevels].sort((a, b) => timeToSeconds(a.time) - timeToSeconds(b.time));
-
-        // Opening Balance: Earliest reading of the day (~00:00:00 AM / 00:04:59 AM)
-        const openingRecord = sortedLevels[0];
-        // Actual Closing: Latest reading of the day (~23:59:59 PM / 23:55:00 PM)
-        const closingRecord = sortedLevels[sortedLevels.length - 1];
-
-        const openingBalance = openingRecord.fuelLevel;
-        const actualClosing = closingRecord.fuelLevel;
 
         // Sum deliveries for the current day
         const dayDeliveries = deliveries.filter(d => (d.date ? d.date.split('T')[0] : '') === currentDateStr);
         const totalDeliveries = Number(dayDeliveries.reduce((sum, d) => sum + (Number(d.quantity) || 0), 0).toFixed(2));
 
-        // Sum fuel issues for the current day (matching transactions table)
+        // Sum fuel issues for the current day
         const dayIssues = issues.filter(issue => (issue.date ? issue.date.split('T')[0] : '') === currentDateStr);
         const totalIssuesRaw = dayIssues.reduce((sum, issue) => sum + (Number(issue.fuelQuantity) || 0), 0);
         const totalIssuesRounded = dayIssues.reduce((sum, issue) => sum + Math.round((Number(issue.fuelQuantity) || 0) * 10) / 10, 0);
         const totalIssues = Number(
           (Math.abs(totalIssuesRaw - totalIssuesRounded) < 0.15 ? totalIssuesRounded : totalIssuesRaw).toFixed(2)
         );
+
+        let openingBalance = 0;
+        let actualClosing = 0;
+
+        if (sortedLevels.length > 0) {
+          // Dip readings recorded for this calendar day
+          openingBalance = sortedLevels[0].fuelLevel;
+          actualClosing = sortedLevels[sortedLevels.length - 1].fuelLevel;
+        } else {
+          // No dip readings on this day (e.g. Sunday / holiday / zero issue day / no sensor update)
+          if (lastKnownClosing !== null) {
+            openingBalance = lastKnownClosing;
+          } else {
+            // Find closest previous level
+            const prior = allLevelsSorted.filter(l => l.date < currentDateStr);
+            if (prior.length > 0) {
+              openingBalance = prior[prior.length - 1].fuelLevel;
+            } else {
+              // Fallback to first available reading or 0
+              openingBalance = allLevelsSorted.length > 0 ? allLevelsSorted[0].fuelLevel : 0;
+            }
+          }
+          // When no sensor dip reading was taken, actual closing equals opening + deliveries - fuelIssues
+          actualClosing = Number((openingBalance + totalDeliveries - totalIssues).toFixed(2));
+        }
 
         const recon = calculateReconciliation({
           openingBalance,
@@ -82,14 +134,16 @@ export const reconciliationService = {
           actualClosing,
         });
 
-        records.push({
+        lastKnownClosing = actualClosing;
+
+        allRecords.push({
           id: currentDateStr,
           date: currentDateStr,
-          openingBalance,
+          openingBalance: Number(openingBalance.toFixed(2)),
           deliveries: totalDeliveries,
           fuelIssues: totalIssues,
           expectedClosing: Number(recon.expectedClosing.toFixed(2)),
-          actualClosing,
+          actualClosing: Number(actualClosing.toFixed(2)),
           variance: Number(recon.variance.toFixed(2)),
           status: recon.status,
           createdAt: `${currentDateStr}T00:00:00Z`,
@@ -97,32 +151,30 @@ export const reconciliationService = {
         });
       }
 
-      // Sort by date ascending to compute cumulative variance chronologically
-      records.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      // Compute cumulative variance chronologically (ascending order)
       let runningCumulative = 0;
-      for (const record of records) {
+      for (const record of allRecords) {
         runningCumulative += record.variance;
         record.cumulativeVariance = Number(runningCumulative.toFixed(2));
       }
 
-      // Sort by date descending
-      records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-      // Filter by status if specified
-      let filteredRecords = [...records];
-      if (params.status) {
-        filteredRecords = filteredRecords.filter(r => r.status === params.status);
-      }
-
+      // Filter to requested date window & status
+      let filteredRecords = allRecords;
       if (params.startDate) {
         filteredRecords = filteredRecords.filter(r => r.date >= params.startDate!);
       }
       if (params.endDate) {
         filteredRecords = filteredRecords.filter(r => r.date <= params.endDate!);
       }
+      if (params.status) {
+        filteredRecords = filteredRecords.filter(r => r.status === params.status);
+      }
+
+      // Sort descending (newest date first)
+      filteredRecords.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
       const page = params.page || 1;
-      const pageSize = params.pageSize || 10;
+      const pageSize = params.pageSize || 50;
       const start = (page - 1) * pageSize;
       const end = start + pageSize;
       const paginatedData = filteredRecords.slice(start, end);

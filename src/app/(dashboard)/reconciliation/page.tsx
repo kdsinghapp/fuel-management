@@ -103,7 +103,7 @@ export default function ReconciliationPage() {
             },
         },
     ];
-    const [pageSize] = useState(30);
+    const [pageSize] = useState(50);
     const [totalPages, setTotalPages] = useState(1);
 
     useEffect(() => {

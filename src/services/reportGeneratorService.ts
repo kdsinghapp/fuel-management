@@ -936,8 +936,17 @@ export async function generateReportData(
       fetchClientTransactions(targetClient, rawStart, endDate),
     ]);
 
-    const uniqueDates = Array.from(new Set(levels.map((l) => l.date)));
-    uniqueDates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+    const getDatesInRange = (startStr: string, endStr: string): string[] => {
+      const dates: string[] = [];
+      const curr = new Date(startStr + 'T00:00:00');
+      const end = new Date(endStr + 'T00:00:00');
+      if (isNaN(curr.getTime()) || isNaN(end.getTime())) return [];
+      while (curr <= end) {
+        dates.push(curr.toISOString().split('T')[0]);
+        curr.setDate(curr.getDate() + 1);
+      }
+      return dates;
+    };
 
     const timeToSeconds = (t?: string) => {
       if (!t) return 0;
@@ -945,45 +954,82 @@ export async function generateReportData(
       return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
     };
 
-    const reconRecords: any[] = [];
-    for (const curDate of uniqueDates) {
-      const curLevels = levels.filter((l) => l.date === curDate);
-      if (curLevels.length === 0) continue;
+    const allDataDates = [
+      ...levels.map((l) => l.date),
+      ...deliveries.map((d) => (d.date ? d.date.split('T')[0] : '')),
+      ...issues.map((i) => (i.date ? i.date.split('T')[0] : ''))
+    ].filter(Boolean);
 
-      // Sort by time ascending to get earliest (00:00 AM) and latest (23:59 PM)
+    const minDataDate = allDataDates.length > 0
+      ? allDataDates.reduce((min, d) => (d < min ? d : min), allDataDates[0])
+      : rawStart;
+    const maxDataDate = allDataDates.length > 0
+      ? allDataDates.reduce((max, d) => (d > max ? d : max), allDataDates[0])
+      : endDate;
+
+    const genStart = rawStart < minDataDate ? rawStart : minDataDate;
+    const genEnd = endDate || maxDataDate;
+    const continuousDates = getDatesInRange(genStart, genEnd);
+
+    const allLevelsSorted = [...levels].sort((a, b) => {
+      const diff = a.date.localeCompare(b.date);
+      return diff !== 0 ? diff : timeToSeconds(a.time) - timeToSeconds(b.time);
+    });
+
+    let lastKnownClosing: number | null = null;
+    const reconRecords: any[] = [];
+
+    for (const curDate of continuousDates) {
+      const curLevels = levels.filter((l) => l.date === curDate);
       const sortedLevels = [...curLevels].sort((a, b) => timeToSeconds(a.time) - timeToSeconds(b.time));
 
-      // Opening Balance: Earliest reading of the day (~00:00:00 AM / 00:04:59 AM)
-      const openingRecord = sortedLevels[0];
-      // Actual Closing: Latest reading of the day (~23:59:59 PM / 23:55:00 PM)
-      const closingRecord = sortedLevels[sortedLevels.length - 1];
-
-      const opening = openingRecord.level;
-      const actualClosing = closingRecord.level;
-
-      const dayDelivs = deliveries.filter((d) => d.date === curDate);
+      const dayDelivs = deliveries.filter((d) => (d.date ? d.date.split('T')[0] : '') === curDate);
       const totalDeliv = Number(dayDelivs.reduce((s, d) => s + (d.quantity || 0), 0).toFixed(2));
 
-      const dayIssues = issues.filter((is) => is.date === curDate);
+      const dayIssues = issues.filter((is) => (is.date ? is.date.split('T')[0] : '') === curDate);
       const totalIssues = Number(dayIssues.reduce((s, is) => s + (is.fuelQuantity || 0), 0).toFixed(2));
+
+      let opening = 0;
+      let actualClosing = 0;
+
+      if (sortedLevels.length > 0) {
+        opening = sortedLevels[0].level;
+        actualClosing = sortedLevels[sortedLevels.length - 1].level;
+      } else {
+        if (lastKnownClosing !== null) {
+          opening = lastKnownClosing;
+        } else {
+          const prior = allLevelsSorted.filter((l) => l.date < curDate);
+          if (prior.length > 0) {
+            opening = prior[prior.length - 1].level;
+          } else {
+            opening = allLevelsSorted.length > 0 ? allLevelsSorted[0].level : 0;
+          }
+        }
+        actualClosing = Number((opening + totalDeliv - totalIssues).toFixed(2));
+      }
 
       const expected = opening + totalDeliv - totalIssues;
       const variance = Number((actualClosing - expected).toFixed(2));
       const status = Math.abs(variance) <= 50 ? 'Reconciled' : 'Exception';
 
+      lastKnownClosing = actualClosing;
+
       reconRecords.push({
         date: curDate,
-        openingBalance: opening,
+        openingBalance: Number(opening.toFixed(2)),
         deliveries: totalDeliv,
         fuelIssues: totalIssues,
         expectedClosing: Number(expected.toFixed(2)),
-        actualClosing,
+        actualClosing: Number(actualClosing.toFixed(2)),
         variance,
         status,
       });
     }
 
-    const filtered = reconRecords.filter((r) => r.date >= startDate && r.date <= endDate);
+    const filtered = reconRecords
+      .filter((r) => r.date >= startDate && r.date <= endDate)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     rows = filtered.map((record) => {
       const vPercent = record.openingBalance > 0 ? (record.variance / record.openingBalance) * 100 : 0;
