@@ -1,11 +1,3 @@
-// {
-//   "crons": [
-//     {
-//       "path": "/api/cron/send-scheduled-reports",
-//       "schedule": "* * * * *"
-//     }
-//   ]
-// }
 {
   "crons": []
 }
