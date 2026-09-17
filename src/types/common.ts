@@ -20,6 +20,7 @@ export interface FilterParams {
   startDate?: string;
   endDate?: string;
   status?: string;
+  role?: string;
   vehicleId?: string;
   vehicleType?: string;
 }

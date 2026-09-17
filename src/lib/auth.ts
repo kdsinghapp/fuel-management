@@ -88,8 +88,39 @@ class MockAuthService implements AuthService {
   }
 
   async login(credentials: LoginCredentials): Promise<AuthSession> {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const session: AuthSession = {
+          user: data.user,
+          token: `token-${Date.now()}`,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        };
+        this.session = session;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+          document.cookie = `${SESSION_KEY}=${encodeURIComponent(JSON.stringify(session))}; path=/; max-age=86400; SameSite=Lax`;
+        }
+        return session;
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        if (errData.error) {
+          throw new Error(errData.error);
+        }
+      }
+    } catch (apiError: any) {
+      if (apiError.message && apiError.message !== 'Failed to fetch') {
+        throw apiError;
+      }
+    }
+
+    // Fallback to local credentials
     const credsStore = getStoredCredentials();
     const userCreds = credsStore[credentials.email.toLowerCase()];
     if (!userCreds || userCreds.password !== credentials.password) {
@@ -134,25 +165,28 @@ class MockAuthService implements AuthService {
   }
 
   async requestPasswordReset(email: string): Promise<{ success: boolean; message: string }> {
-    await new Promise(resolve => setTimeout(resolve, 400));
-    const credsStore = getStoredCredentials();
-    const userCred = credsStore[email.toLowerCase()];
-    
-    // Call server email dispatch API
     try {
-      await fetch('/api/email/user-account', {
+      const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'password_reset',
-          recipientEmail: email,
-          recipientName: userCred?.user?.name || email.split('@')[0],
-        }),
+        body: JSON.stringify({ email }),
       });
-    } catch (e) {
-      console.warn('Email dispatch failed or in offline mode:', e);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        return {
+          success: true,
+          message: data.message || `Password reset link has been dispatched to ${email}`,
+        };
+      } else if (data.error) {
+        throw new Error(data.error);
+      }
+    } catch (e: any) {
+      if (e.message && e.message !== 'Failed to fetch') {
+        throw e;
+      }
     }
 
+    // Local fallback
     return {
       success: true,
       message: `If an account with ${email} exists, a password reset link has been dispatched from noreply@mastersystems.com.pg`,
@@ -160,36 +194,25 @@ class MockAuthService implements AuthService {
   }
 
   async resetPassword(email: string, newPassword: string): Promise<{ success: boolean; message: string }> {
-    await new Promise(resolve => setTimeout(resolve, 400));
-    const credsStore = getStoredCredentials();
-    const normalizedEmail = email.toLowerCase();
-    const existing = credsStore[normalizedEmail];
-
-    const updatedUser: AuthUser = existing?.user || {
-      id: `user-${Date.now()}`,
-      name: normalizedEmail.split('@')[0],
-      email: normalizedEmail,
-      role: 'Viewer',
-    };
-
-    saveCustomCredential(normalizedEmail, {
-      password: newPassword,
-      user: updatedUser,
-    });
-
-    // Send confirmation email
     try {
-      await fetch('/api/email/user-account', {
+      const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'password_changed_confirmation',
-          recipientEmail: normalizedEmail,
-          recipientName: updatedUser.name,
-        }),
+        body: JSON.stringify({ email, newPassword }),
       });
-    } catch (e) {
-      console.warn('Confirmation email dispatch warning:', e);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        return {
+          success: true,
+          message: data.message || 'Password has been successfully updated.',
+        };
+      } else if (data.error) {
+        throw new Error(data.error);
+      }
+    } catch (e: any) {
+      if (e.message && e.message !== 'Failed to fetch') {
+        throw e;
+      }
     }
 
     return {
