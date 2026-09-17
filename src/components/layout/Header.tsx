@@ -1,6 +1,7 @@
 // src/components/layout/Header.tsx
 'use client';
 
+import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { Menu, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -58,6 +59,10 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
         title: 'User Management',
         subtitle: 'Manage system users and access'
     },
+    '/admin/users/create': {
+        title: 'Create User',
+        subtitle: 'Add a new system user and configure client permissions'
+    },
     '/admin/roles': {
         title: 'Roles & Permissions',
         subtitle: 'Manage role-based access control'
@@ -71,6 +76,31 @@ export function Header() {
     const { user } = useAuth();
 
     const currentPage = PAGE_TITLES[pathname] || null;
+
+    // Determine accessible clients for the current logged-in user
+    const accessibleClients = (() => {
+        if (!user) return CLIENTS;
+        // If user is a Viewer or has specific assignedClients, restrict to only assigned clients
+        if (user.role === 'Viewer' && user.assignedClients && user.assignedClients.length > 0) {
+            const filtered = CLIENTS.filter(c => user.assignedClients!.includes(c.name));
+            return filtered.length > 0 ? filtered : CLIENTS;
+        }
+        if (user.assignedClients && user.assignedClients.length > 0 && !user.assignedClients.includes('All')) {
+            const filtered = CLIENTS.filter(c => user.assignedClients!.includes(c.name));
+            return filtered.length > 0 ? filtered : CLIENTS;
+        }
+        return CLIENTS;
+    })();
+
+    // Ensure selected client is within user's accessible list
+    useEffect(() => {
+        if (accessibleClients.length > 0) {
+            const isCurrentValid = accessibleClients.some(c => c.name === selectedClient?.name);
+            if (!isCurrentValid && accessibleClients[0]) {
+                selectClient(accessibleClients[0]);
+            }
+        }
+    }, [accessibleClients, selectedClient, selectClient]);
 
     return (
         <header
@@ -103,16 +133,16 @@ export function Header() {
                 {/* Client Dropdown selector */}
                 <div className="flex items-center gap-2">
                     <span className="text-[11px] font-bold text-white/80 tracking-wider">CLIENT:</span>
-                    <div className="relative bg-white rounded-lg px-3 py-1.5 shadow-sm flex items-center min-w-[140px]">
+                    <div className="relative bg-white rounded-lg px-3 py-1.5 shadow-sm flex items-center min-w-[140px] max-w-[240px]">
                         <select
-                            value={selectedClient.name}
+                            value={selectedClient?.name || accessibleClients[0]?.name}
                             onChange={(e) => {
-                                const client = CLIENTS.find(c => c.name === e.target.value);
+                                const client = accessibleClients.find(c => c.name === e.target.value);
                                 if (client) selectClient(client);
                             }}
-                            className="w-full bg-transparent text-xs font-bold text-zinc-800 focus:outline-none cursor-pointer pr-4 appearance-none select-none"
+                            className="w-full bg-transparent text-xs font-bold text-zinc-800 focus:outline-none cursor-pointer pr-4 appearance-none select-none truncate"
                         >
-                            {CLIENTS.map((client) => (
+                            {accessibleClients.map((client) => (
                                 <option key={client.name} value={client.name} className="bg-white text-zinc-800">
                                     {client.name}
                                 </option>

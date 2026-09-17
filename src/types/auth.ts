@@ -3,6 +3,7 @@ export interface AuthUser {
   name: string;
   email: string;
   role: 'Administrator' | 'Manager' | 'Viewer';
+  assignedClients?: string[];
 }
 
 export interface LoginCredentials {

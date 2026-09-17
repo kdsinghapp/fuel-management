@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { authService, canAccessRoute } from '@/lib/auth';
 
-const publicRoutes = ['/login'];
+const publicRoutes = ['/login', '/forgot-password', '/reset-password'];
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;

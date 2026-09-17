@@ -50,8 +50,8 @@ const roleData = [
     },
     {
         role: 'Viewer',
-        subtitle: 'Read-Only Access',
-        description: 'Read-only access operational modules for monitoring and reporting purposes.',
+        subtitle: 'Read-Only (Client-Scoped)',
+        description: 'Read-only access to operational modules for monitoring and reporting on assigned specific clients.',
         icon: Eye,
         iconBg: 'bg-[#37474f]/10 text-[#37474f]',
         iconColor: '#37474f',

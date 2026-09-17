@@ -28,12 +28,36 @@ const MOCK_CREDENTIALS: Record<string, { password: string; user: AuthUser }> = {
       name: 'Viewer User',
       email: 'viewer@fuelmaster.com',
       role: 'Viewer',
+      assignedClients: ['St Johns Pom', 'Digicel POM'],
     },
   },
 };
 
 // Session storage key
 const SESSION_KEY = 'fuel_session';
+const CREDENTIALS_KEY = 'fuel_credentials_store';
+
+function getStoredCredentials(): Record<string, { password: string; user: AuthUser }> {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem(CREDENTIALS_KEY);
+    if (stored) {
+      try {
+        return { ...MOCK_CREDENTIALS, ...JSON.parse(stored) };
+      } catch {
+        return MOCK_CREDENTIALS;
+      }
+    }
+  }
+  return MOCK_CREDENTIALS;
+}
+
+function saveCustomCredential(email: string, cred: { password: string; user: AuthUser }) {
+  if (typeof window !== 'undefined') {
+    const existing = getStoredCredentials();
+    existing[email.toLowerCase()] = cred;
+    localStorage.setItem(CREDENTIALS_KEY, JSON.stringify(existing));
+  }
+}
 
 export interface AuthService {
   login(credentials: LoginCredentials): Promise<AuthSession>;
@@ -41,6 +65,9 @@ export interface AuthService {
   getCurrentUser(): Promise<AuthUser | null>;
   isAuthenticated(): Promise<boolean>;
   getSession(): AuthSession | null;
+  requestPasswordReset(email: string): Promise<{ success: boolean; message: string }>;
+  resetPassword(email: string, newPassword: string): Promise<{ success: boolean; message: string }>;
+  registerUserCredentials(email: string, name: string, role: string, password?: string, assignedClients?: string[]): void;
 }
 
 class MockAuthService implements AuthService {
@@ -63,7 +90,8 @@ class MockAuthService implements AuthService {
   async login(credentials: LoginCredentials): Promise<AuthSession> {
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    const userCreds = MOCK_CREDENTIALS[credentials.email];
+    const credsStore = getStoredCredentials();
+    const userCreds = credsStore[credentials.email.toLowerCase()];
     if (!userCreds || userCreds.password !== credentials.password) {
       throw new Error('Invalid email or password');
     }
@@ -103,6 +131,85 @@ class MockAuthService implements AuthService {
 
   getSession(): AuthSession | null {
     return this.session;
+  }
+
+  async requestPasswordReset(email: string): Promise<{ success: boolean; message: string }> {
+    await new Promise(resolve => setTimeout(resolve, 400));
+    const credsStore = getStoredCredentials();
+    const userCred = credsStore[email.toLowerCase()];
+    
+    // Call server email dispatch API
+    try {
+      await fetch('/api/email/user-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'password_reset',
+          recipientEmail: email,
+          recipientName: userCred?.user?.name || email.split('@')[0],
+        }),
+      });
+    } catch (e) {
+      console.warn('Email dispatch failed or in offline mode:', e);
+    }
+
+    return {
+      success: true,
+      message: `If an account with ${email} exists, a password reset link has been dispatched from noreply@mastersystems.com.pg`,
+    };
+  }
+
+  async resetPassword(email: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    await new Promise(resolve => setTimeout(resolve, 400));
+    const credsStore = getStoredCredentials();
+    const normalizedEmail = email.toLowerCase();
+    const existing = credsStore[normalizedEmail];
+
+    const updatedUser: AuthUser = existing?.user || {
+      id: `user-${Date.now()}`,
+      name: normalizedEmail.split('@')[0],
+      email: normalizedEmail,
+      role: 'Viewer',
+    };
+
+    saveCustomCredential(normalizedEmail, {
+      password: newPassword,
+      user: updatedUser,
+    });
+
+    // Send confirmation email
+    try {
+      await fetch('/api/email/user-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'password_changed_confirmation',
+          recipientEmail: normalizedEmail,
+          recipientName: updatedUser.name,
+        }),
+      });
+    } catch (e) {
+      console.warn('Confirmation email dispatch warning:', e);
+    }
+
+    return {
+      success: true,
+      message: 'Password has been successfully updated. You can now log in with your new password.',
+    };
+  }
+
+  registerUserCredentials(email: string, name: string, role: string, password: string = 'password123', assignedClients?: string[]) {
+    const normalizedEmail = email.toLowerCase();
+    saveCustomCredential(normalizedEmail, {
+      password,
+      user: {
+        id: `u-${Date.now()}`,
+        name,
+        email: normalizedEmail,
+        role: (role as any) || 'Viewer',
+        assignedClients,
+      },
+    });
   }
 }
 
@@ -174,6 +281,18 @@ export function hasPermission(user: AuthUser | null, permission: string): boolea
 }
 
 export function canAccessRoute(user: AuthUser | null, route: string): boolean {
+  if (!user) return false;
+  
+  if (route.startsWith('/admin/users')) {
+    return hasPermission(user, PERMISSIONS.USERS.VIEW);
+  }
+  if (route.startsWith('/admin/roles')) {
+    return hasPermission(user, PERMISSIONS.ROLES.VIEW);
+  }
+  if (route.startsWith('/reports') || route.startsWith('/settings/scheduled-reports')) {
+    return hasPermission(user, PERMISSIONS.REPORTS.VIEW);
+  }
+
   const routePermissions: Record<string, string> = {
     '/dashboard': PERMISSIONS.DASHBOARD.VIEW,
     '/fuel-levels': PERMISSIONS.FUEL_LEVELS.VIEW,
@@ -184,13 +303,9 @@ export function canAccessRoute(user: AuthUser | null, route: string): boolean {
     '/fuel-limits': PERMISSIONS.VEHICLES.VIEW,
     '/metadata': PERMISSIONS.VEHICLES.VIEW,
     '/reconciliation': PERMISSIONS.RECONCILIATION.VIEW,
-    '/reports': PERMISSIONS.REPORTS.VIEW,
-    '/settings/scheduled-reports': PERMISSIONS.REPORTS.VIEW,
-    '/admin/users': PERMISSIONS.USERS.VIEW,
-    '/admin/roles': PERMISSIONS.ROLES.VIEW,
   };
 
   const permission = routePermissions[route];
-  if (!permission) return false;
+  if (!permission) return true;
   return hasPermission(user, permission);
 }

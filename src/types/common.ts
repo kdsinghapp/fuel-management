@@ -32,6 +32,7 @@ export interface User {
   email: string;
   role: 'Administrator' | 'Manager' | 'Viewer';
   status: 'Active' | 'Inactive';
+  assignedClients?: string[];
   lastLogin: string;
   createdAt: string;
   updatedAt: string;
