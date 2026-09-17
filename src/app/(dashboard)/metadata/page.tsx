@@ -28,6 +28,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { formatNumber, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils';
 import { useClientStore, CLIENTS } from '@/services/api';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface VehicleDetailRecord {
     VehicleId?: number; // Present if saved in Azure SQL
@@ -52,6 +53,8 @@ export interface VehicleDetailRecord {
 }
 
 export default function VehicleDetailsPage() {
+    const { user } = useAuth();
+    const canManageVehicles = user?.role === 'Administrator' || user?.role === 'Manager';
     const selectedClient = useClientStore((state) => state.selectedClient);
     const [records, setRecords] = useState<VehicleDetailRecord[]>([]);
     const [loading, setLoading] = useState(true);
@@ -635,16 +638,18 @@ export default function VehicleDetailsPage() {
                                     <span>Sync</span>
                                 </Button>
 
-                                {/* Add Vehicle Button */}
-                                <Button
-                                    type="button"
-                                    onClick={handleOpenAdd}
-                                    className="bg-[#137e19] hover:bg-[#0e5c12] text-xs font-semibold text-white px-3 rounded h-8 border border-[#137e19] transition-colors duration-200 flex items-center justify-center gap-1.5 shadow-xs cursor-pointer whitespace-nowrap"
-                                    title="Add New Vehicle"
-                                >
-                                    <Plus className="h-3.5 w-3.5" />
-                                    Add Vehicle
-                                </Button>
+                                {/* Add Vehicle Button (Admin/Manager only) */}
+                                {canManageVehicles && (
+                                    <Button
+                                        type="button"
+                                        onClick={handleOpenAdd}
+                                        className="bg-[#137e19] hover:bg-[#0e5c12] text-xs font-semibold text-white px-3 rounded h-8 border border-[#137e19] transition-colors duration-200 flex items-center justify-center gap-1.5 shadow-xs cursor-pointer whitespace-nowrap"
+                                        title="Add New Vehicle"
+                                    >
+                                        <Plus className="h-3.5 w-3.5" />
+                                        Add Vehicle
+                                    </Button>
+                                )}
 
                                 {/* Search Button */}
                                 <Button
@@ -781,15 +786,17 @@ export default function VehicleDetailsPage() {
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-center font-semibold sticky top-0 z-10">
                                         Status
                                     </th>
-                                    <th className="bg-[#222222] text-white py-2 px-3 text-center font-semibold sticky top-0 z-10">
-                                        Action
-                                    </th>
+                                    {canManageVehicles && (
+                                        <th className="bg-[#222222] text-white py-2 px-3 text-center font-semibold sticky top-0 z-10">
+                                            Action
+                                        </th>
+                                    )}
                                 </tr>
                             </thead>
                             <tbody>
                                 {paginatedData.length === 0 ? (
                                     <tr>
-                                        <td colSpan={14} className="py-12 px-4 text-center bg-slate-50/50">
+                                        <td colSpan={canManageVehicles ? 14 : 13} className="py-12 px-4 text-center bg-slate-50/50">
                                             <div className="flex flex-col items-center justify-center gap-3 max-w-md mx-auto">
                                                 <div className="h-12 w-12 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#138024] shadow-xs">
                                                     <Database className="h-6 w-6" />
@@ -799,17 +806,19 @@ export default function VehicleDetailsPage() {
                                                         No vehicles added for {selectedClient?.name || 'this client'}
                                                     </p>
                                                     <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                                                        Vehicles for this client are maintained separately in Azure SQL. Click below to add the first vehicle.
+                                                        Vehicles for this client are maintained separately in Azure SQL.
                                                     </p>
                                                 </div>
-                                                <Button
-                                                    type="button"
-                                                    onClick={handleOpenAdd}
-                                                    className="mt-1 bg-[#137e19] hover:bg-[#0e5c12] text-xs font-semibold text-white px-3.5 h-8 rounded border border-[#137e19] flex items-center gap-1.5 shadow-xs cursor-pointer"
-                                                >
-                                                    <Plus className="h-3.5 w-3.5" />
-                                                    <span>Add Vehicle</span>
-                                                </Button>
+                                                {canManageVehicles && (
+                                                    <Button
+                                                        type="button"
+                                                        onClick={handleOpenAdd}
+                                                        className="mt-1 bg-[#137e19] hover:bg-[#0e5c12] text-xs font-semibold text-white px-3.5 h-8 rounded border border-[#137e19] flex items-center gap-1.5 shadow-xs cursor-pointer"
+                                                    >
+                                                        <Plus className="h-3.5 w-3.5" />
+                                                        <span>Add Vehicle</span>
+                                                    </Button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -882,31 +891,33 @@ export default function VehicleDetailsPage() {
                                                     {item.Status || 'Active'}
                                                 </span>
                                             </td>
-                                            <td className="py-1.5 px-3 text-center align-middle">
-                                                <div className="flex items-center justify-center gap-1.5">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        type="button"
-                                                        onClick={() => handleOpenEdit(item)}
-                                                        className="h-7 px-2.5 text-xs text-[#f26522] border-[#f26522]/30 hover:bg-orange-50 hover:text-[#d45316] font-semibold flex items-center gap-1 rounded shadow-2xs cursor-pointer"
-                                                        title="Edit Vehicle"
-                                                    >
-                                                        <Edit2 className="h-3 w-3" />
-                                                        <span>Edit</span>
-                                                    </Button>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        type="button"
-                                                        onClick={() => handleDeleteClick(item)}
-                                                        className="h-7 px-2 text-xs text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700 font-semibold flex items-center gap-1 rounded shadow-2xs cursor-pointer"
-                                                        title="Delete Vehicle"
-                                                    >
-                                                        <Trash2 className="h-3 w-3" />
-                                                    </Button>
-                                                </div>
-                                            </td>
+                                            {canManageVehicles && (
+                                                <td className="py-1.5 px-3 text-center align-middle">
+                                                    <div className="flex items-center justify-center gap-1.5">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            type="button"
+                                                            onClick={() => handleOpenEdit(item)}
+                                                            className="h-7 px-2.5 text-xs text-[#f26522] border-[#f26522]/30 hover:bg-orange-50 hover:text-[#d45316] font-semibold flex items-center gap-1 rounded shadow-2xs cursor-pointer"
+                                                            title="Edit Vehicle"
+                                                        >
+                                                            <Edit2 className="h-3 w-3" />
+                                                            <span>Edit</span>
+                                                        </Button>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            type="button"
+                                                            onClick={() => handleDeleteClick(item)}
+                                                            className="h-7 px-2 text-xs text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700 font-semibold flex items-center gap-1 rounded shadow-2xs cursor-pointer"
+                                                            title="Delete Vehicle"
+                                                        >
+                                                            <Trash2 className="h-3 w-3" />
+                                                        </Button>
+                                                    </div>
+                                                </td>
+                                            )}
                                         </tr>
                                     ))
                                 )}

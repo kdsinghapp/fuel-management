@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Mail,
   Clock,
@@ -140,6 +141,13 @@ export default function ReportsFullPage() {
   } = useScheduleStore();
 
   const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (user && user.role === 'Viewer') {
+      router.push('/dashboard');
+    }
+  }, [user, router]);
 
   // Active page view: 'list' | 'form' | 'quick'
   const [activeTab, setActiveTab] = useState<'list' | 'form' | 'quick'>('list');

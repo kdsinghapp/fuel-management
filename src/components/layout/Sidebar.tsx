@@ -110,7 +110,14 @@ export function Sidebar() {
             </div>
 
             <nav className="flex-1 overflow-y-auto py-3 px-0 space-y-0">
-                {navigationItems.map((item) => {
+                {navigationItems
+                    .filter((item) => {
+                        if (user?.role === 'Viewer' && item.href === '/reports') {
+                            return false;
+                        }
+                        return true;
+                    })
+                    .map((item) => {
                     const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
                     return (
                         <Link

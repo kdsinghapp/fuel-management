@@ -62,7 +62,7 @@ const roleData = [
             fuelIssues: true,
             vehicles: true,
             reconciliation: true,
-            reports: true,
+            reports: false,
             users: false,
             roles: false,
         },
