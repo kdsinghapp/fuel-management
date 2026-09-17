@@ -1,7 +1,7 @@
 // src/app/admin/users/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -30,7 +30,7 @@ import { authService, hasPermission, PERMISSIONS } from '@/lib/auth';
 import { formatDate, exportToCSV } from '@/lib/utils';
 import { User } from '@/types/common';
 
-export default function UsersPage() {
+function UsersContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [users, setUsers] = useState<User[]>([]);
@@ -486,5 +486,21 @@ export default function UsersPage() {
                 </CardContent>
             </Card>
         </PageContainer>
+    );
+}
+
+export default function UsersPage() {
+    return (
+        <Suspense
+            fallback={
+                <PageContainer>
+                    <div className="flex h-64 items-center justify-center">
+                        <LoadingSpinner size="lg" />
+                    </div>
+                </PageContainer>
+            }
+        >
+            <UsersContent />
+        </Suspense>
     );
 }

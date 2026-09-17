@@ -1,7 +1,7 @@
 // src/app/reset-password/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { authService } from '@/lib/auth';
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -293,5 +293,19 @@ export default function ResetPasswordPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function ResetPasswordPage() {
+    return (
+        <Suspense
+            fallback={
+                <div className="min-h-screen bg-[#070b14] flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-[#f26522]" />
+                </div>
+            }
+        >
+            <ResetPasswordContent />
+        </Suspense>
     );
 }
