@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { UserModel } from '@/models/User';
+import { findUserByEmail, updateUserInDb } from '@/lib/userSql';
 
 export async function POST(request: NextRequest) {
   try {
-    await connectToDatabase();
     const { email, token, newPassword } = await request.json();
 
     if (!email || !newPassword) {
@@ -12,7 +10,7 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-    const user = await UserModel.findOne({ email: normalizedEmail });
+    const user = await findUserByEmail(normalizedEmail);
 
     if (!user) {
       return NextResponse.json({ error: 'No account found with this email' }, { status: 404 });
@@ -24,11 +22,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Update password
-    user.password = newPassword;
-    user.resetToken = undefined;
-    user.resetTokenExpiry = undefined;
-    user.updatedAt = new Date().toISOString();
-    await user.save();
+    await updateUserInDb(user.id, {
+      password: newPassword,
+      resetToken: '',
+      resetTokenExpiry: '',
+    });
 
     // Send confirmation email
     try {

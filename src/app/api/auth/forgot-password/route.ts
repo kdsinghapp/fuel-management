@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { UserModel } from '@/models/User';
+import { findUserByEmail, updateUserInDb } from '@/lib/userSql';
 import { generateId } from '@/lib/utils';
 import { sendUserAccountEmail } from '@/lib/userAccountEmail';
 
@@ -20,7 +19,6 @@ function getBaseUrl(req: NextRequest): string {
 
 export async function POST(request: NextRequest) {
   try {
-    await connectToDatabase();
     const { email } = await request.json();
 
     if (!email) {
@@ -28,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-    const user = await UserModel.findOne({ email: normalizedEmail });
+    const user = await findUserByEmail(normalizedEmail);
 
     if (!user) {
       return NextResponse.json({ error: 'No account found with this email address' }, { status: 404 });
@@ -38,9 +36,10 @@ export async function POST(request: NextRequest) {
     const token = `rst_${generateId()}_${Date.now()}`;
     const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
 
-    user.resetToken = token;
-    user.resetTokenExpiry = expiry;
-    await user.save();
+    await updateUserInDb(user.id, {
+      resetToken: token,
+      resetTokenExpiry: expiry,
+    });
 
     const baseUrl = getBaseUrl(request);
     const resetUrl = `${baseUrl}/reset-password?email=${encodeURIComponent(user.email)}&token=${encodeURIComponent(token)}`;

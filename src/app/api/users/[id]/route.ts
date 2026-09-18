@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { UserModel } from '@/models/User';
+import { findUserById, updateUserInDb, deleteUserFromDb } from '@/lib/userSql';
 import { User } from '@/types/common';
 
 // GET /api/users/[id]
@@ -9,10 +8,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await connectToDatabase();
     const { id } = await params;
+    const user = await findUserById(id);
 
-    const user = await UserModel.findOne({ id }).lean();
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -31,7 +29,7 @@ export async function GET(
 
     return NextResponse.json(formattedUser);
   } catch (error: any) {
-    console.error('Error fetching user:', error);
+    console.error('Error fetching user from Azure SQL:', error);
     return NextResponse.json({ error: 'Failed to fetch user', details: error.message }, { status: 500 });
   }
 }
@@ -42,39 +40,41 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await connectToDatabase();
     const { id } = await params;
     const body = await request.json();
 
-    const user = await UserModel.findOne({ id });
-    if (!user) {
+    const existing = await findUserById(id);
+    if (!existing) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (body.name !== undefined) user.name = body.name.trim();
-    if (body.email !== undefined) user.email = body.email.toLowerCase().trim();
-    if (body.role !== undefined) user.role = body.role;
-    if (body.status !== undefined) user.status = body.status;
-    if (body.assignedClients !== undefined) user.assignedClients = body.assignedClients;
-    if (body.password !== undefined && body.password.length > 0) user.password = body.password;
-    if (body.lastLogin !== undefined) user.lastLogin = body.lastLogin;
+    const updatedUser = await updateUserInDb(id, {
+      name: body.name !== undefined ? body.name.trim() : undefined,
+      email: body.email !== undefined ? body.email.toLowerCase().trim() : undefined,
+      role: body.role !== undefined ? body.role : undefined,
+      status: body.status !== undefined ? body.status : undefined,
+      assignedClients: body.assignedClients !== undefined ? body.assignedClients : undefined,
+      password: body.password !== undefined && body.password.length > 0 ? body.password : undefined,
+      lastLogin: body.lastLogin !== undefined ? body.lastLogin : undefined,
+    });
 
-    user.updatedAt = new Date().toISOString();
-    await user.save();
+    if (!updatedUser) {
+      return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
+    }
 
     return NextResponse.json({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      status: user.status,
-      assignedClients: user.assignedClients,
-      lastLogin: user.lastLogin,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
+      id: updatedUser.id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      status: updatedUser.status,
+      assignedClients: updatedUser.assignedClients,
+      lastLogin: updatedUser.lastLogin,
+      createdAt: updatedUser.createdAt,
+      updatedAt: updatedUser.updatedAt,
     });
   } catch (error: any) {
-    console.error('Error updating user:', error);
+    console.error('Error updating user in Azure SQL:', error);
     return NextResponse.json({ error: 'Failed to update user', details: error.message }, { status: 500 });
   }
 }
@@ -85,17 +85,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await connectToDatabase();
     const { id } = await params;
+    const success = await deleteUserFromDb(id);
 
-    const deleted = await UserModel.findOneAndDelete({ id });
-    if (!deleted) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (!success) {
+      return NextResponse.json({ error: 'User not found or already deleted' }, { status: 404 });
     }
 
     return NextResponse.json({ success: true, message: 'User deleted successfully' });
   } catch (error: any) {
-    console.error('Error deleting user:', error);
+    console.error('Error deleting user from Azure SQL:', error);
     return NextResponse.json({ error: 'Failed to delete user', details: error.message }, { status: 500 });
   }
 }

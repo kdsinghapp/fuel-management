@@ -3,18 +3,7 @@ import { generateReportData, formatReportSubject } from '@/services/reportGenera
 import { sendMicrosoftGraphMail } from '@/lib/microsoftGraph';
 import { ReportSchedule, ScheduleExecutionLog } from '@/types/schedule';
 import { getPGTTimeInfo } from '@/lib/pgtTime';
-import { connectToDatabase } from '@/lib/mongodb';
-import { ScheduleModel } from '@/models/Schedule';
-import { ScheduleLogModel } from '@/models/ScheduleLog';
-
-async function appendExecutionLog(log: ScheduleExecutionLog) {
-  try {
-    await connectToDatabase();
-    await ScheduleLogModel.create(log);
-  } catch (err) {
-    console.error('Error saving execution log to MongoDB:', err);
-  }
-}
+import { getAllSchedulesFromDb, updateScheduleRunStatusInDb, createScheduleLog } from '@/lib/userSql';
 
 export interface CronExecutionOptions {
   forceScheduleId?: string | null;
@@ -24,14 +13,7 @@ export interface CronExecutionOptions {
 
 export async function executeScheduledReportsCron(options: CronExecutionOptions = {}) {
   try {
-    await connectToDatabase();
-
-    const rawSchedules = await ScheduleModel.find({}).lean();
-    const schedules: ReportSchedule[] = rawSchedules.map((item) => {
-      const { _id, __v, ...rest } = item as any;
-      return rest as ReportSchedule;
-    });
-
+    const schedules: ReportSchedule[] = await getAllSchedulesFromDb();
     const activeSchedules = schedules.filter((s) => s.enabled);
 
     // Evaluate in Papua New Guinea Time (PGT, UTC+10:00 / Pacific/Port_Moresby)
@@ -113,18 +95,8 @@ export async function executeScheduledReportsCron(options: CronExecutionOptions 
         const lastRunAt = new Date().toISOString();
         const lastScheduledSlot = !isForced ? `${pgtDateStr}_${sched.time}` : sched.lastScheduledSlot;
 
-        // Update schedule state in MongoDB
-        await ScheduleModel.updateOne(
-          { id: sched.id },
-          {
-            $set: {
-              lastRunAt,
-              lastRunStatus: status,
-              lastRunMessage: message,
-              ...(lastScheduledSlot ? { lastScheduledSlot } : {}),
-            },
-          }
-        );
+        // Update schedule state in Azure SQL
+        await updateScheduleRunStatusInDb(sched.id, lastRunAt, status, message, lastScheduledSlot);
 
         const logItem: ScheduleExecutionLog = {
           id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -141,7 +113,7 @@ export async function executeScheduledReportsCron(options: CronExecutionOptions 
           durationMs,
         };
 
-        await appendExecutionLog(logItem);
+        await createScheduleLog(logItem);
 
         results.push({
           scheduleId: sched.id,
@@ -155,18 +127,9 @@ export async function executeScheduledReportsCron(options: CronExecutionOptions 
       } catch (runErr: any) {
         const errorMessage = runErr?.message || 'Error occurred';
 
-        await ScheduleModel.updateOne(
-          { id: sched.id },
-          {
-            $set: {
-              lastRunAt: new Date().toISOString(),
-              lastRunStatus: 'failed',
-              lastRunMessage: errorMessage,
-            },
-          }
-        );
+        await updateScheduleRunStatusInDb(sched.id, new Date().toISOString(), 'failed', errorMessage);
 
-        await appendExecutionLog({
+        await createScheduleLog({
           id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
           scheduleId: sched.id,
           scheduleName: sched.name,

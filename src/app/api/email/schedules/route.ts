@@ -1,27 +1,14 @@
 // src/app/api/email/schedules/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { ScheduleModel } from '@/models/Schedule';
-import { ReportSchedule } from '@/types/schedule';
+import { getAllSchedulesFromDb, upsertScheduleInDb, deleteScheduleFromDb } from '@/lib/userSql';
 
-// GET: list all schedules from MongoDB
+// GET: list all schedules from Azure SQL
 export async function GET() {
   try {
-    await connectToDatabase();
-
-    const schedules = await ScheduleModel.find({})
-      .sort({ createdAt: -1 })
-      .lean();
-
-    // Map documents to clean ReportSchedule objects without mongo internal fields
-    const sanitizedSchedules = schedules.map((item) => {
-      const { _id, __v, ...rest } = item as any;
-      return rest as ReportSchedule;
-    });
-
-    return NextResponse.json({ success: true, schedules: sanitizedSchedules });
+    const schedules = await getAllSchedulesFromDb();
+    return NextResponse.json({ success: true, schedules });
   } catch (err: any) {
-    console.error('Error fetching schedules from MongoDB:', err);
+    console.error('Error fetching schedules from Azure SQL:', err);
     return NextResponse.json(
       { success: false, error: err?.message || 'Failed to fetch schedules' },
       { status: 500 }
@@ -29,10 +16,9 @@ export async function GET() {
   }
 }
 
-// POST: create or update a schedule in MongoDB
+// POST: create or update a schedule in Azure SQL
 export async function POST(req: NextRequest) {
   try {
-    await connectToDatabase();
     const body = await req.json();
 
     if (!body.name || !body.clientName || !body.recipients || body.recipients.length === 0) {
@@ -42,35 +28,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const now = new Date().toISOString();
     const scheduleId = body.id || `sch-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
     const scheduleData = {
       ...body,
       id: scheduleId,
-      updatedAt: now,
-      ...(body.id ? {} : { createdAt: now }),
     };
 
-    // Upsert into MongoDB
-    await ScheduleModel.findOneAndUpdate(
-      { id: scheduleId },
-      { $set: scheduleData },
-      { upsert: true, new: true, runValidators: true }
-    );
+    await upsertScheduleInDb(scheduleData);
+    const updatedList = await getAllSchedulesFromDb();
 
-    const updatedList = await ScheduleModel.find({})
-      .sort({ createdAt: -1 })
-      .lean();
-
-    const sanitizedList = updatedList.map((item) => {
-      const { _id, __v, ...rest } = item as any;
-      return rest as ReportSchedule;
-    });
-
-    return NextResponse.json({ success: true, schedules: sanitizedList });
+    return NextResponse.json({ success: true, schedules: updatedList });
   } catch (err: any) {
-    console.error('Error saving schedule to MongoDB:', err);
+    console.error('Error saving schedule to Azure SQL:', err);
     return NextResponse.json(
       { success: false, error: err?.message || 'Failed to save schedule' },
       { status: 500 }
@@ -78,10 +48,9 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE: remove schedule from MongoDB
+// DELETE: remove schedule from Azure SQL
 export async function DELETE(req: NextRequest) {
   try {
-    await connectToDatabase();
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
@@ -89,20 +58,12 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Schedule ID is required' }, { status: 400 });
     }
 
-    await ScheduleModel.deleteOne({ id });
+    await deleteScheduleFromDb(id);
+    const updatedList = await getAllSchedulesFromDb();
 
-    const updatedList = await ScheduleModel.find({})
-      .sort({ createdAt: -1 })
-      .lean();
-
-    const sanitizedList = updatedList.map((item) => {
-      const { _id, __v, ...rest } = item as any;
-      return rest as ReportSchedule;
-    });
-
-    return NextResponse.json({ success: true, schedules: sanitizedList });
+    return NextResponse.json({ success: true, schedules: updatedList });
   } catch (err: any) {
-    console.error('Error deleting schedule from MongoDB:', err);
+    console.error('Error deleting schedule from Azure SQL:', err);
     return NextResponse.json(
       { success: false, error: err?.message || 'Failed to delete schedule' },
       { status: 500 }

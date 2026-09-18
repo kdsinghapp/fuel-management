@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { UserModel } from '@/models/User';
+import { findUserByEmail, updateUserInDb } from '@/lib/userSql';
 import { AuthUser } from '@/types/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    await connectToDatabase();
     const { email, password } = await request.json();
 
     if (!email || !password) {
@@ -13,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-    const user = await UserModel.findOne({ email: normalizedEmail });
+    const user = await findUserByEmail(normalizedEmail);
 
     if (!user) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
@@ -32,8 +30,7 @@ export async function POST(request: NextRequest) {
 
     // Update lastLogin
     const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    user.lastLogin = now;
-    await user.save();
+    await updateUserInDb(user.id, { lastLogin: now });
 
     const authUser: AuthUser = {
       id: user.id,

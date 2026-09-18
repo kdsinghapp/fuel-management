@@ -1,36 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { UserModel } from '@/models/User';
-import { generateId } from '@/lib/utils';
-import { User } from '@/types/common';
-
-const INITIAL_USERS = [
-  { id: '1', name: 'Admin User', email: 'admin@example.com', role: 'Administrator', status: 'Active', password: 'admin123', lastLogin: '2026-08-12 08:30:00', assignedClients: [], createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' },
-  { id: '2', name: 'Manager User', email: 'manager@example.com', role: 'Manager', status: 'Active', password: 'manager123', lastLogin: '2026-08-12 07:45:00', assignedClients: [], createdAt: '2026-01-15T00:00:00Z', updatedAt: '2026-01-15T00:00:00Z' },
-  { id: '3', name: 'Viewer User', email: 'viewer@example.com', role: 'Viewer', status: 'Active', password: 'viewer123', assignedClients: ['St Johns Pom', 'Digicel POM'], lastLogin: '2026-08-11 16:20:00', createdAt: '2026-02-01T00:00:00Z', updatedAt: '2026-02-01T00:00:00Z' },
-  { id: '4', name: 'John Smith', email: 'john.smith@example.com', role: 'Manager', status: 'Active', password: 'Password123!', lastLogin: '2026-08-12 09:15:00', assignedClients: [], createdAt: '2026-03-10T00:00:00Z', updatedAt: '2026-03-10T00:00:00Z' },
-  { id: '5', name: 'Sarah Johnson', email: 'sarah.johnson@example.com', role: 'Viewer', status: 'Active', password: 'Password123!', assignedClients: ['Paradise Foods HQ', 'Paradise Foods Hanta'], lastLogin: '2026-08-11 14:30:00', createdAt: '2026-04-05T00:00:00Z', updatedAt: '2026-04-05T00:00:00Z' },
-  { id: '6', name: 'Mike Wilson', email: 'mike.wilson@example.com', role: 'Manager', status: 'Inactive', password: 'Password123!', lastLogin: '2026-07-20 10:00:00', assignedClients: [], createdAt: '2026-05-12T00:00:00Z', updatedAt: '2026-05-12T00:00:00Z' },
-  { id: '7', name: 'Emily Brown', email: 'emily.brown@example.com', role: 'Viewer', status: 'Active', password: 'Password123!', assignedClients: ['Laga Industries Taraka', 'Laga Industries Gabaka'], lastLogin: '2026-08-10 11:45:00', createdAt: '2026-06-08T00:00:00Z', updatedAt: '2026-06-08T00:00:00Z' },
-  { id: '8', name: 'David Lee', email: 'david.lee@example.com', role: 'Administrator', status: 'Active', password: 'Password123!', lastLogin: '2026-08-12 06:30:00', assignedClients: [], createdAt: '2026-07-01T00:00:00Z', updatedAt: '2026-07-01T00:00:00Z' },
-  { id: '9', name: 'Lisa Chen', email: 'lisa.chen@example.com', role: 'Manager', status: 'Active', password: 'Password123!', lastLogin: '2026-08-11 13:15:00', assignedClients: [], createdAt: '2026-07-15T00:00:00Z', updatedAt: '2026-07-15T00:00:00Z' },
-  { id: '10', name: 'Robert Taylor', email: 'robert.taylor@example.com', role: 'Viewer', status: 'Active', password: 'Password123!', assignedClients: ['TWL Lae', 'TWL Hagen'], lastLogin: '2026-08-10 15:30:00', createdAt: '2026-08-01T00:00:00Z', updatedAt: '2026-08-01T00:00:00Z' },
-];
-
-async function ensureSeeded() {
-  const count = await UserModel.countDocuments();
-  if (count === 0) {
-    console.log('🌱 Seeding default users to MongoDB...');
-    await UserModel.insertMany(INITIAL_USERS);
-  }
-}
+import { getUsersList, createUserInDb, findUserByEmail } from '@/lib/userSql';
 
 // GET /api/users
 export async function GET(request: NextRequest) {
   try {
-    await connectToDatabase();
-    await ensureSeeded();
-
     const searchParams = request.nextUrl.searchParams;
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || '';
@@ -38,48 +11,10 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
 
-    const query: any = {};
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-      ];
-    }
-    if (status) {
-      query.status = status;
-    }
-    if (role) {
-      query.role = role;
-    }
-
-    const total = await UserModel.countDocuments(query);
-    const users = await UserModel.find(query)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * pageSize)
-      .limit(pageSize)
-      .lean();
-
-    const formattedUsers: User[] = users.map((u: any) => ({
-      id: u.id,
-      name: u.name,
-      email: u.email,
-      role: u.role,
-      status: u.status,
-      assignedClients: u.assignedClients || [],
-      lastLogin: u.lastLogin || '',
-      createdAt: u.createdAt,
-      updatedAt: u.updatedAt,
-    }));
-
-    return NextResponse.json({
-      data: formattedUsers,
-      total,
-      page,
-      pageSize,
-      totalPages: Math.ceil(total / pageSize),
-    });
+    const result = await getUsersList({ search, status, role, page, pageSize });
+    return NextResponse.json(result);
   } catch (error: any) {
-    console.error('Error fetching users from MongoDB:', error);
+    console.error('Error fetching users from Azure SQL:', error);
     return NextResponse.json(
       { error: 'Failed to fetch users', details: error.message },
       { status: 500 }
@@ -90,9 +25,7 @@ export async function GET(request: NextRequest) {
 // POST /api/users
 export async function POST(request: NextRequest) {
   try {
-    await connectToDatabase();
     const body = await request.json();
-
     const { name, email, role, status, assignedClients, tempPassword, sendNotificationEmail } = body;
 
     if (!name || !email || !role) {
@@ -105,7 +38,7 @@ export async function POST(request: NextRequest) {
     const normalizedEmail = email.toLowerCase().trim();
 
     // Check if user already exists
-    const existing = await UserModel.findOne({ email: normalizedEmail });
+    const existing = await findUserByEmail(normalizedEmail);
     if (existing) {
       return NextResponse.json(
         { error: 'User with this email already exists' },
@@ -113,18 +46,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const now = new Date().toISOString();
-    const newUser = await UserModel.create({
-      id: generateId(),
-      name: name.trim(),
+    const newUser = await createUserInDb({
+      name,
       email: normalizedEmail,
-      role: role || 'Viewer',
+      role,
       status: status || 'Active',
       password: tempPassword || 'Password123!',
       assignedClients: assignedClients || [],
-      lastLogin: '',
-      createdAt: now,
-      updatedAt: now,
     });
 
     let emailSent = false;
@@ -181,7 +109,7 @@ export async function POST(request: NextRequest) {
       emailError,
     });
   } catch (error: any) {
-    console.error('Error creating user in MongoDB:', error);
+    console.error('Error creating user in Azure SQL:', error);
     return NextResponse.json(
       { error: 'Failed to create user', details: error.message },
       { status: 500 }
