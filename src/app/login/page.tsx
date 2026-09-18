@@ -10,8 +10,6 @@ import {
     Eye,
     EyeOff,
     Loader2,
-    Shield,
-    Settings,
     ArrowRight,
     Mail,
     Lock,
@@ -24,11 +22,10 @@ import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import Link from 'next/link';
 import { authService } from '@/lib/auth';
-import { cn } from '@/lib/utils';
 
 const loginSchema = z.object({
     email: z.string().email('Please enter a valid email address'),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
+    password: z.string().min(1, 'Password is required'),
     rememberMe: z.boolean().optional(),
 });
 
@@ -41,7 +38,6 @@ function LoginForm() {
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [activeRole, setActiveRole] = useState<'admin' | 'manager' | 'viewer'>('admin');
 
     // Forgot password modal state
     const [isForgotOpen, setIsForgotOpen] = useState(false);
@@ -64,23 +60,7 @@ function LoginForm() {
         },
     });
 
-    const handleRoleSelect = (role: 'admin' | 'manager' | 'viewer') => {
-        setActiveRole(role);
-        if (role === 'admin') {
-            setValue('email', 'admin@fuelmaster.com', { shouldValidate: true });
-            setValue('password', 'admin123', { shouldValidate: true });
-        } else if (role === 'manager') {
-            setValue('email', 'manager@fuelmaster.com', { shouldValidate: true });
-            setValue('password', 'manager123', { shouldValidate: true });
-        } else if (role === 'viewer') {
-            setValue('email', 'viewer@fuelmaster.com', { shouldValidate: true });
-            setValue('password', 'viewer123', { shouldValidate: true });
-        }
-    };
-
-    // Auto-fill admin credentials on mount and check for reset status query params
     useEffect(() => {
-        handleRoleSelect('admin');
         if (searchParams.get('reset') === 'success') {
             setSuccessMessage('Your password has been successfully reset! Please sign in with your new password.');
         }
@@ -88,7 +68,7 @@ function LoginForm() {
         if (prefillEmail) {
             setValue('email', prefillEmail, { shouldValidate: true });
         }
-    }, [searchParams]);
+    }, [searchParams, setValue]);
 
     const onSubmit = async (data: LoginFormData) => {
         setIsLoading(true);
@@ -103,7 +83,7 @@ function LoginForm() {
             });
             router.push('/dashboard');
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Invalid credentials. Please try again.');
+            setError(err instanceof Error ? err.message : 'Invalid email or password. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -130,12 +110,6 @@ function LoginForm() {
         } finally {
             setForgotLoading(false);
         }
-    };
-
-    const roleLabels = {
-        admin: 'Administrator',
-        manager: 'Fleet Manager',
-        viewer: 'Fleet Viewer',
     };
 
     return (
@@ -202,7 +176,7 @@ function LoginForm() {
                             Sign in to your account
                         </h2>
                         <p className="text-zinc-400 text-[13px] font-medium">
-                            Select your access role and credentials to proceed.
+                            Enter your credentials to access the operational dashboard.
                         </p>
                     </div>
 
@@ -213,59 +187,6 @@ function LoginForm() {
                             <span>{successMessage}</span>
                         </div>
                     )}
-
-                    {/* Access Role Selection Cards */}
-                    <div className="space-y-2">
-                        <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
-                            SELECT ACCESS ROLE
-                        </label>
-                        <div className="grid grid-cols-3 gap-3">
-                            {/* Admin Role */}
-                            <button
-                                type="button"
-                                onClick={() => handleRoleSelect('admin')}
-                                className={cn(
-                                    "flex flex-col items-center justify-center py-3.5 px-3 rounded-xl border text-center transition-all duration-200 gap-2 cursor-pointer shadow-xs",
-                                    activeRole === 'admin'
-                                        ? "border-[#f26522] bg-[#fff8f5] text-zinc-950 ring-1 ring-[#f26522]"
-                                        : "border-zinc-200 bg-[#f8f9fa] hover:bg-zinc-100/80 text-zinc-500"
-                                )}
-                            >
-                                <Shield className={cn("h-5 w-5", activeRole === 'admin' ? "text-[#f26522]" : "text-zinc-400")} />
-                                <span className="text-[13px] font-bold">Admin</span>
-                            </button>
-
-                            {/* Manager Role */}
-                            <button
-                                type="button"
-                                onClick={() => handleRoleSelect('manager')}
-                                className={cn(
-                                    "flex flex-col items-center justify-center py-3.5 px-3 rounded-xl border text-center transition-all duration-200 gap-2 cursor-pointer shadow-xs",
-                                    activeRole === 'manager'
-                                        ? "border-[#f26522] bg-[#fff8f5] text-zinc-950 ring-1 ring-[#f26522]"
-                                        : "border-zinc-200 bg-[#f8f9fa] hover:bg-zinc-100/80 text-zinc-500"
-                                )}
-                            >
-                                <Settings className={cn("h-5 w-5", activeRole === 'manager' ? "text-[#f26522]" : "text-zinc-400")} />
-                                <span className="text-[13px] font-bold">Manager</span>
-                            </button>
-
-                            {/* Viewer Role */}
-                            <button
-                                type="button"
-                                onClick={() => handleRoleSelect('viewer')}
-                                className={cn(
-                                    "flex flex-col items-center justify-center py-3.5 px-3 rounded-xl border text-center transition-all duration-200 gap-2 cursor-pointer shadow-xs",
-                                    activeRole === 'viewer'
-                                        ? "border-[#f26522] bg-[#fff8f5] text-zinc-950 ring-1 ring-[#f26522]"
-                                        : "border-zinc-200 bg-[#f8f9fa] hover:bg-zinc-100/80 text-zinc-500"
-                                )}
-                            >
-                                <Eye className={cn("h-5 w-5", activeRole === 'viewer' ? "text-[#f26522]" : "text-zinc-400")} />
-                                <span className="text-[13px] font-bold">Viewer</span>
-                            </button>
-                        </div>
-                    </div>
 
                     {/* Login Credentials Form */}
                     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -370,117 +291,110 @@ function LoginForm() {
                                     Signing in...
                                 </>
                             ) : (
-                                `Sign in as ${roleLabels[activeRole]} →`
+                                'Sign In →'
                             )}
                         </Button>
                     </form>
                 </div>
             </div>
 
-            {/* ========================================================================= */}
-            {/* FORGOT PASSWORD MODAL */}
-            {/* ========================================================================= */}
+            {/* Forgot Password Popup Modal */}
             {isForgotOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-200">
-                    <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
-                        <div className="bg-gradient-to-r from-[#f26522] to-[#d45316] px-6 py-4 text-white flex items-center justify-between">
-                            <div className="flex items-center gap-2.5">
-                                <div className="p-2 bg-white/10 rounded-lg">
-                                    <KeyRound className="h-5 w-5 text-white" />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-lg text-white leading-tight">Reset Password</h3>
-                                    <p className="text-xs text-white/80">Dispatched from noreply@mastersystems.com.pg</p>
-                                </div>
+                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 relative">
+                        <button
+                            onClick={() => setIsForgotOpen(false)}
+                            className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-600 p-1 transition-colors"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
+
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-full bg-orange-100 text-[#f26522]">
+                                <KeyRound className="h-6 w-6" />
                             </div>
-                            <button
-                                onClick={() => setIsForgotOpen(false)}
-                                className="text-white/80 hover:text-white p-1 rounded-md hover:bg-white/10 transition-colors"
-                            >
-                                <X className="h-5 w-5" />
-                            </button>
+                            <div>
+                                <h3 className="text-lg font-bold text-zinc-900">Reset your password</h3>
+                                <p className="text-xs text-zinc-500">We'll send a password recovery link to your inbox.</p>
+                            </div>
                         </div>
 
-                        <form onSubmit={handleForgotPasswordSubmit} className="p-6 space-y-4">
-                            {forgotSuccess ? (
-                                <div className="space-y-4 py-2">
-                                    <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-medium space-y-2">
-                                        <div className="flex items-center gap-2 font-bold text-sm text-emerald-800">
-                                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                                            Reset Email Dispatched!
-                                        </div>
-                                        <p className="leading-relaxed">{forgotSuccess}</p>
+                        {forgotSuccess && (
+                            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                                <span>{forgotSuccess}</span>
+                            </div>
+                        )}
+
+                        {forgotError && (
+                            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
+                                {forgotError}
+                            </div>
+                        )}
+
+                        {!forgotSuccess && (
+                            <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-zinc-700 block">Your Account Email</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400">
+                                            <Mail className="h-4 w-4" />
+                                        </span>
+                                        <input
+                                            type="email"
+                                            required
+                                            value={forgotEmail}
+                                            onChange={(e) => setForgotEmail(e.target.value)}
+                                            placeholder="Enter your registered email"
+                                            className="w-full rounded-lg border border-zinc-200 bg-white pl-11 pr-4 py-2.5 text-xs text-zinc-950 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] h-11 shadow-xs"
+                                        />
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsForgotOpen(false)}
-                                        className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                                    >
-                                        Back to Sign In
-                                    </button>
                                 </div>
-                            ) : (
-                                <>
-                                    <p className="text-xs text-slate-600 leading-relaxed">
-                                        Enter your registered email address below. We will send you a secure password reset link to create a new password.
-                                    </p>
 
-                                    {forgotError && (
-                                        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
-                                            {forgotError}
-                                        </div>
-                                    )}
+                                <div className="flex justify-end gap-2.5 pt-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setIsForgotOpen(false)}
+                                        className="h-10 px-4 text-xs font-semibold"
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        type="submit"
+                                        size="sm"
+                                        disabled={forgotLoading}
+                                        className="h-10 px-4 bg-[#f26522] hover:bg-[#d94f12] text-white text-xs font-bold flex items-center gap-2"
+                                    >
+                                        {forgotLoading ? (
+                                            <>
+                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                Sending Link...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Send className="h-3.5 w-3.5" />
+                                                Dispatch Reset Link
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                            </form>
+                        )}
 
-                                    <div className="space-y-1.5">
-                                        <label className="text-xs font-bold text-slate-700 block">
-                                            Registered Email Address
-                                        </label>
-                                        <div className="relative">
-                                            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                            <input
-                                                type="email"
-                                                required
-                                                placeholder="e.g. admin@fuelmaster.com"
-                                                value={forgotEmail}
-                                                onChange={(e) => setForgotEmail(e.target.value)}
-                                                className="w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#f26522]/30 focus:border-[#f26522] h-11"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-[11px] text-slate-600">
-                                        Email will be sent from <strong className="text-slate-900">noreply@mastersystems.com.pg</strong>
-                                    </div>
-
-                                    <div className="pt-2 flex items-center justify-end gap-2.5">
-                                        <button
-                                            type="button"
-                                            onClick={() => setIsForgotOpen(false)}
-                                            className="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            disabled={forgotLoading}
-                                            className="px-5 py-2 text-xs font-bold text-white bg-[#f26522] hover:bg-[#d94f12] rounded-lg transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                                        >
-                                            {forgotLoading ? (
-                                                <>
-                                                    <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
-                                                    Sending Email...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Send className="h-3.5 w-3.5" />
-                                                    Send Reset Link
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
-                                </>
-                            )}
-                        </form>
+                        {forgotSuccess && (
+                            <div className="pt-2 flex justify-end">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={() => setIsForgotOpen(false)}
+                                    className="bg-zinc-900 text-white text-xs font-semibold"
+                                >
+                                    Close
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -492,7 +406,7 @@ export default function LoginPage() {
     return (
         <Suspense
             fallback={
-                <div className="min-h-screen bg-[#070b14] flex items-center justify-center">
+                <div className="min-h-screen flex items-center justify-center bg-white">
                     <Loader2 className="h-8 w-8 animate-spin text-[#f26522]" />
                 </div>
             }
