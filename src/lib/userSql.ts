@@ -324,8 +324,8 @@ export async function deleteUserFromDb(id: string): Promise<boolean> {
   const p = await getUserSqlPool();
   const res = await p.request()
     .input('id', sql.VarChar(100), id)
-    .query('DELETE FROM users WHERE id = @id');
-  return (res.rowsAffected[0] || 0) > 0;
+    .query('DELETE FROM users WHERE id = @id OR email = @id');
+  return Boolean(res.rowsAffected && res.rowsAffected.reduce((a, b) => a + b, 0) > 0);
 }
 
 // ----------------------------------------------------------------------

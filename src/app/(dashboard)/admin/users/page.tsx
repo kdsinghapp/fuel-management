@@ -20,6 +20,8 @@ import {
     X,
     Building2,
     Loader2,
+    UserX,
+    UserCheck,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,6 +54,10 @@ function UsersContent() {
 
     // Action button state for password reset
     const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+
+    // Delete user modal state
+    const [userToDelete, setUserToDelete] = useState<User | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -155,6 +161,25 @@ function UsersContent() {
             loadData();
         } catch {
             showToast('error', 'Failed to update user status.');
+        }
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!userToDelete) return;
+        setDeleting(true);
+        try {
+            const success = await userService.deleteUser(userToDelete.id);
+            if (success) {
+                showToast('success', `User "${userToDelete.name}" permanently deleted.`);
+                setUserToDelete(null);
+                loadData();
+            } else {
+                showToast('error', 'Failed to delete user from database.');
+            }
+        } catch (err: any) {
+            showToast('error', 'Error deleting user', err?.message);
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -438,10 +463,19 @@ function UsersContent() {
                                                                 className="text-slate-400 hover:text-slate-700 transition-colors p-1 rounded hover:bg-slate-100 cursor-pointer"
                                                             >
                                                                 {user.status === 'Active' ? (
-                                                                    <Trash2 className="h-4 w-4 text-slate-400 hover:text-red-500" />
+                                                                    <UserX className="h-4 w-4 text-amber-500 hover:text-amber-600" />
                                                                 ) : (
-                                                                    <RefreshCw className="h-4 w-4 text-slate-400 hover:text-green-600" />
+                                                                    <UserCheck className="h-4 w-4 text-emerald-500 hover:text-emerald-600" />
                                                                 )}
+                                                            </button>
+
+                                                            {/* Delete User (Permanent Azure SQL deletion) */}
+                                                            <button
+                                                                title="Permanently Delete User"
+                                                                onClick={() => setUserToDelete(user)}
+                                                                className="text-slate-400 hover:text-red-600 transition-colors p-1 rounded hover:bg-red-50 cursor-pointer"
+                                                            >
+                                                                <Trash2 className="h-4 w-4 text-slate-400 hover:text-red-600" />
                                                             </button>
                                                         </>
                                                     )}
@@ -485,6 +519,57 @@ function UsersContent() {
                     )}
                 </CardContent>
             </Card>
+
+            {/* Delete Confirmation Modal */}
+            {userToDelete && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-full bg-red-100 text-red-600 shrink-0">
+                                <Trash2 className="h-5 w-5 text-red-600" />
+                            </div>
+                            <div>
+                                <h3 className="text-base font-bold text-slate-900">Delete User Account</h3>
+                                <p className="text-xs text-slate-500">This action is permanent and cannot be undone.</p>
+                            </div>
+                        </div>
+
+                        <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200">
+                            Are you sure you want to permanently delete <strong className="text-slate-900">{userToDelete.name}</strong> (<span className="font-mono text-slate-700">{userToDelete.email}</span>)?
+                        </p>
+
+                        <div className="flex justify-end gap-2.5 pt-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setUserToDelete(null)}
+                                disabled={deleting}
+                                className="h-9 px-4 text-xs font-semibold cursor-pointer"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                size="sm"
+                                onClick={handleConfirmDelete}
+                                disabled={deleting}
+                                className="h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                            >
+                                {deleting ? (
+                                    <>
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        Deleting...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                        Confirm Delete
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </PageContainer>
     );
 }
