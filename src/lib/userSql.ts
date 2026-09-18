@@ -26,7 +26,7 @@ function getSqlConfig(): sql.config {
     database,
     port,
     options: {
-      encrypt: true, // required for Azure SQL
+      encrypt: true,
       trustServerCertificate: false,
     },
     pool: {
@@ -65,16 +65,7 @@ async function initializeUserTables(p: sql.ConnectionPool) {
       console.log('🌱 Seeding initial users into Azure SQL users table...');
       const now = new Date().toISOString();
       const initialUsers = [
-        { id: '1', name: 'Admin User', email: 'admin@example.com', role: 'Administrator', status: 'Active', password: 'admin123', last_login: '2026-08-12 08:30:00', assigned_clients: '[]' },
-        { id: '2', name: 'Manager User', email: 'manager@example.com', role: 'Manager', status: 'Active', password: 'manager123', last_login: '2026-08-12 07:45:00', assigned_clients: '[]' },
-        { id: '3', name: 'Viewer User', email: 'viewer@example.com', role: 'Viewer', status: 'Active', password: 'viewer123', assigned_clients: JSON.stringify(['St Johns Pom', 'Digicel POM']), last_login: '2026-08-11 16:20:00' },
-        { id: '4', name: 'John Smith', email: 'john.smith@example.com', role: 'Manager', status: 'Active', password: 'Password123!', last_login: '2026-08-12 09:15:00', assigned_clients: '[]' },
-        { id: '5', name: 'Sarah Johnson', email: 'sarah.johnson@example.com', role: 'Viewer', status: 'Active', password: 'Password123!', assigned_clients: JSON.stringify(['Paradise Foods HQ', 'Paradise Foods Hanta']), last_login: '2026-08-11 14:30:00' },
-        { id: '6', name: 'Mike Wilson', email: 'mike.wilson@example.com', role: 'Manager', status: 'Inactive', password: 'Password123!', last_login: '2026-07-20 10:00:00', assigned_clients: '[]' },
-        { id: '7', name: 'Emily Brown', email: 'emily.brown@example.com', role: 'Viewer', status: 'Active', password: 'Password123!', assigned_clients: JSON.stringify(['Laga Industries Taraka', 'Laga Industries Gabaka']), last_login: '2026-08-10 11:45:00' },
-        { id: '8', name: 'David Lee', email: 'david.lee@example.com', role: 'Administrator', status: 'Active', password: 'Password123!', last_login: '2026-08-12 06:30:00', assigned_clients: '[]' },
-        { id: '9', name: 'Lisa Chen', email: 'lisa.chen@example.com', role: 'Manager', status: 'Active', password: 'Password123!', last_login: '2026-08-11 13:15:00', assigned_clients: '[]' },
-        { id: '10', name: 'Robert Taylor', email: 'robert.taylor@example.com', role: 'Viewer', status: 'Active', password: 'Password123!', assigned_clients: JSON.stringify(['TWL Lae', 'TWL Hagen']), last_login: '2026-08-10 15:30:00' },
+        { id: '1', name: 'Admin User', email: 'admin@example.com', role: 'Administrator', status: 'Active', password: 'admin123', last_login: '2026-08-12 08:30:00', assigned_clients: '[]' }
       ];
 
       for (const u of initialUsers) {
