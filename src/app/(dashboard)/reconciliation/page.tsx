@@ -154,11 +154,16 @@ export default function ReconciliationPage() {
     const summaryData = (() => {
         if (records.length === 0) return null;
         const totalDeliveries = records.reduce((sum, r) => sum + r.deliveries, 0);
-        const totalIssues = records.reduce((sum, r) => sum + r.fuelIssues, 0);
+        const totalMainIssues = records.reduce((sum, r) => sum + r.fuelIssues, 0);
+        const totalExtraIssues = records.reduce((sum, r) => {
+            if (!r.extraIssues) return sum;
+            return sum + Object.values(r.extraIssues).reduce((s, v) => s + (Number(v) || 0), 0);
+        }, 0);
+        const totalIssues = Number((totalMainIssues + totalExtraIssues).toFixed(2));
         const sorted = [...records].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         const openingDip = sorted[0]?.openingBalance || 0;
         const closingDip = sorted[sorted.length - 1]?.actualClosing || 0;
-        const closingStock = openingDip + totalDeliveries - totalIssues;
+        const closingStock = Number((openingDip + totalDeliveries - totalIssues).toFixed(2));
         const variance = closingDip - closingStock;
         const variancePercent = closingStock > 0 ? (variance / closingStock) * 100 : 0;
         const avDailyCons = records.length > 0 ? totalIssues / records.length : 0;
@@ -175,7 +180,7 @@ export default function ReconciliationPage() {
             const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
             return `${date.getDate()}-${months[date.getMonth()]}-${date.getFullYear().toString().slice(-2)}`;
         };
-        return { openingDip, totalIssues, totalDeliveries, closingDip, closingStock, variance, variancePercent, avDailyCons, daysStock, minStock, reorderDays, reorderDate: formatDateStr(reorderDate), arrivalDate: formatDateStr(arrivalDate) };
+        return { openingDip, totalIssues, totalMainIssues, totalDeliveries, closingDip, closingStock, variance, variancePercent, avDailyCons, daysStock, minStock, reorderDays, reorderDate: formatDateStr(reorderDate), arrivalDate: formatDateStr(arrivalDate) };
     })();
 
     const filteredRecords = records.filter(record => selectedStatus ? record.status === selectedStatus : true);

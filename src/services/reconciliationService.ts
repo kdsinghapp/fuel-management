@@ -136,6 +136,10 @@ export const reconciliationService = {
           dayExtraIssues[col.id] = colTotal;
         }
 
+        const totalExtraDayIssues = Number(
+          Object.values(dayExtraIssues).reduce((sum, v) => sum + (Number(v) || 0), 0).toFixed(2)
+        );
+
         let openingBalance = 0;
         let actualClosing = 0;
 
@@ -157,14 +161,15 @@ export const reconciliationService = {
               openingBalance = allLevelsSorted.length > 0 ? allLevelsSorted[0].fuelLevel : 0;
             }
           }
-          // When no sensor dip reading was taken, actual closing equals opening + deliveries - fuelIssues
-          actualClosing = Number((openingBalance + totalDeliveries - totalIssues).toFixed(2));
+          // When no sensor dip reading was taken, actual closing equals opening + deliveries - fuelIssues - extraIssues
+          actualClosing = Number((openingBalance + totalDeliveries - totalIssues - totalExtraDayIssues).toFixed(2));
         }
 
         const recon = calculateReconciliation({
           openingBalance,
           deliveries: totalDeliveries,
           fuelIssues: totalIssues,
+          extraIssuesTotal: totalExtraDayIssues,
           actualClosing,
         });
 

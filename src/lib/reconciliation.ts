@@ -5,12 +5,13 @@ interface ReconciliationInput {
   openingBalance: number;
   deliveries: number;
   fuelIssues: number;
+  extraIssuesTotal?: number;
   actualClosing: number;
 }
 
 export function calculateReconciliation(input: ReconciliationInput): Omit<ReconciliationSummary, 'openingBalance' | 'deliveries' | 'fuelIssues' | 'actualClosing'> {
-  const { openingBalance, deliveries, fuelIssues, actualClosing } = input;
-  const expectedClosing = openingBalance + deliveries - fuelIssues;
+  const { openingBalance, deliveries, fuelIssues, extraIssuesTotal = 0, actualClosing } = input;
+  const expectedClosing = openingBalance + deliveries - fuelIssues - extraIssuesTotal;
   const variance = actualClosing - expectedClosing;
   const absVariance = Math.abs(variance);
 
