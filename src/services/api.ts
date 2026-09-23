@@ -29,6 +29,77 @@ export const CLIENTS: ClientConfig[] = [
   { name: 'Peuna - NFS Bowser', clientid: '1963', userid: 2094, divisionid: 788, minStock: 1500 }
 ];
 
+export interface ExtraColumnConfig {
+  id: string;
+  header: string;
+  clientid: string;
+  divisionid: number;
+  userid: number;
+  siteName?: string;
+}
+
+export const CLIENT_EXTRA_RECON_COLUMNS: Record<string, ExtraColumnConfig[]> = {
+  // Laga Industries Gabaka
+  '1967': [
+    {
+      id: 'genset_issue',
+      header: 'Genset Issue',
+      clientid: '2049',
+      divisionid: 795,
+      userid: 2094,
+      siteName: 'Laga POM Genset'
+    }
+  ],
+  'Laga Industries Gabaka': [
+    {
+      id: 'genset_issue',
+      header: 'Genset Issue',
+      clientid: '2049',
+      divisionid: 795,
+      userid: 2094,
+      siteName: 'Laga POM Genset'
+    }
+  ],
+  // Paradise Foods HQ
+  '2004': [
+    {
+      id: 'pfl_main_genset_t10',
+      header: 'PFL Pom Main Genset & T10 Tank',
+      clientid: '2046',
+      divisionid: 730,
+      userid: 2094,
+      siteName: 'PFL POM Main Genset & T10 Tank'
+    },
+    {
+      id: 'pfl_choc_factory_t5',
+      header: 'PFL Pom Choc Factory T5 Tank + Gen',
+      clientid: '2047',
+      divisionid: 730,
+      userid: 2094,
+      siteName: 'PFL POM Chocolate Genset & T5 Tank'
+    }
+  ],
+  'Paradise Foods HQ': [
+    {
+      id: 'pfl_main_genset_t10',
+      header: 'PFL Pom Main Genset & T10 Tank',
+      clientid: '2046',
+      divisionid: 730,
+      userid: 2094,
+      siteName: 'PFL POM Main Genset & T10 Tank'
+    },
+    {
+      id: 'pfl_choc_factory_t5',
+      header: 'PFL Pom Choc Factory T5 Tank + Gen',
+      clientid: '2047',
+      divisionid: 730,
+      userid: 2094,
+      siteName: 'PFL POM Chocolate Genset & T5 Tank'
+    }
+  ]
+};
+
+
 interface ClientStore {
   selectedClient: ClientConfig;
   isClientLoading: boolean;

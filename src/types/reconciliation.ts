@@ -6,6 +6,7 @@ export interface Reconciliation extends BaseEntity {
   openingBalance: number;
   deliveries: number;
   fuelIssues: number;
+  extraIssues?: Record<string, number>;
   expectedClosing: number;
   actualClosing: number;
   variance: number;

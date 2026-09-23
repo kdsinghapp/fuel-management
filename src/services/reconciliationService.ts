@@ -5,10 +5,14 @@ import { fuelLevelService } from './fuelLevelService';
 import { deliveryService } from './deliveryService';
 import { fuelIssueService } from './fuelIssueService';
 import { calculateReconciliation } from '@/lib/reconciliation';
+import { useClientStore, CLIENT_EXTRA_RECON_COLUMNS } from './api';
 
 export const reconciliationService = {
   async getReconciliationRecords(params: FilterParams = {}): Promise<PaginatedResponse<Reconciliation>> {
     try {
+      const selectedClient = useClientStore.getState().selectedClient;
+      const extraCols = CLIENT_EXTRA_RECON_COLUMNS[selectedClient?.clientid] || CLIENT_EXTRA_RECON_COLUMNS[selectedClient?.name] || [];
+
       // Fetch data from endpoints with a buffer before startDate so previous day opening balance is always available
       const rawStart = (() => {
         if (params.startDate) {
@@ -21,15 +25,32 @@ export const reconciliationService = {
         return '2026-01-01';
       })();
 
-      const [levelsRes, deliveriesRes, issuesRes] = await Promise.all([
+      const extraIssuesPromises = extraCols.map(col =>
+        fuelIssueService.getFuelIssues({
+          pageSize: 100000,
+          startDate: rawStart,
+          endDate: params.endDate,
+          clientid: col.clientid,
+          divisionid: col.divisionid,
+          userid: col.userid
+        })
+      );
+
+      const [levelsRes, deliveriesRes, issuesRes, ...extraIssuesRes] = await Promise.all([
         fuelLevelService.getFuelLevels({ pageSize: 100000, startDate: rawStart, endDate: params.endDate }),
         deliveryService.getDeliveries({ pageSize: 100000, startDate: rawStart, endDate: params.endDate }),
         fuelIssueService.getFuelIssues({ pageSize: 100000, startDate: rawStart, endDate: params.endDate }),
+        ...extraIssuesPromises
       ]);
 
       const levels = levelsRes.data;
       const deliveries = deliveriesRes.data;
       const issues = issuesRes.data;
+
+      const extraIssuesMap: Record<string, any[]> = {};
+      extraCols.forEach((col, idx) => {
+        extraIssuesMap[col.id] = extraIssuesRes[idx]?.data || [];
+      });
 
       if (levels.length === 0) {
         return { data: [], total: 0, page: 1, pageSize: 10, totalPages: 0 };
@@ -102,6 +123,19 @@ export const reconciliationService = {
           (Math.abs(totalIssuesRaw - totalIssuesRounded) < 0.15 ? totalIssuesRounded : totalIssuesRaw).toFixed(2)
         );
 
+        // Sum fuel issues for any extra columns for the current day
+        const dayExtraIssues: Record<string, number> = {};
+        for (const col of extraCols) {
+          const colIssues = extraIssuesMap[col.id] || [];
+          const dayColIssues = colIssues.filter(issue => (issue.date ? issue.date.split('T')[0] : '') === currentDateStr);
+          const colTotalRaw = dayColIssues.reduce((sum, issue) => sum + (Number(issue.fuelQuantity) || 0), 0);
+          const colTotalRounded = dayColIssues.reduce((sum, issue) => sum + Math.round((Number(issue.fuelQuantity) || 0) * 10) / 10, 0);
+          const colTotal = Number(
+            (Math.abs(colTotalRaw - colTotalRounded) < 0.15 ? colTotalRounded : colTotalRaw).toFixed(2)
+          );
+          dayExtraIssues[col.id] = colTotal;
+        }
+
         let openingBalance = 0;
         let actualClosing = 0;
 
@@ -142,6 +176,7 @@ export const reconciliationService = {
           openingBalance: Number(openingBalance.toFixed(2)),
           deliveries: totalDeliveries,
           fuelIssues: totalIssues,
+          extraIssues: dayExtraIssues,
           expectedClosing: Number(recon.expectedClosing.toFixed(2)),
           actualClosing: Number(actualClosing.toFixed(2)),
           variance: Number(recon.variance.toFixed(2)),

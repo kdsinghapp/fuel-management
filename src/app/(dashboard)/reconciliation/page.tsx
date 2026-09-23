@@ -12,7 +12,7 @@ import { reconciliationService } from '@/services/reconciliationService';
 import { authService } from '@/lib/auth';
 import { formatFuel, formatNumber, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils';
 import { Reconciliation } from '@/types/reconciliation';
-import { useClientStore, CLIENTS } from '@/services/api';
+import { useClientStore, CLIENTS, CLIENT_EXTRA_RECON_COLUMNS } from '@/services/api';
 import { CustomTable } from '@/components/ui/table';
 import { DateRangePicker, DateRange, getDateRangeFromPreset } from '@/components/common/DateRangePicker';
 
@@ -39,6 +39,8 @@ export default function ReconciliationPage() {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    const extraCols = CLIENT_EXTRA_RECON_COLUMNS[selectedClient?.clientid] || CLIENT_EXTRA_RECON_COLUMNS[selectedClient?.name] || [];
 
     const columns = [
         {
@@ -68,6 +70,13 @@ export default function ReconciliationPage() {
             cellClassName: "py-2 px-3 text-red-600 align-middle",
             render: (record: Reconciliation) => `-${formatFuel(record.fuelIssues)}`,
         },
+        ...extraCols.map((col) => ({
+            key: `extra_${col.id}`,
+            header: col.header,
+            headerClassName: "bg-[#137e19] text-white",
+            cellClassName: "py-2 px-3 text-red-600 align-middle",
+            render: (record: Reconciliation) => `-${formatFuel(record.extraIssues?.[col.id] || 0)}`,
+        })),
         {
             key: "expectedClosing",
             header: "Expected Closing",
@@ -179,14 +188,26 @@ export default function ReconciliationPage() {
         setIsExporting(format);
         try {
             const dateLabel = dateRange.preset || 'custom';
-            const headers = ['Date', 'Opening Balance (L)', 'Deliveries (+L)', 'Fuel Issues (-L)', 'Expected Closing (L)', 'Actual Closing (L)', 'Variance (L)', 'Variance %'];
+            const headers = [
+                'Date',
+                'Opening Balance (L)',
+                'Deliveries (+L)',
+                'Fuel Issues (-L)',
+                ...extraCols.map(c => `${c.header} (-L)`),
+                'Expected Closing (L)',
+                'Actual Closing (L)',
+                'Variance (L)',
+                'Variance %'
+            ];
             const rows = records.map(record => {
                 const vPercent = record.expectedClosing > 0 ? (record.variance / record.expectedClosing) * 100 : 0;
+                const extraValues = extraCols.map(c => `-${(record.extraIssues?.[c.id] || 0)}`);
                 return [
                     record.date,
                     record.openingBalance,
                     `+${record.deliveries}`,
                     `-${record.fuelIssues}`,
+                    ...extraValues,
                     record.expectedClosing,
                     record.actualClosing,
                     `${record.variance >= 0 ? '+' : ''}${record.variance}`,
@@ -194,11 +215,16 @@ export default function ReconciliationPage() {
                 ];
             });
             if (summaryData) {
+                const extraSummaryTotals = extraCols.map(c => {
+                    const totalExtra = records.reduce((sum, r) => sum + (r.extraIssues?.[c.id] || 0), 0);
+                    return `-${totalExtra.toFixed(2)}`;
+                });
                 rows.push([
                     'TOTALS / NET',
                     '',
                     `+${summaryData.totalDeliveries}`,
                     `-${summaryData.totalIssues}`,
+                    ...extraSummaryTotals,
                     '',
                     '',
                     `${summaryData.variance >= 0 ? '+' : ''}${summaryData.variance.toFixed(2)}`,

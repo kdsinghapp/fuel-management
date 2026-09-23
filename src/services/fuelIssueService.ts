@@ -2,9 +2,18 @@ import { FuelIssue } from '@/types/fuel';
 import { FilterParams, PaginatedResponse } from '@/types/common';
 import { useClientStore, fmaApiRequest } from './api';
 
+export interface FuelIssueFilterParams extends FilterParams {
+  clientid?: string;
+  userid?: number;
+  divisionid?: number;
+}
+
 export const fuelIssueService = {
-  async getFuelIssues(params: FilterParams = {}): Promise<PaginatedResponse<any>> {
+  async getFuelIssues(params: FuelIssueFilterParams = {}): Promise<PaginatedResponse<any>> {
     const client = useClientStore.getState().selectedClient;
+    const clientid = params.clientid || client.clientid;
+    const userid = params.userid ?? client.userid;
+    const divisionid = params.divisionid ?? client.divisionid;
     
     const apiDateFrom = (() => {
       if (params.startDate) {
@@ -33,9 +42,9 @@ export const fuelIssueService = {
     })();
 
     const payload = {
-      clientid: client.clientid, // Must be string
-      userid: Number(client.userid),
-      divisionid: Number(client.divisionid),
+      clientid: clientid.toString(), // Must be string
+      userid: Number(userid),
+      divisionid: Number(divisionid),
       datefrom: apiDateFrom,
       dateto: apiDateTo
     };
