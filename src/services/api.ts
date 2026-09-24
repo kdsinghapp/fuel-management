@@ -26,7 +26,10 @@ export const CLIENTS: ClientConfig[] = [
   { name: 'Golden Valley Enterprises', clientid: '2005', userid: 2094, divisionid: 789, minStock: 1000 },
   { name: 'IPI Lae Bowser', clientid: '2035', userid: 2094, divisionid: 792, minStock: 5000 },
   { name: 'IPI Hagen Bowser', clientid: '2036', userid: 2094, divisionid: 793, minStock: 5000 },
-  { name: 'Peuna - NFS Bowser', clientid: '1963', userid: 2094, divisionid: 788, minStock: 1500 }
+  { name: 'Peuna - NFS Bowser', clientid: '1963', userid: 2094, divisionid: 788, minStock: 1500 },
+  {name: 'PFL Lae Genset & Tank 01', clientid: '2043', userid: 2094, divisionid: 730, minStock: 5000},
+  {name: 'PFL Lae Genset & Tank 02', clientid: '2044', userid: 2094, divisionid: 730, minStock: 5000},
+  {name: 'PFL Lae Beverage Genset & Tank 03', clientid: '2045', userid: 2094, divisionid: 730, minStock: 5000}
 ];
 
 export interface ExtraColumnConfig {
