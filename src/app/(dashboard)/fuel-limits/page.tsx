@@ -293,10 +293,20 @@ export default function FuelLimitsPage() {
                             <div className="flex flex-wrap items-end gap-2.5 shrink-0">
                                 {/* Vehicle Reg Sum Summary Field */}
                                 <div className="flex flex-col gap-1 shrink-0">
-                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Vehicle Reg Sum</label>
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Vehicle Reg</label>
                                     <div className="flex items-center px-3 border border-slate-200 bg-white rounded h-8 shadow-xs">
                                         <span className="text-xs font-bold text-[#138024] whitespace-nowrap">
                                             {filteredData.length} Vehicles
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Total Fuel Issued KPI Card */}
+                                <div className="flex flex-col gap-1 shrink-0">
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Total Fuel Issued</label>
+                                    <div className="flex items-center px-3 border border-slate-200 bg-white rounded h-8 shadow-xs">
+                                        <span className="text-xs font-bold text-[#138024] whitespace-nowrap">
+                                            {formatNumber(totalFuelUsed, 1)} L
                                         </span>
                                     </div>
                                 </div>
