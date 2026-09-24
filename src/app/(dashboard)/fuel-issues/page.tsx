@@ -11,7 +11,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { fuelIssueService } from '@/services/fuelIssueService';
 import { vehicleService } from '@/services/vehicleService';
 import { authService } from '@/lib/auth';
-import { formatFuel, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils';
+import { formatFuel, formatNumber, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils';
 import { useClientStore } from '@/services/api';
 import { DateRangePicker, DateRange, getDateRangeFromPreset } from '@/components/common/DateRangePicker';
 
@@ -30,6 +30,7 @@ export default function FuelIssuesPage() {
 
     const [vehicles, setVehicles] = useState<string[]>([]);
     const [total, setTotal] = useState(0);
+    const [totalFuelIssued, setTotalFuelIssued] = useState(0);
     const [exportOpen, setExportOpen] = useState(false);
     const [isExporting, setIsExporting] = useState<string | null>(null);
     const exportRef = useRef<HTMLDivElement>(null);
@@ -130,6 +131,20 @@ export default function FuelIssuesPage() {
             setIssues(response.data);
             setTotal(response.total);
             setTotalPages(response.totalPages);
+
+            // Fetch all filtered records to compute total fuel issued across all pages
+            const allFilteredResponse = await fuelIssueService.getFuelIssues({
+                page: 1,
+                pageSize: 100000,
+                search: currentSearch || undefined,
+                vehicleId: currentVehicle || undefined,
+                startDate: currentRange.startDate || undefined,
+                endDate: currentRange.endDate || undefined,
+            });
+            const fuelSum = allFilteredResponse.data.reduce(
+                (sum: number, item: any) => sum + (Number(item.fuelQuantity) || 0), 0
+            );
+            setTotalFuelIssued(fuelSum);
 
             if (allIssues.length === 0 || currentRange.preset === 'all') {
                 const allResponse = await fuelIssueService.getFuelIssues({
@@ -250,6 +265,16 @@ export default function FuelIssuesPage() {
                         <div className="flex flex-wrap items-end justify-between gap-2.5">
                             {/* Left Filters Group - All in 1 line */}
                             <div className="flex flex-wrap items-end gap-2.5 shrink-0">
+                                {/* Total Fuel Issued KPI Card */}
+                                <div className="flex flex-col gap-1 shrink-0">
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Total Fuel Issued</label>
+                                    <div className="flex items-center px-3 border border-slate-200 bg-white rounded h-8 shadow-xs">
+                                        <span className="text-xs font-bold text-[#138024] whitespace-nowrap">
+                                            {formatNumber(totalFuelIssued, 1)} L
+                                        </span>
+                                    </div>
+                                </div>
+
                                 {/* Search Input Group */}
                                 <div className="flex flex-col gap-1 w-[200px] sm:w-[240px] shrink-0">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Search transactions</label>

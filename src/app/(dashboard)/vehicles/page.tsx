@@ -172,6 +172,7 @@ export default function VehiclesPage() {
     });
 
     const totalFuelIssued = filteredData.reduce((sum, item) => sum + (Number(item.fuelQuantity) || 0), 0);
+    const totalDistance = filteredData.reduce((sum, item) => sum + (item.distance != null && item.distance > 0 ? item.distance : 0), 0);
     const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
     const paginatedData = filteredData.slice((page - 1) * pageSize, page * pageSize);
 
@@ -276,6 +277,18 @@ export default function VehiclesPage() {
                                     <div className="flex items-center px-3 border border-slate-200 bg-white rounded h-8 shadow-xs">
                                         <span className="text-xs font-bold text-[#138024] whitespace-nowrap">
                                             {formatNumber(totalFuelIssued, 1)} L
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Total Distance KPI Card */}
+                                <div className="flex flex-col gap-1 shrink-0">
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                                        Total Distance
+                                    </label>
+                                    <div className="flex items-center px-3 border border-slate-200 bg-white rounded h-8 shadow-xs">
+                                        <span className="text-xs font-bold text-[#0070c0] whitespace-nowrap">
+                                            {totalDistance > 0 ? formatNumber(totalDistance, 0) + ' km' : '—'}
                                         </span>
                                     </div>
                                 </div>
