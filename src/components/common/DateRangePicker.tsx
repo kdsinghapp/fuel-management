@@ -4,7 +4,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Calendar, Check, ChevronDown } from 'lucide-react';
 import { FuelLevel } from '@/types/fuel';
 
-export type DateRangePreset = 
+import { getPGTTimeInfo } from '@/lib/pgtTime';
+
+export type DateRangePreset =
   | 'all'
   | 'today'
   | 'yesterday'
@@ -39,8 +41,14 @@ export function getDateRangeFromPreset(preset: DateRangePreset, customStart?: st
     return `${yyyy}-${mm}-${dd}`;
   };
 
-  const today = new Date();
-  const todayStr = formatYMD(today);
+  // Base date calculations strictly on Papua New Guinea Time (PGT, UTC+10)
+  const pgtInfo = getPGTTimeInfo();
+  const today = new Date(
+    pgtInfo.pgtDateObject.getFullYear(),
+    pgtInfo.pgtDateObject.getMonth(),
+    pgtInfo.pgtDateObject.getDate()
+  );
+  const todayStr = pgtInfo.dateStr;
 
   switch (preset) {
     case 'all':
@@ -82,10 +90,14 @@ export function getDateRangeFromPreset(preset: DateRangePreset, customStart?: st
     }
     case 'monthToDate': {
       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-      const yesterday = new Date(today);
-      yesterday.setDate(today.getDate() - 1);
-      const endDay = yesterday < firstDay ? firstDay : yesterday;
-      return { preset: 'monthToDate', startDate: formatYMD(firstDay), endDate: formatYMD(endDay), label: 'Month to Date' };
+      const endDay = new Date(today);
+
+      return {
+        preset: 'monthToDate',
+        startDate: formatYMD(firstDay),
+        endDate: formatYMD(endDay),
+        label: 'Month to Date',
+      };
     }
     case 'lastMonth': {
       const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
@@ -202,9 +214,8 @@ export function DateRangePicker({ value, onChange, allRecords = [], align = 'lef
                   <button
                     type="button"
                     onClick={() => handleSelectPreset(p.key)}
-                    className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-slate-50 transition-colors ${
-                      isSelected ? 'bg-emerald-50/60 font-semibold text-slate-900' : 'text-slate-700'
-                    }`}
+                    className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-slate-50 transition-colors ${isSelected ? 'bg-emerald-50/60 font-semibold text-slate-900' : 'text-slate-700'
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <span>{p.label}</span>
@@ -215,11 +226,10 @@ export function DateRangePicker({ value, onChange, allRecords = [], align = 'lef
                       {p.hasCalendarIcon && <Calendar className="h-3.5 w-3.5 text-slate-400" />}
                       {count !== null && count !== undefined && (
                         <span
-                          className={`px-1.5 py-0.5 rounded text-[11px] font-medium min-w-[20px] text-center ${
-                            isSelected
+                          className={`px-1.5 py-0.5 rounded text-[11px] font-medium min-w-[20px] text-center ${isSelected
                               ? 'bg-emerald-100 text-emerald-700 font-bold'
                               : 'bg-slate-100 text-slate-500'
-                          }`}
+                            }`}
                         >
                           {count}
                         </span>
