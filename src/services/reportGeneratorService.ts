@@ -2,7 +2,7 @@
 import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { CLIENTS, ClientConfig } from '@/services/api';
+import { CLIENTS, ClientConfig, CLIENT_EXTRA_RECON_COLUMNS, ExtraColumnConfig } from '@/services/api';
 import { DateWindowPreset, ReportType, ReportFormat } from '@/types/schedule';
 import { getPGTTimeInfo } from '@/lib/pgtTime';
 
@@ -182,8 +182,12 @@ async function serverFmaRequest<T>(endpoint: string, body: any): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-// Helper: Fetch raw transactions for a client and date range
-async function fetchClientTransactions(client: ClientConfig, startDate: string, endDate: string) {
+// Helper: Fetch raw transactions for a client config and date range
+async function fetchClientTransactionsByConfig(
+  config: { clientid: string; userid: number; divisionid: number },
+  startDate: string,
+  endDate: string
+) {
   const dFrom = new Date(startDate + 'T00:00:00');
   dFrom.setDate(dFrom.getDate() - 30);
   const apiFrom = dFrom.toISOString().split('T')[0];
@@ -193,9 +197,9 @@ async function fetchClientTransactions(client: ClientConfig, startDate: string, 
   const apiTo = dTo.toISOString().split('T')[0];
 
   const payload = {
-    clientid: client.clientid,
-    userid: Number(client.userid),
-    divisionid: Number(client.divisionid),
+    clientid: config.clientid.toString(),
+    userid: Number(config.userid),
+    divisionid: Number(config.divisionid),
     datefrom: apiFrom,
     dateto: apiTo,
   };
@@ -233,6 +237,15 @@ async function fetchClientTransactions(client: ClientConfig, startDate: string, 
     const itemDate = (item.date || '').split('T')[0];
     return itemDate >= startDate && itemDate <= endDate;
   });
+}
+
+// Helper: Fetch raw transactions for a client and date range
+async function fetchClientTransactions(client: ClientConfig, startDate: string, endDate: string) {
+  return fetchClientTransactionsByConfig(
+    { clientid: client.clientid, userid: client.userid, divisionid: client.divisionid },
+    startDate,
+    endDate
+  );
 }
 
 // Helper: Fetch deliveries for a client
@@ -527,7 +540,8 @@ export function buildReconciliationPdfBuffer(
   endDate: string,
   sData: any,
   reconRecords: any[],
-  yesterdayTransactions: any[]
+  yesterdayTransactions: any[],
+  extraCols: ExtraColumnConfig[] = []
 ): string {
   const doc = new jsPDF({
     orientation: 'landscape',
@@ -683,15 +697,50 @@ export function buildReconciliationPdfBuffer(
   doc.setFont('helvetica', 'bold');
   doc.text(`DAILY RECONCILIATION BREAKDOWN (${reconRecords.length} Records)`, leftMargin, summaryFinalY);
 
+  const reconHeaders = [
+    'Date',
+    'Opening Balance',
+    'Deliveries',
+    'Fuel Issues',
+    ...extraCols.map((c) => c.header),
+    'Expected Closing',
+    'Actual Closing',
+    'Variance',
+    'Variance %',
+  ];
+
+  const expCloseIdx = 4 + extraCols.length;
+  const actCloseIdx = 5 + extraCols.length;
+  const varIdx = 6 + extraCols.length;
+  const varPctIdx = 7 + extraCols.length;
+
+  const pdfColumnStyles: Record<number, any> = {
+    0: { halign: 'left', fontStyle: 'bold', textColor: [30, 41, 59] },
+    1: { halign: 'right' },
+    2: { halign: 'right', textColor: [21, 128, 61], fontStyle: 'bold' },
+    3: { halign: 'right', textColor: [234, 88, 12], fontStyle: 'bold' },
+  };
+
+  extraCols.forEach((col, idx) => {
+    pdfColumnStyles[4 + idx] = { halign: 'right', textColor: [234, 88, 12], fontStyle: 'bold' };
+  });
+
+  pdfColumnStyles[expCloseIdx] = { halign: 'right' };
+  pdfColumnStyles[actCloseIdx] = { halign: 'right', fontStyle: 'bold', textColor: [30, 41, 59] };
+  pdfColumnStyles[varIdx] = { halign: 'right', fontStyle: 'bold' };
+  pdfColumnStyles[varPctIdx] = { halign: 'right', fontStyle: 'bold' };
+
   autoTable(doc, {
-    head: [['Date', 'Opening Balance', 'Deliveries', 'Fuel Issues', 'Expected Closing', 'Actual Closing', 'Variance', 'Variance %']],
+    head: [reconHeaders],
     body: reconRecords.map((r) => {
       const vPercent = r.expectedClosing > 0 ? (r.variance / r.expectedClosing) * 100 : 0;
+      const extraVals = extraCols.map((c) => `-${Number(r.extraIssues?.[c.id] || 0).toLocaleString()} L`);
       return [
         r.date,
         `${Number(r.openingBalance).toLocaleString()} L`,
         `+${Number(r.deliveries).toLocaleString()} L`,
         `-${Number(r.fuelIssues).toLocaleString()} L`,
+        ...extraVals,
         `${Number(r.expectedClosing).toLocaleString()} L`,
         `${Number(r.actualClosing).toLocaleString()} L`,
         `${r.variance >= 0 ? '+' : ''}${Number(r.variance).toLocaleString()} L`,
@@ -705,28 +754,19 @@ export function buildReconciliationPdfBuffer(
     headStyles: {
       fillColor: [15, 23, 42],
       textColor: [255, 255, 255],
-      fontSize: 8.5,
+      fontSize: extraCols.length > 0 ? 7.5 : 8.5,
       fontStyle: 'bold',
       halign: 'right',
-      cellPadding: 5,
+      cellPadding: 4,
     },
     styles: {
-      fontSize: 8,
-      cellPadding: 4,
+      fontSize: extraCols.length > 0 ? 7.5 : 8,
+      cellPadding: 3.5,
       textColor: [51, 65, 85],
       lineColor: [226, 232, 240],
       lineWidth: 0.5,
     },
-    columnStyles: {
-      0: { halign: 'left', fontStyle: 'bold', textColor: [30, 41, 59] },
-      1: { halign: 'right' },
-      2: { halign: 'right', textColor: [21, 128, 61], fontStyle: 'bold' },
-      3: { halign: 'right', textColor: [234, 88, 12], fontStyle: 'bold' },
-      4: { halign: 'right' },
-      5: { halign: 'right', fontStyle: 'bold', textColor: [30, 41, 59] },
-      6: { halign: 'right', fontStyle: 'bold' },
-      7: { halign: 'right', fontStyle: 'bold' },
-    },
+    columnStyles: pdfColumnStyles,
     alternateRowStyles: {
       fillColor: [248, 250, 252],
     },
@@ -735,10 +775,13 @@ export function buildReconciliationPdfBuffer(
         if (data.column.index === 0) data.cell.styles.halign = 'left';
         if (data.column.index === 2) data.cell.styles.fillColor = [21, 128, 61]; // Green Deliveries header
         if (data.column.index === 3) data.cell.styles.fillColor = [234, 88, 12]; // Orange Issues header
+        if (data.column.index >= 4 && data.column.index < 4 + extraCols.length) {
+          data.cell.styles.fillColor = [21, 128, 61]; // Green header for extra columns matching UI
+        }
       }
       if (data.section === 'body') {
         const record = reconRecords[data.row.index];
-        if (record && (data.column.index === 6 || data.column.index === 7)) {
+        if (record && (data.column.index === varIdx || data.column.index === varPctIdx)) {
           data.cell.styles.textColor = record.variance >= 0 ? [21, 128, 61] : [185, 28, 28];
         }
       }
@@ -916,13 +959,28 @@ export async function generateReportData(
 
   let reconSummaryData: any = null;
   let reconFilteredRecords: any[] = [];
+  let reconExtraCols: ExtraColumnConfig[] = [];
   let yesterdayTransactions: any[] = [];
 
   // 1. RECONCILIATION REPORT (Matches reconciliation/page.tsx EXACTLY)
   if (reportType === 'reconciliation') {
     reportTitle = `Reconciliation Report - ${actualClientName}`;
     sheetName = 'Reconciliation';
-    headers = ['Date', 'Opening', 'Deliveries', 'Fuel Issued', 'Expected Closing', 'Actual Closing', 'Daily Variance', 'Variance %'];
+
+    const extraCols = CLIENT_EXTRA_RECON_COLUMNS[targetClient.clientid] || CLIENT_EXTRA_RECON_COLUMNS[targetClient.name] || [];
+    reconExtraCols = extraCols;
+
+    headers = [
+      'Date',
+      'Opening Balance',
+      'Deliveries',
+      'Fuel Issues',
+      ...extraCols.map((c) => `${c.header} (-L)`),
+      'Expected Closing',
+      'Actual Closing',
+      'Variance',
+      'Variance %',
+    ];
 
     const rawStart = (() => {
       const d = new Date(startDate + 'T00:00:00');
@@ -930,11 +988,25 @@ export async function generateReportData(
       return d.toISOString().split('T')[0];
     })();
 
-    const [levels, deliveries, issues] = await Promise.all([
+    const extraIssuesPromises = extraCols.map((col) =>
+      fetchClientTransactionsByConfig(
+        { clientid: col.clientid, userid: col.userid, divisionid: col.divisionid },
+        rawStart,
+        endDate
+      )
+    );
+
+    const [levels, deliveries, issues, ...extraIssuesList] = await Promise.all([
       fetchClientTankLevels(targetClient, rawStart, endDate),
       fetchClientDeliveries(targetClient, rawStart, endDate),
       fetchClientTransactions(targetClient, rawStart, endDate),
+      ...extraIssuesPromises,
     ]);
+
+    const extraIssuesMap: Record<string, any[]> = {};
+    extraCols.forEach((col, idx) => {
+      extraIssuesMap[col.id] = extraIssuesList[idx] || [];
+    });
 
     const getDatesInRange = (startStr: string, endStr: string): string[] => {
       const dates: string[] = [];
@@ -987,7 +1059,28 @@ export async function generateReportData(
       const totalDeliv = Number(dayDelivs.reduce((s, d) => s + (d.quantity || 0), 0).toFixed(2));
 
       const dayIssues = issues.filter((is) => (is.date ? is.date.split('T')[0] : '') === curDate);
-      const totalIssues = Number(dayIssues.reduce((s, is) => s + (is.fuelQuantity || 0), 0).toFixed(2));
+      const totalIssuesRaw = dayIssues.reduce((sum, is) => sum + (Number(is.fuelQuantity) || 0), 0);
+      const totalIssuesRounded = dayIssues.reduce((sum, is) => sum + Math.round((Number(is.fuelQuantity) || 0) * 10) / 10, 0);
+      const totalIssues = Number(
+        (Math.abs(totalIssuesRaw - totalIssuesRounded) < 0.15 ? totalIssuesRounded : totalIssuesRaw).toFixed(2)
+      );
+
+      // Sum fuel issues for extra columns for current day
+      const dayExtraIssues: Record<string, number> = {};
+      for (const col of extraCols) {
+        const colIssues = extraIssuesMap[col.id] || [];
+        const dayColIssues = colIssues.filter((is) => (is.date ? is.date.split('T')[0] : '') === curDate);
+        const colTotalRaw = dayColIssues.reduce((sum, is) => sum + (Number(is.fuelQuantity) || 0), 0);
+        const colTotalRounded = dayColIssues.reduce((sum, is) => sum + Math.round((Number(is.fuelQuantity) || 0) * 10) / 10, 0);
+        const colTotal = Number(
+          (Math.abs(colTotalRaw - colTotalRounded) < 0.15 ? colTotalRounded : colTotalRaw).toFixed(2)
+        );
+        dayExtraIssues[col.id] = colTotal;
+      }
+
+      const totalExtraDayIssues = Number(
+        Object.values(dayExtraIssues).reduce((sum: number, v: any) => sum + (Number(v) || 0), 0).toFixed(2)
+      );
 
       let opening = 0;
       let actualClosing = 0;
@@ -1006,10 +1099,10 @@ export async function generateReportData(
             opening = allLevelsSorted.length > 0 ? allLevelsSorted[0].level : 0;
           }
         }
-        actualClosing = Number((opening + totalDeliv - totalIssues).toFixed(2));
+        actualClosing = Number((opening + totalDeliv - totalIssues - totalExtraDayIssues).toFixed(2));
       }
 
-      const expected = opening + totalDeliv - totalIssues;
+      const expected = Number((opening + totalDeliv - totalIssues - totalExtraDayIssues).toFixed(2));
       const variance = Number((actualClosing - expected).toFixed(2));
       const status = Math.abs(variance) <= 50 ? 'Reconciled' : 'Exception';
 
@@ -1020,7 +1113,8 @@ export async function generateReportData(
         openingBalance: Number(opening.toFixed(2)),
         deliveries: totalDeliv,
         fuelIssues: totalIssues,
-        expectedClosing: Number(expected.toFixed(2)),
+        extraIssues: dayExtraIssues,
+        expectedClosing: expected,
         actualClosing: Number(actualClosing.toFixed(2)),
         variance,
         status,
@@ -1032,12 +1126,14 @@ export async function generateReportData(
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     rows = filtered.map((record) => {
-      const vPercent = record.openingBalance > 0 ? (record.variance / record.openingBalance) * 100 : 0;
+      const vPercent = record.expectedClosing > 0 ? (record.variance / record.expectedClosing) * 100 : 0;
+      const extraValues = extraCols.map((c) => `-${record.extraIssues?.[c.id] || 0}`);
       return [
         record.date,
         record.openingBalance,
-        record.deliveries,
-        record.fuelIssues,
+        `+${record.deliveries}`,
+        `-${record.fuelIssues}`,
+        ...extraValues,
         record.expectedClosing,
         record.actualClosing,
         `${record.variance >= 0 ? '+' : ''}${record.variance}`,
@@ -1045,11 +1141,15 @@ export async function generateReportData(
       ];
     });
 
-    const totalIssued = Number(filtered.reduce((s, r) => s + r.fuelIssues, 0).toFixed(2));
-    const totalDelivered = Number(filtered.reduce((s, r) => s + r.deliveries, 0).toFixed(2));
-    const netVariance = Number(filtered.reduce((s, r) => s + r.variance, 0).toFixed(2));
-
-    reconFilteredRecords = filtered;
+    const totalMainIssues = Number(filtered.reduce((s: number, r: any) => s + (Number(r.fuelIssues) || 0), 0).toFixed(2));
+    const totalExtraIssues = Number(
+      filtered.reduce((sum: number, r: any) => {
+        if (!r.extraIssues) return sum;
+        return sum + Object.values(r.extraIssues).reduce((s: number, v: any) => s + (Number(v) || 0), 0);
+      }, 0).toFixed(2)
+    );
+    const totalAllIssues = Number((totalMainIssues + totalExtraIssues).toFixed(2));
+    const totalDelivered = Number(filtered.reduce((s: number, r: any) => s + (Number(r.deliveries) || 0), 0).toFixed(2));
 
     reconFilteredRecords = filtered;
 
@@ -1057,10 +1157,10 @@ export async function generateReportData(
       const sorted = [...filtered].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
       const openingDip = sorted[0]?.openingBalance || 0;
       const closingDip = sorted[sorted.length - 1]?.actualClosing || 0;
-      const closingStock = openingDip + totalDelivered - totalIssued;
+      const closingStock = Number((openingDip + totalDelivered - totalAllIssues).toFixed(2));
       const variance = Number((closingDip - closingStock).toFixed(2));
       const variancePercent = closingStock > 0 ? (variance / closingStock) * 100 : 0;
-      const avDailyCons = filtered.length > 0 ? totalIssued / filtered.length : 0;
+      const avDailyCons = filtered.length > 0 ? totalAllIssues / filtered.length : 0;
       const daysStock = avDailyCons > 0 ? Math.round(closingDip / avDailyCons) : 0;
       const today = new Date();
       const reorderDays = 7;
@@ -1075,7 +1175,8 @@ export async function generateReportData(
 
       reconSummaryData = {
         openingDip,
-        totalIssues: totalIssued,
+        totalIssues: totalAllIssues,
+        totalMainIssues,
         totalDeliveries: totalDelivered,
         closingDip,
         closingStock,
@@ -1106,28 +1207,35 @@ export async function generateReportData(
       yTxs.sort((a, b) => new Date(`${b.date}T${b.time}`).getTime() - new Date(`${a.date}T${a.time}`).getTime());
       yesterdayTransactions = yTxs.slice(0, 15);
 
+      const extraSummaryTotals = extraCols.map((c) => {
+        const totalExtra = filtered.reduce((sum: number, r: any) => sum + (Number(r.extraIssues?.[c.id]) || 0), 0);
+        return `-${totalExtra.toFixed(2)}`;
+      });
+
       rows.push([
         'TOTALS / NET',
         '',
-        `+${totalDelivered}`,
-        `-${totalIssued}`,
+        `+${totalDelivered.toFixed(2)}`,
+        `-${totalMainIssues.toFixed(2)}`,
+        ...extraSummaryTotals,
         '',
         '',
-        `${netVariance >= 0 ? '+' : ''}${netVariance}`,
-        `${filtered[0]?.openingBalance ? ((netVariance / filtered[0].openingBalance) * 100).toFixed(1) : '0.0'}%`
+        `${variance >= 0 ? '+' : ''}${variance.toFixed(2)}`,
+        `${variancePercent.toFixed(1)}%`
       ]);
     }
 
+    const netVariance = Number(filtered.reduce((s: number, r: any) => s + (Number(r.variance) || 0), 0).toFixed(2));
     pdfMetadata = {
       Client: actualClientName,
       Period: dateRangeStr,
       'Total Deliveries': `${totalDelivered} L`,
-      'Total Issued': `${totalIssued} L`,
+      'Total Issued': `${totalAllIssues} L`,
       'Net Variance': `${netVariance >= 0 ? '+' : ''}${netVariance} L`,
     };
 
     summaryKpis = [
-      { label: 'Total Fuel Issued', value: `${totalIssued.toLocaleString()} L`, color: '#f26522' },
+      { label: 'Total Fuel Issued', value: `${totalAllIssues.toLocaleString()} L`, color: '#f26522' },
       { label: 'Total Deliveries', value: `${totalDelivered.toLocaleString()} L`, color: '#10b981' },
       { label: 'Net Variance', value: `${netVariance > 0 ? '+' : ''}${netVariance.toLocaleString()} L`, color: Math.abs(netVariance) > 50 ? '#ef4444' : '#10b981' },
       { label: 'Days Reconciled', value: `${filtered.filter((r) => r.status === 'Reconciled').length} / ${filtered.length}`, color: '#6366f1' },
@@ -1460,12 +1568,20 @@ export async function generateReportData(
         const vPercent = r.expectedClosing > 0 ? (r.variance / r.expectedClosing) * 100 : 0;
         const vColor = r.variance >= 0 ? '#15803d' : '#b91c1c';
         const isDelivPos = r.deliveries > 0;
+        const extraCellsHtml = reconExtraCols
+          .map((col) => {
+            const val = r.extraIssues?.[col.id] || 0;
+            return `<td align="right" style="padding: 5px 10px; text-align: right; font-weight: 700; color: ${val > 0 ? '#ea580c' : '#64748b'}; font-size: 13.5px; white-space: nowrap;">-${Number(val).toLocaleString()} L</td>`;
+          })
+          .join('');
+
         return `
           <tr bgcolor="${isEven ? '#ffffff' : '#f8fafc'}" style="background-color: ${isEven ? '#ffffff' : '#f8fafc'}; border-bottom: 1px solid #e2e8f0; font-size: 13.5px; line-height: 1.3;">
             <td style="padding: 5px 10px; font-weight: 700; color: #1e293b; font-size: 13.5px; white-space: nowrap;">${r.date}</td>
             <td align="right" style="padding: 5px 10px; text-align: right; color: #334155; font-size: 13.5px; white-space: nowrap;">${Number(r.openingBalance).toLocaleString()} L</td>
             <td align="right" style="padding: 5px 10px; text-align: right; font-weight: 700; color: ${isDelivPos ? '#15803d' : '#64748b'}; font-size: 13.5px; white-space: nowrap;">+${Number(r.deliveries).toLocaleString()} L</td>
             <td align="right" style="padding: 5px 10px; text-align: right; font-weight: 700; color: #ea580c; font-size: 13.5px; white-space: nowrap;">-${Number(r.fuelIssues).toLocaleString()} L</td>
+            ${extraCellsHtml}
             <td align="right" style="padding: 5px 10px; text-align: right; color: #334155; font-size: 13.5px; white-space: nowrap;">${Number(r.expectedClosing).toLocaleString()} L</td>
             <td align="right" style="padding: 5px 10px; text-align: right; font-weight: 700; color: #1e293b; font-size: 13.5px; white-space: nowrap;">${Number(r.actualClosing).toLocaleString()} L</td>
             <td align="right" style="padding: 5px 10px; text-align: right; font-weight: 800; color: ${vColor}; font-size: 13.5px; white-space: nowrap;">${r.variance >= 0 ? '+' : ''}${r.variance} L</td>
@@ -1649,6 +1765,9 @@ export async function generateReportData(
             <td bgcolor="#0f172a" align="right" style="background-color: #0f172a; padding: 7px 10px; border: 1px solid #334155; text-align: right; color: #ffffff; font-weight: 800;">Opening Balance</td>
             <td bgcolor="#15803d" align="right" style="background-color: #15803d; padding: 7px 10px; border: 1px solid #16a34a; text-align: right; color: #ffffff; font-weight: 800;">Deliveries</td>
             <td bgcolor="#ea580c" align="right" style="background-color: #ea580c; padding: 7px 10px; border: 1px solid #f97316; text-align: right; color: #ffffff; font-weight: 800;">Fuel Issues</td>
+            ${reconExtraCols.map((col) => `
+            <td bgcolor="#15803d" align="right" style="background-color: #15803d; padding: 7px 10px; border: 1px solid #16a34a; text-align: right; color: #ffffff; font-weight: 800;">${col.header}</td>
+            `).join('')}
             <td bgcolor="#0f172a" align="right" style="background-color: #0f172a; padding: 7px 10px; border: 1px solid #334155; text-align: right; color: #ffffff; font-weight: 800;">Expected Closing</td>
             <td bgcolor="#0f172a" align="right" style="background-color: #0f172a; padding: 7px 10px; border: 1px solid #334155; text-align: right; color: #ffffff; font-weight: 800;">Actual Closing</td>
             <td bgcolor="#0f172a" align="right" style="background-color: #0f172a; padding: 7px 10px; border: 1px solid #334155; text-align: right; color: #ffffff; font-weight: 800;">Variance</td>
@@ -1851,7 +1970,8 @@ export async function generateReportData(
           endDate,
           reconSummaryData,
           reconFilteredRecords,
-          yesterdayTransactions
+          yesterdayTransactions,
+          reconExtraCols
         );
       } else {
         pdfBase64 = buildPdfAttachmentBuffer(reportTitle, headers, rows, pdfMetadata);
