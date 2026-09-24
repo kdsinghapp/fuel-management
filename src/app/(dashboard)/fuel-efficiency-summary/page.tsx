@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { fuelIssueService } from '@/services/fuelIssueService';
+import { vehicleService } from '@/services/vehicleService';
 import { authService } from '@/lib/auth';
 import { formatNumber, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils';
 import { useClientStore } from '@/services/api';
@@ -113,89 +114,79 @@ export default function FuelEfficiencySummaryPage() {
     const loadData = async () => {
         try {
             setLoading(true);
-            const response = await fuelIssueService.getFuelIssues({
-                page: 1,
-                pageSize: 100000,
+
+            // Use vehicleService so distance calculation (consecutive odo diff + 60-day lookback)
+            // is identical to the Fuel Efficiency detail page — totals will match.
+            const res = await vehicleService.getFuelEfficiencyTransactions({
                 startDate: dateRange.startDate || undefined,
                 endDate: dateRange.endDate || undefined,
             });
 
-            if (!response.data || response.data.length === 0) {
+            const efficiencyRows = res.data || [];
+
+            if (efficiencyRows.length === 0) {
                 setData([]);
                 setError(null);
+                if (allRecords.length === 0 || dateRange.preset === 'all') {
+                    setAllRecords([]);
+                }
                 return;
             }
 
-            // Group transactions by Vehicle Reg (RegistrationNo)
+            // Group by vehicle reg — sum litres, sum distances, count transactions
             const vehicleMap = new Map<string, {
                 vehicleReg: string;
                 litres: number;
+                distanceSum: number;
                 lastDate: string;
-                odometers: { odo: number; date: string; time: string }[];
                 transactionCount: number;
             }>();
 
-            response.data.forEach((tx: any) => {
-                const vehicleReg = (tx.vehicleId || tx.registrationNo || tx.fleetId || 'Unassigned').toString().trim();
+            efficiencyRows.forEach((row: any) => {
+                const vehicleReg = (row.vehicleId || row.fleetId || 'Unassigned').toString().trim();
                 if (!vehicleReg) return;
 
                 const key = vehicleReg.toLowerCase();
-                const qty = Number(tx.fuelQuantity) || 0;
-                const odo = Number(tx.odometer) || 0;
-                const date = tx.date || '';
-                const time = tx.time || '';
+                const qty = Number(row.fuelQuantity) || 0;
+                const dist = row.distance != null && row.distance > 0 ? Number(row.distance) : 0;
+                const date = row.date || '';
 
                 if (!vehicleMap.has(key)) {
                     vehicleMap.set(key, {
                         vehicleReg,
                         litres: 0,
+                        distanceSum: 0,
                         lastDate: date,
-                        odometers: [],
                         transactionCount: 0,
                     });
                 }
 
                 const entry = vehicleMap.get(key)!;
                 entry.litres += qty;
+                entry.distanceSum += dist;
                 entry.transactionCount += 1;
-                const fullDateTime = `${date}T${time || '00:00:00'}`;
-                if (fullDateTime && (!entry.lastDate || fullDateTime > (entry as any).lastDateTime)) {
-                    (entry as any).lastDateTime = fullDateTime;
+                // Track latest date
+                const fullDT = `${date}T${row.time || '00:00:00'}`;
+                const existingDT = `${entry.lastDate}T00:00:00`;
+                if (!entry.lastDate || fullDT > existingDT) {
                     entry.lastDate = date;
-                }
-                if (odo > 0) {
-                    entry.odometers.push({ odo, date, time });
                 }
             });
 
             const computed: VehicleSummary[] = [];
 
-            vehicleMap.forEach((val, key) => {
-                let distance = 0;
-                if (val.odometers.length >= 2) {
-                    val.odometers.sort((a, b) => {
-                        const timeA = new Date(`${a.date}T${a.time || '00:00:00'}`).getTime();
-                        const timeB = new Date(`${b.date}T${b.time || '00:00:00'}`).getTime();
-                        return timeA - timeB;
-                    });
-
-                    const minOdo = val.odometers[0].odo;
-                    const maxOdo = val.odometers[val.odometers.length - 1].odo;
-                    if (maxOdo > minOdo) {
-                        distance = maxOdo - minOdo;
-                    }
-                }
-
+            vehicleMap.forEach((val) => {
                 const litres = Number(val.litres.toFixed(2));
+                const distance = Number(val.distanceSum.toFixed(2));
                 const consumption = distance > 0 && litres > 0 ? Number((distance / litres).toFixed(2)) : 0;
                 const fuelBurn = distance > 0 && litres > 0 ? Number(((litres / distance) * 100).toFixed(2)) : 0;
 
                 computed.push({
-                    id: key,
+                    id: val.vehicleReg.toLowerCase(),
                     vehicleReg: val.vehicleReg,
                     litres,
                     date: val.lastDate,
-                    distance: Number(distance.toFixed(2)),
+                    distance,
                     consumption,
                     transactionCount: val.transactionCount,
                     fuelBurn,
@@ -215,7 +206,7 @@ export default function FuelEfficiencySummaryPage() {
             setData(computed);
 
             if (allRecords.length === 0 || dateRange.preset === 'all') {
-                setAllRecords(response.data);
+                setAllRecords(res.allTransactions);
             }
             setError(null);
         } catch (err) {

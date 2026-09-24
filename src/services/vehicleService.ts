@@ -48,20 +48,36 @@ export const vehicleService = {
     allTransactions: any[];
   }> {
     try {
-      // Fetch live transactions with date filters
+      // Compute an extended lookback start date (60 days before requested start)
+      // so that we can build a full odometer chain and provide prevOdo context
+      // for the first in-range transaction of each vehicle.
+      let extendedStartDate: string | undefined = undefined;
+      if (params.startDate) {
+        const d = new Date(params.startDate + 'T00:00:00');
+        if (!isNaN(d.getTime())) {
+          d.setDate(d.getDate() - 60);
+          extendedStartDate = d.toISOString().split('T')[0];
+        }
+      }
+
+      // Fetch a wider window so we have odometer context before the period
       const response = await fuelIssueService.getFuelIssues({
         page: 1,
         pageSize: 100000,
-        startDate: params.startDate,
+        startDate: extendedStartDate || params.startDate,
         endDate: params.endDate,
       });
 
-      const rawTransactions = response.data || [];
+      const allFetched = response.data || [];
       const metaLookup = await getVehicleMetadataLookup();
 
-      // Group all transactions by vehicle registration / fleet id / detail
+      // Determine the in-range boundary for filtering the final results
+      const rangeStart = params.startDate ? params.startDate.split('T')[0] : null;
+      const rangeEnd = params.endDate ? params.endDate.split('T')[0] : null;
+
+      // Group all fetched transactions (including pre-period context) by vehicle
       const vehicleMap = new Map<string, any[]>();
-      rawTransactions.forEach((tx: any) => {
+      allFetched.forEach((tx: any) => {
         const vehicleKey = (tx.vehicleId || tx.fleetId || tx.driverAttendant || 'Unknown').trim().toUpperCase();
         if (!vehicleMap.has(vehicleKey)) {
           vehicleMap.set(vehicleKey, []);
@@ -80,10 +96,17 @@ export const vehicleService = {
         });
 
         let prevOdo: number | null = null;
+        let prevOdoIsInRange = false; // tracks if the previous odo came from an in-range tx
 
         txs.forEach((tx) => {
           const currentOdo = Number(tx.odometer) || 0;
           const litres = Number(tx.fuelQuantity) || 0;
+          const txDate = (tx.date || '').split('T')[0];
+
+          // Determine if this transaction is within the user-requested date range
+          const isInRange =
+            (!rangeStart || txDate >= rangeStart) &&
+            (!rangeEnd || txDate <= rangeEnd);
 
           let distance: number | null = null;
           let consumption: number | null = null;
@@ -93,20 +116,34 @@ export const vehicleService = {
           let variance: number | null = null;
           let variancePercentage: number | null = null;
 
-          if (prevOdo !== null && prevOdo > 0 && currentOdo > 0 && currentOdo >= prevOdo) {
-            distance = currentOdo - prevOdo;
+          // Only show Previous Odo and calculate Distance if the previous transaction
+          // was ALSO within the selected date range.
+          // Lookback (out-of-range) transactions seed prevOdo silently but are never
+          // shown as "Previous Odo" — prevents nonsensical distances like 241,956 km.
+          if (prevOdo !== null && prevOdo > 0 && currentOdo > 0 && prevOdoIsInRange) {
             recordedPrevOdo = prevOdo;
+            if (currentOdo >= prevOdo) {
+              // Normal case: odometer increased
+              distance = currentOdo - prevOdo;
+            } else {
+              // Odometer decreased — likely a reset or replacement.
+              // Use the absolute difference so distance is always shown when
+              // both Odo Meter and Previous Odo are present.
+              distance = Math.abs(currentOdo - prevOdo);
+            }
             if (distance > 0 && litres > 0) {
               consumption = Number((distance / litres).toFixed(2));
               ltrPer100Km = Number(((litres / distance) * 100).toFixed(2));
             }
-          } else if (prevOdo !== null && prevOdo > 0) {
-            recordedPrevOdo = prevOdo;
           }
 
           if (currentOdo > 0) {
             prevOdo = currentOdo;
+            prevOdoIsInRange = isInRange; // remember whether THIS tx was in-range
           }
+
+          // Skip out-of-range context transactions — they were only used to seed prevOdo
+          if (!isInRange) return;
 
           const vehicleLookupKey = (tx.vehicleId || tx.fleetId || '').toString().trim().toUpperCase();
           const fleetLookupKey = (tx.fleetId || '').toString().trim().toUpperCase();
@@ -164,9 +201,15 @@ export const vehicleService = {
         return timeB - timeA;
       });
 
+      // allTransactions: only in-range raw transactions (for DateRangePicker context)
+      const inRangeRaw = allFetched.filter((tx: any) => {
+        const txDate = (tx.date || '').split('T')[0];
+        return (!rangeStart || txDate >= rangeStart) && (!rangeEnd || txDate <= rangeEnd);
+      });
+
       return {
         data: calculated,
-        allTransactions: rawTransactions,
+        allTransactions: inRangeRaw,
       };
     } catch (err) {
       console.error('Failed to get fuel efficiency transactions:', err);
