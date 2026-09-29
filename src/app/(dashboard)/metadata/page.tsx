@@ -441,7 +441,7 @@ export default function VehicleDetailsPage() {
                 'Make',
                 'Model',
                 'Class',
-                'Mode of Use',
+                'Department',
                 'Monthly Mileage (KM)',
                 'Burn Rate (L/100KM)',
                 'Fuel Limit (L)',
@@ -498,8 +498,8 @@ export default function VehicleDetailsPage() {
             {notification && (
                 <div
                     className={`mb-2 p-3 rounded-lg flex items-center justify-between text-xs font-semibold shadow-md transition-all duration-300 animate-in fade-in slide-in-from-top-2 ${notification.type === 'success'
-                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                            : 'bg-rose-50 text-rose-800 border border-rose-200'
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                        : 'bg-rose-50 text-rose-800 border border-rose-200'
                         }`}
                 >
                     <div className="flex items-center gap-2">
@@ -769,7 +769,7 @@ export default function VehicleDetailsPage() {
                                         Class
                                     </th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">
-                                        Mode of Use
+                                        Department
                                     </th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-right font-semibold sticky top-0 z-10">
                                         Monthly Mileage (KM)
@@ -884,8 +884,8 @@ export default function VehicleDetailsPage() {
                                             <td className="py-1.5 px-3 text-center align-middle">
                                                 <span
                                                     className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${(item.Status || 'Active') === 'Active'
-                                                            ? 'bg-emerald-100 text-emerald-800'
-                                                            : 'bg-slate-100 text-slate-600'
+                                                        ? 'bg-emerald-100 text-emerald-800'
+                                                        : 'bg-slate-100 text-slate-600'
                                                         }`}
                                                 >
                                                     {item.Status || 'Active'}
@@ -1123,7 +1123,7 @@ export default function VehicleDetailsPage() {
                                 </div>
 
                                 <div className="space-y-1">
-                                    <label className="font-bold text-slate-700">Mode of Use</label>
+                                    <label className="font-bold text-slate-700">Department</label>
                                     <input
                                         type="text"
                                         placeholder="e.g. Operational, 24/7, Personal"
