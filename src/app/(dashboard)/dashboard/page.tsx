@@ -708,14 +708,14 @@ export default function DashboardPage() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col gap-2.5">
                             <div className="bg-[#eefcf2]/60 border border-[#d6f2e1] rounded-xl p-3.5">
                                 <span className="text-[11px] font-extrabold text-zinc-500 uppercase tracking-wider block">DELIVERIES</span>
-                                <span className="text-lg font-black text-zinc-900 mt-1 block">{deliveriesCount}</span>
+                                <span className="text-lg font-black text-zinc-900 mt-0.5 block">{deliveriesCount}</span>
                             </div>
                             <div className="bg-[#eefcf2]/60 border border-[#d6f2e1] rounded-xl p-3.5">
                                 <span className="text-[11px] font-extrabold text-zinc-500 uppercase tracking-wider block">THIS WEEK</span>
-                                <span className="text-lg font-black text-zinc-900 mt-1 block">{formatNumber(recentDeliveriesSum)} L</span>
+                                <span className="text-lg font-black text-zinc-900 mt-0.5 block">{formatNumber(recentDeliveriesSum)} L</span>
                             </div>
                         </div>
                     </div>
@@ -867,7 +867,7 @@ export default function DashboardPage() {
                             </div>
 
                             {/* Live Department Breakdown List from API */}
-                            <div className="mt-4 space-y-2 text-xs max-h-56 overflow-y-auto pr-1">
+                            <div className="mt-4 space-y-2 text-xs max-h-28 overflow-y-auto pr-1">
                                 {departmentBreakdown.length > 0 ? (
                                     departmentBreakdown.map((item, i) => (
                                         <div key={i} className="flex items-center justify-between py-1 border-b border-zinc-100 last:border-0">
