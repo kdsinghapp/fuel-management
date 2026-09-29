@@ -136,12 +136,28 @@ export default function DashboardPage() {
             const ninetyDaysAgoStr = getPastDateStr(90);
 
             // Fetch live API data in parallel
-            const [levelsRes, deliveriesRes, transactionsRes, vehiclesRes] = await Promise.allSettled([
+            const [levelsRes, deliveriesRes, transactionsRes, vehiclesRes, dbVehiclesRes] = await Promise.allSettled([
                 fuelLevelService.getFuelLevels({ pageSize: 10000, startDate: sevenDaysAgoStr, endDate: todayStr }),
                 deliveryService.getDeliveries({ pageSize: 500, startDate: ninetyDaysAgoStr, endDate: todayStr }),
                 fuelIssueService.getFuelIssues({ pageSize: 5000 }),
                 vehicleService.getVehicles({ pageSize: 500 }),
+                fetch('/api/vehicles').then((res) => res.json()).catch(() => null),
             ]);
+
+            // Build vehicle -> department lookup map from Azure SQL vehicle database
+            const vehicleDeptMap = new Map<string, string>();
+            const knownDepartmentsSet = new Set<string>();
+
+            if (dbVehiclesRes.status === 'fulfilled' && dbVehiclesRes.value?.success && Array.isArray(dbVehiclesRes.value.data)) {
+                dbVehiclesRes.value.data.forEach((v: any) => {
+                    const dept = (v.ModeOfUse || (v.Department && v.Department !== selectedClient?.name ? v.Department : '') || '').trim();
+                    if (dept && dept !== '-') {
+                        knownDepartmentsSet.add(dept);
+                    }
+                    if (v.Asset) vehicleDeptMap.set(v.Asset.toUpperCase(), dept || 'No Department');
+                    if (v.FleetId) vehicleDeptMap.set(v.FleetId.toUpperCase(), dept || 'No Department');
+                });
+            }
 
             // Process Tank Levels
             if (levelsRes.status === 'fulfilled' && levelsRes.value.data.length > 0) {
@@ -268,10 +284,21 @@ export default function DashboardPage() {
                 });
                 setLatestTransactions(topTxs);
 
-                // Group dynamic department breakdown from live transactions API
+                // Group dynamic department breakdown from live transactions API & vehicle department lookup
                 const deptSummaryMap = new Map<string, number>();
+
+                // Seed with all known vehicle departments
+                knownDepartmentsSet.forEach((dept) => {
+                    deptSummaryMap.set(dept, 0);
+                });
+
                 txs.forEach((t: any) => {
-                    const deptName = (t.department || t.depot || t.siteId || 'No Department').trim();
+                    const vId = (t.vehicleId || t.asset || '').trim().toUpperCase();
+                    const matchedDept = vehicleDeptMap.get(vId);
+                    const deptName = (matchedDept && matchedDept !== 'No Department'
+                        ? matchedDept
+                        : (t.department || t.modeOfUse || t.depot || 'No Department')).trim();
+
                     const qty = Number(t.fuelQuantity) || 0;
                     deptSummaryMap.set(deptName, (deptSummaryMap.get(deptName) || 0) + qty);
                 });
@@ -291,7 +318,12 @@ export default function DashboardPage() {
                 txs.forEach((t: any) => {
                     const dStr = t.date || '';
                     if (!dStr) return;
-                    const deptName = (t.department || t.depot || t.siteId || 'No Department').trim();
+                    const vId = (t.vehicleId || t.asset || '').trim().toUpperCase();
+                    const matchedDept = vehicleDeptMap.get(vId);
+                    const deptName = (matchedDept && matchedDept !== 'No Department'
+                        ? matchedDept
+                        : (t.department || t.modeOfUse || t.depot || 'No Department')).trim();
+
                     const qty = Number(t.fuelQuantity) || 0;
                     allDeptsSet.add(deptName);
 
