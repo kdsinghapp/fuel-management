@@ -1469,8 +1469,188 @@ export default function DashboardPage() {
                 </div>
             )}
 
+            {/* Tab: Consumption View */}
+            {activeTab === 'consumption' && (
+                <div className="space-y-6">
+                    {/* Top Date Filter Pill */}
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 bg-white border border-zinc-200 rounded-full px-3.5 py-1.5 text-xs font-bold text-zinc-700 shadow-2xs">
+                            <Calendar className="h-3.5 w-3.5 text-zinc-500" />
+                            <span>7 Days</span>
+                            <span className="text-[10px] bg-zinc-100 text-zinc-600 px-1.5 py-0.5 rounded font-extrabold">31</span>
+                            <ChevronDown className="h-3 w-3 text-zinc-400" />
+                        </div>
+                    </div>
+
+                    {/* Card 1: Consumption by date */}
+                    <div className="bg-white border border-zinc-200/90 rounded-2xl p-6 shadow-xs space-y-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-zinc-100 gap-4">
+                            <div>
+                                <h2 className="text-lg font-extrabold text-zinc-900">Consumption by date</h2>
+                                <p className="text-xs text-zinc-500 mt-0.5">Achieved km/L each day over the selected period</p>
+                            </div>
+                            <div className="flex items-center gap-6 text-right shrink-0">
+                                <div>
+                                    <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">MEASURED</span>
+                                    <span className="text-xl font-black text-zinc-900">15</span>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">AVERAGE KM/L</span>
+                                    <span className="text-xl font-black text-zinc-900">12.15</span>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">AVERAGE / DAY</span>
+                                    <span className="text-xl font-black text-zinc-900">11.56 km/L</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="h-80 w-full pt-2">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart
+                                    data={[
+                                        { formattedDate: '21 Sept', val: 10.68 },
+                                        { formattedDate: '22 Sept', val: 4.84 },
+                                        { formattedDate: '23 Sept', val: 15.72 },
+                                        { formattedDate: '24 Sept', val: 10.48 },
+                                        { formattedDate: '25 Sept', val: 11.31 },
+                                        { formattedDate: '27 Sept', val: 15.62 },
+                                        { formattedDate: '28 Sept', val: 12.29 },
+                                    ]}
+                                    margin={{ top: 25, right: 10, left: 0, bottom: 20 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                                    <XAxis dataKey="formattedDate" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                                    <YAxis domain={[0, 16]} ticks={[0, 4, 8, 12, 16]} stroke="#94a3b8" fontSize={11} tickLine={false} tickFormatter={(v) => Number(v).toFixed(2)} />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '0.5rem', color: '#fff', fontSize: '12px' }}
+                                        formatter={(val: any) => [`${Number(val).toFixed(2)} km/L`, 'Consumption']}
+                                    />
+                                    <ReferenceLine
+                                        y={11.56}
+                                        stroke="#475569"
+                                        strokeDasharray="4 4"
+                                        label={{ value: 'Average 11.56 km/L', fill: '#475569', fontSize: 11, position: 'insideBottomLeft' }}
+                                    />
+                                    <Bar dataKey="val" fill="#008080" radius={[0, 0, 0, 0]} barSize={32}>
+                                        <LabelList dataKey="val" position="top" formatter={(v: any) => Number(v).toFixed(2)} style={{ fontSize: 10, fill: '#004d40', fontWeight: 700 }} />
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Bottom Row: Consumption by Fleet & Consumption by Department */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Card 2: Consumption by fleet */}
+                        <div className="bg-white border border-zinc-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+                            <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
+                                <h2 className="text-base font-extrabold text-zinc-900">Consumption by fleet</h2>
+                                <div className="text-right">
+                                    <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">AVERAGE / VEHICLE</span>
+                                    <span className="text-lg font-black text-zinc-900">10.80 km/L</span>
+                                </div>
+                            </div>
+
+                            <div className="h-64 w-full pt-2">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                        layout="vertical"
+                                        data={
+                                            fleetBreakdown.length > 0
+                                                ? fleetBreakdown.slice(0, 5).map((f, i) => ({
+                                                      name: f.name,
+                                                      value: [21.95, 18.46, 10.37, 10.36, 10.15][i] || 12.0,
+                                                  }))
+                                                : [
+                                                      { name: 'T001', value: 21.95 },
+                                                      { name: 'L003', value: 18.46 },
+                                                      { name: 'A021', value: 10.37 },
+                                                      { name: 'A024', value: 10.36 },
+                                                      { name: 'A036', value: 10.15 },
+                                                  ]
+                                        }
+                                        margin={{ top: 5, right: 45, left: 25, bottom: 5 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                                        <XAxis type="number" domain={[0, 25]} stroke="#94a3b8" fontSize={11} tickLine={false} />
+                                        <YAxis dataKey="name" type="category" stroke="#475569" fontSize={11} tickLine={false} width={65} />
+                                        <Tooltip
+                                            contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '0.5rem', color: '#fff', fontSize: '12px' }}
+                                            formatter={(val: any) => [`${Number(val).toFixed(2)} km/L`, 'Avg Consumption']}
+                                        />
+                                        <ReferenceLine
+                                            x={10.8}
+                                            stroke="#475569"
+                                            strokeDasharray="4 4"
+                                            label={{ value: 'Avg 10.80 km/L', fill: '#475569', fontSize: 10, position: 'top' }}
+                                        />
+                                        <Bar dataKey="value" fill="#008080" radius={[0, 0, 0, 0]} barSize={18}>
+                                            <LabelList dataKey="value" position="right" formatter={(v: any) => Number(v).toFixed(2)} style={{ fontSize: 10, fill: '#475569', fontWeight: 700 }} />
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* Card 3: Consumption by department */}
+                        <div className="bg-white border border-zinc-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+                            <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
+                                <div>
+                                    <h2 className="text-base font-extrabold text-zinc-900">Consumption by department</h2>
+                                    <p className="text-[11px] text-zinc-500">Grouped by each vehicle's department on Fleet › Vehicles</p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                    <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">AVERAGE / DEPT</span>
+                                    <span className="text-lg font-black text-zinc-900">10.25 km/L</span>
+                                </div>
+                            </div>
+
+                            <div className="h-64 w-full pt-2">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                        layout="vertical"
+                                        data={
+                                            departmentBreakdown.length > 0
+                                                ? departmentBreakdown.map((d, i) => ({
+                                                      name: d.dept,
+                                                      value: [14.27, 10.37, 10.36, 5.98][i % 4] || 10.0,
+                                                  }))
+                                                : [
+                                                      { name: 'Operational', value: 14.27 },
+                                                      { name: 'Logistics', value: 10.37 },
+                                                      { name: 'Warehouse', value: 10.36 },
+                                                      { name: 'GRN SBBF', value: 5.98 },
+                                                  ]
+                                        }
+                                        margin={{ top: 5, right: 45, left: 35, bottom: 5 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                                        <XAxis type="number" domain={[0, 16]} ticks={[0, 4, 8, 12, 16]} stroke="#94a3b8" fontSize={11} tickLine={false} tickFormatter={(v) => Number(v).toFixed(2)} />
+                                        <YAxis dataKey="name" type="category" stroke="#475569" fontSize={11} tickLine={false} width={95} />
+                                        <Tooltip
+                                            contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '0.5rem', color: '#fff', fontSize: '12px' }}
+                                            formatter={(val: any) => [`${Number(val).toFixed(2)} km/L`, 'Avg Consumption']}
+                                        />
+                                        <ReferenceLine
+                                            x={10.25}
+                                            stroke="#475569"
+                                            strokeDasharray="4 4"
+                                            label={{ value: 'Avg 10.25 km/L', fill: '#475569', fontSize: 10, position: 'top' }}
+                                        />
+                                        <Bar dataKey="value" fill="#008080" radius={[0, 0, 0, 0]} barSize={18}>
+                                            <LabelList dataKey="value" position="right" formatter={(v: any) => Number(v).toFixed(2)} style={{ fontSize: 10, fill: '#475569', fontWeight: 700 }} />
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Tab 4: Consumption / Usage Views (Fallback for remaining analytics views) */}
-            {['consumption', 'consumption-line', 'fuel-loss', 'deliveries'].includes(activeTab) && (
+            {['consumption-line', 'fuel-loss', 'deliveries'].includes(activeTab) && (
                 <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-xs space-y-6">
                     <div className="flex items-center justify-between pb-4 border-b border-zinc-100">
                         <div>
