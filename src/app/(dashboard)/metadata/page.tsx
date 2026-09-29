@@ -436,7 +436,7 @@ export default function VehicleDetailsPage() {
             const headers = [
                 'Asset',
                 'Fleet ID',
-                'Department',
+                'Client',
                 'Year',
                 'Make',
                 'Model',
@@ -559,10 +559,10 @@ export default function VehicleDetailsPage() {
                                     </div>
                                 </div>
 
-                                {/* Department Filter */}
+                                {/* Client Filter */}
                                 <div className="flex flex-col gap-1 w-[130px] shrink-0">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
-                                        Department
+                                        Client
                                     </label>
                                     <select
                                         value={selectedDept}
@@ -572,7 +572,7 @@ export default function VehicleDetailsPage() {
                                         }}
                                         className="w-full h-8 px-2 text-xs border border-slate-200 rounded bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522]"
                                     >
-                                        <option value="">All Departments</option>
+                                        <option value="">All Clients</option>
                                         {departments.map((dept) => (
                                             <option key={dept} value={dept}>
                                                 {dept}
@@ -754,7 +754,7 @@ export default function VehicleDetailsPage() {
                                         Fleet ID
                                     </th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">
-                                        Department
+                                        Client
                                     </th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-center font-semibold sticky top-0 z-10">
                                         Year
@@ -1056,7 +1056,7 @@ export default function VehicleDetailsPage() {
                             <div className="grid grid-cols-2 gap-3.5">
                                 <div className="space-y-1">
                                     <label className="font-bold text-slate-700">
-                                        Assigned Client / Department <span className="text-rose-500">*</span>
+                                        Assigned Client <span className="text-rose-500">*</span>
                                     </label>
                                     <select
                                         value={formData.Department || selectedClient?.name || ''}

@@ -77,6 +77,7 @@ export const fuelIssueService = {
           pump: item.Pump || '',
           odometer: item.Odometer || 0,
           engineHours: item.EngineHours || 0,
+          department: item.Department || item.Division || item.Depot || item.Site || 'No Department',
           status: item.DEM && item.DEM.toLowerCase().includes('matched') ? 'Matched' : 'Unmatched',
           createdAt: `${item.Date}T${item.Time}Z`,
           updatedAt: `${item.Date}T${item.Time}Z`,
