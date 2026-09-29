@@ -955,7 +955,7 @@ export default function DashboardPage() {
                                                 dataKey={dept}
                                                 stackId="a"
                                                 fill={fill}
-                                                radius={index === usageComparisonData.departments.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0]}
+                                                radius={[0, 0, 0, 0]}
                                                 barSize={32}
                                             />
                                         );
