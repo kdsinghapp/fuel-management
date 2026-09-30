@@ -962,37 +962,45 @@ export default function DashboardPage() {
                         </div>
 
                         {/* Semi-Circle SVG Speedometer Gauge Meter */}
-                        <div className="flex flex-col items-center justify-center relative py-2">
-                            <div className="relative w-64 h-36 flex items-end justify-center">
+                        <div className="flex flex-col items-center justify-center relative py-4 w-full flex-1">
+                            <div className="relative w-full max-w-[580px] h-[290px] sm:h-[320px] flex items-end justify-center">
                                 <svg viewBox="0 0 200 115" className="w-full h-full overflow-visible">
                                     {/* Green Base Arc (Right & Outer Round End) */}
                                     <path
-                                        d="M 25 100 A 75 75 0 0 1 175 100"
+                                        d="M 18 100 A 82 82 0 0 1 182 100"
                                         fill="none"
-                                        stroke="#008037"
-                                        strokeWidth="16"
+                                        stroke="#046835"
+                                        strokeWidth="24"
                                         strokeLinecap="round"
                                     />
-                                    {/* Red Segment (0-25% Low Level & Outer Round End) */}
+                                    {/* Light Green Segment */}
                                     <path
-                                        d="M 25 100 A 75 75 0 0 1 47 47"
+                                        d="M 18 100 A 82 82 0 0 1 141 28.9"
                                         fill="none"
-                                        stroke="#d9381e"
-                                        strokeWidth="16"
-                                        strokeLinecap="round"
-                                    />
-                                    {/* Amber Segment (25-66% Warning Level - Flat Seamless Joint) */}
-                                    <path
-                                        d="M 47 47 A 75 75 0 0 1 137.5 35.05"
-                                        fill="none"
-                                        stroke="#e08b00"
-                                        strokeWidth="16"
+                                        stroke="#22c55e"
+                                        strokeWidth="24"
                                         strokeLinecap="butt"
+                                    />
+                                    {/* Amber Segment */}
+                                    <path
+                                        d="M 18 100 A 82 82 0 0 1 100 18"
+                                        fill="none"
+                                        stroke="#eab308"
+                                        strokeWidth="24"
+                                        strokeLinecap="butt"
+                                    />
+                                    {/* Red Segment */}
+                                    <path
+                                        d="M 18 100 A 82 82 0 0 1 42 42"
+                                        fill="none"
+                                        stroke="#dc2626"
+                                        strokeWidth="24"
+                                        strokeLinecap="round"
                                     />
 
                                     {/* Pointer Triangle mapped to stockCapacityPct */}
                                     <polygon
-                                        points="96,7 104,7 100,19"
+                                        points="93,-2 107,-2 100,16"
                                         fill="#18181b"
                                         className="transition-transform duration-500 ease-out"
                                         transform={`rotate(${(-90 + Math.min(Math.max(stockCapacityPct, 0), 100) * 1.8)} 100 100)`}
@@ -1000,19 +1008,19 @@ export default function DashboardPage() {
                                 </svg>
 
                                 {/* Center Values */}
-                                <div className="absolute bottom-1 text-center">
-                                    <div className="text-3xl font-black text-zinc-900 tracking-tight">
+                                <div className="absolute bottom-3 text-center">
+                                    <div className="text-5xl sm:text-6xl font-black text-zinc-900 tracking-tight">
                                         {formatNumber(currentStock)} L
                                     </div>
-                                    <div className="flex items-center justify-center gap-1.5 mt-1">
-                                        <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+                                    <div className="flex items-center justify-center gap-2 mt-3">
+                                        <span className="text-sm font-black text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-3 py-1 rounded-full shadow-xs">
                                             {stockCapacityPct}%
                                         </span>
                                     </div>
                                 </div>
                             </div>
-                            <span className="text-xs text-zinc-500 font-medium mt-3">
-                                of 20,000 L capacity · <strong className={stockCapacityPct < 20 ? 'text-rose-600' : 'text-emerald-700'}>{stockCapacityPct < 20 ? 'Low Stock' : 'Normal'}</strong>
+                            <span className="text-sm text-zinc-500 font-semibold mt-5">
+                                of {formatNumber(stockCapacityPct > 0 ? Math.round(currentStock / (stockCapacityPct / 100)) : 20000)} L capacity · <strong className={stockCapacityPct < 20 ? 'text-rose-600' : 'text-emerald-700'}>{stockCapacityPct < 20 ? 'Low Stock' : 'Normal'}</strong>
                             </span>
                         </div>
 
@@ -1021,6 +1029,7 @@ export default function DashboardPage() {
                             <div className="text-[11px] font-extrabold text-zinc-500 uppercase tracking-wider">
                                 STOCK TREND
                             </div>
+
                             <div className="h-24 w-full">
                                 {trendData.length > 0 ? (
                                     <ResponsiveContainer width="100%" height="100%">
