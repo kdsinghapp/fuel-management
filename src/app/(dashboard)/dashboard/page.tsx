@@ -29,8 +29,9 @@ import { fuelIssueService } from '@/services/fuelIssueService';
 import { vehicleService } from '@/services/vehicleService';
 import { reconciliationService } from '@/services/reconciliationService';
 import { useClientStore } from '@/services/api';
-import { authService } from '@/lib/auth';
+import { DateRangePicker, DateRange, getDateRangeFromPreset } from '@/components/common/DateRangePicker';
 import { formatNumber } from '@/lib/utils';
+import { authService } from '@/lib/auth';
 import {
     AreaChart,
     Area,
@@ -101,6 +102,10 @@ export default function DashboardPage() {
     const [tenDayAvg, setTenDayAvg] = useState<number>(0);
     const [thirtyDayAvg, setThirtyDayAvg] = useState<number>(0);
 
+    const [usageDateRange, setUsageDateRange] = useState<DateRange>(getDateRangeFromPreset('monthToDate'));
+    const [rawTransactions, setRawTransactions] = useState<any[]>([]);
+    const [vehicleDeptMapState, setVehicleDeptMapState] = useState<Map<string, string>>(new Map());
+
     // Usage Comparison stacked chart state
     const [usageComparisonData, setUsageComparisonData] = useState<{
         points: any[];
@@ -115,6 +120,80 @@ export default function DashboardPage() {
         avgPerDay: 0,
         peakDay: 0,
     });
+
+    const computeUsageComparison = useCallback((txs: any[], deptMap: Map<string, string>, dateRange: DateRange) => {
+        let filteredTxs = txs;
+        if (dateRange.preset !== 'all' && (dateRange.startDate || dateRange.endDate)) {
+            filteredTxs = txs.filter((t: any) => {
+                const d = t.date || '';
+                if (!d) return false;
+                if (dateRange.startDate && d < dateRange.startDate) return false;
+                if (dateRange.endDate && d > dateRange.endDate) return false;
+                return true;
+            });
+        }
+
+        const usageDateMap = new Map<string, Record<string, number>>();
+        const allDeptsSet = new Set<string>();
+
+        filteredTxs.forEach((t: any) => {
+            const dStr = t.date || '';
+            if (!dStr) return;
+            const vId = (t.vehicleId || t.asset || '').trim().toUpperCase();
+            const matchedDept = deptMap.get(vId);
+            const deptName = (matchedDept && matchedDept !== 'No Department'
+                ? matchedDept
+                : (t.department || t.modeOfUse || t.depot || 'No Department')).trim();
+
+            const qty = Number(t.fuelQuantity) || 0;
+            allDeptsSet.add(deptName);
+
+            if (!usageDateMap.has(dStr)) {
+                usageDateMap.set(dStr, {});
+            }
+            const dayRec = usageDateMap.get(dStr)!;
+            dayRec[deptName] = (dayRec[deptName] || 0) + qty;
+        });
+
+        const sortedUsageDates = Array.from(usageDateMap.keys()).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+        const uniqueDepts = Array.from(allDeptsSet);
+
+        const stackedChartPoints = sortedUsageDates.map((dStr) => {
+            const dayRec = usageDateMap.get(dStr)!;
+            let dayTotal = 0;
+            const point: any = { date: dStr };
+
+            try {
+                const parts = dStr.split('-');
+                const month = parseInt(parts[1], 10) - 1;
+                const day = parseInt(parts[2], 10);
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                point.formattedDate = `${day} ${months[month]}`;
+            } catch {
+                point.formattedDate = dStr;
+            }
+
+            uniqueDepts.forEach((dept) => {
+                const val = Number((dayRec[dept] || 0).toFixed(2));
+                point[dept] = val;
+                dayTotal += val;
+            });
+            point.total = Number(dayTotal.toFixed(2));
+            return point;
+        });
+
+        const totalUsageVol = stackedChartPoints.reduce((acc, p) => acc + p.total, 0);
+        const avgUsagePerDay = stackedChartPoints.length > 0 ? Math.round(totalUsageVol / stackedChartPoints.length) : 0;
+        const peakUsageDay = stackedChartPoints.reduce((max, p) => p.total > max ? p.total : max, 0);
+
+        setUsageComparisonData({
+            points: stackedChartPoints,
+            departments: uniqueDepts,
+            totalVolume: Math.round(totalUsageVol),
+            avgPerDay: avgUsagePerDay,
+            peakDay: Math.round(peakUsageDay),
+        });
+    }, []);
 
     // Usage Overview tab state
     const [usageOverviewData, setUsageOverviewData] = useState<{
@@ -282,6 +361,8 @@ export default function DashboardPage() {
             if (transactionsRes.status === 'fulfilled' && transactionsRes.value.data.length > 0) {
                 const txs = transactionsRes.value.data;
                 setTotalTransactions(transactionsRes.value.total || txs.length);
+                setRawTransactions(txs);
+                setVehicleDeptMapState(vehicleDeptMap);
 
                 // Today's total issued litres or latest date total
                 const todayTxs = txs.filter((t: any) => t.date === todayStr);
@@ -384,66 +465,7 @@ export default function DashboardPage() {
                 setAvgPerDept(calculatedAvgDept);
 
                 // Build dynamic Usage Comparison stacked bar chart data grouped by date & department
-                const usageDateMap = new Map<string, Record<string, number>>();
-                const allDeptsSet = new Set<string>();
-
-                txs.forEach((t: any) => {
-                    const dStr = t.date || '';
-                    if (!dStr) return;
-                    const vId = (t.vehicleId || t.asset || '').trim().toUpperCase();
-                    const matchedDept = vehicleDeptMap.get(vId);
-                    const deptName = (matchedDept && matchedDept !== 'No Department'
-                        ? matchedDept
-                        : (t.department || t.modeOfUse || t.depot || 'No Department')).trim();
-
-                    const qty = Number(t.fuelQuantity) || 0;
-                    allDeptsSet.add(deptName);
-
-                    if (!usageDateMap.has(dStr)) {
-                        usageDateMap.set(dStr, {});
-                    }
-                    const dayRec = usageDateMap.get(dStr)!;
-                    dayRec[deptName] = (dayRec[deptName] || 0) + qty;
-                });
-
-                const sortedUsageDates = Array.from(usageDateMap.keys()).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-                const uniqueDepts = Array.from(allDeptsSet);
-
-                const stackedChartPoints = sortedUsageDates.map((dStr) => {
-                    const dayRec = usageDateMap.get(dStr)!;
-                    let dayTotal = 0;
-                    const point: any = { date: dStr };
-
-                    try {
-                        const parts = dStr.split('-');
-                        const month = parseInt(parts[1], 10) - 1;
-                        const day = parseInt(parts[2], 10);
-                        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                        point.formattedDate = `${day} ${months[month]}`;
-                    } catch {
-                        point.formattedDate = dStr;
-                    }
-
-                    uniqueDepts.forEach((dept) => {
-                        const val = Number((dayRec[dept] || 0).toFixed(2));
-                        point[dept] = val;
-                        dayTotal += val;
-                    });
-                    point.total = Number(dayTotal.toFixed(2));
-                    return point;
-                });
-
-                const totalUsageVol = stackedChartPoints.reduce((acc, p) => acc + p.total, 0);
-                const avgUsagePerDay = stackedChartPoints.length > 0 ? Math.round(totalUsageVol / stackedChartPoints.length) : 0;
-                const peakUsageDay = stackedChartPoints.reduce((max, p) => p.total > max ? p.total : max, 0);
-
-                setUsageComparisonData({
-                    points: stackedChartPoints,
-                    departments: uniqueDepts,
-                    totalVolume: Math.round(totalUsageVol),
-                    avgPerDay: avgUsagePerDay,
-                    peakDay: Math.round(peakUsageDay),
-                });
+                computeUsageComparison(txs, vehicleDeptMap, usageDateRange);
 
                 // Calculate 10-day & 30-day average daily usage dynamically
                 const last10DaysStr = getPastDateStr(10);
@@ -675,6 +697,12 @@ export default function DashboardPage() {
         };
         checkAuth();
     }, [router, selectedClient, loadDashboardData]);
+
+    useEffect(() => {
+        if (rawTransactions.length > 0) {
+            computeUsageComparison(rawTransactions, vehicleDeptMapState, usageDateRange);
+        }
+    }, [usageDateRange, rawTransactions, vehicleDeptMapState, computeUsageComparison]);
 
     const [isExportingCombined, setIsExportingCombined] = useState(false);
 
@@ -1123,12 +1151,21 @@ export default function DashboardPage() {
 
             {/* Tab: Usage Comparison View */}
             {activeTab === 'usage-comparison' && (
-                <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs space-y-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-zinc-100 gap-4">
-                        <div>
-                            <h2 className="text-lg font-extrabold text-zinc-900">Usage by date</h2>
-                            <p className="text-xs text-zinc-500 mt-0.5">Fuel dispensed each day, split by department</p>
-                        </div>
+                <div className="space-y-4">
+                    {/* Date Range Selection Filter */}
+                    <div className="flex items-center justify-between">
+                        <DateRangePicker
+                            value={usageDateRange}
+                            onChange={(newRange) => setUsageDateRange(newRange)}
+                        />
+                    </div>
+
+                    <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs space-y-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-zinc-100 gap-4">
+                            <div>
+                                <h2 className="text-lg font-extrabold text-zinc-900">Usage by date</h2>
+                                <p className="text-xs text-zinc-500 mt-0.5">Fuel dispensed each day, split by department</p>
+                            </div>
                         <div className="flex items-center gap-6 text-right shrink-0">
                             <div>
                                 <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">TOTAL</span>
@@ -1210,6 +1247,7 @@ export default function DashboardPage() {
                             })}
                         </div>
                     )}
+                    </div>
                 </div>
             )}
 
