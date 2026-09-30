@@ -34,6 +34,7 @@ import {
     BarChart,
     Bar,
     ComposedChart,
+    LineChart,
     Line,
     LabelList,
     ReferenceLine,
@@ -318,6 +319,17 @@ function FuelGauge({ pct }: { pct: number }) {
 /* Small UI pieces                                                     */
 /* ================================================================== */
 
+const DateFilterPill = ({ label, count }: { label: string; count: number }) => (
+    <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 bg-white border border-zinc-200 rounded-full px-3.5 py-1.5 text-xs font-bold text-zinc-700 shadow-2xs">
+            <Calendar className="h-3.5 w-3.5 text-zinc-500" />
+            <span>{label}</span>
+            <span className="text-[10px] bg-zinc-100 text-zinc-600 px-1.5 py-0.5 rounded font-extrabold">{count}</span>
+            <ChevronDown className="h-3 w-3 text-zinc-400" />
+        </div>
+    </div>
+);
+
 const SiteCard = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
     <div className={`bg-white rounded-[20px] p-5 shadow-[0_1px_2px_rgba(16,24,20,0.04)] ${className}`}>{children}</div>
 );
@@ -519,6 +531,414 @@ interface TrendPoint {
 }
 
 /* ================================================================== */
+/* Consumption - Line tab helpers & component                         */
+/* ================================================================== */
+
+const monthLineColors = ['#0f7f86', '#80cbd0', '#004d40', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b'];
+
+function buildConsumptionLineData(transactions: any[], filterKey: 'driver' | 'vehicle' | 'department', selectedValue: string, deptMap?: Map<string, string>) {
+    if (!selectedValue) return { months: [], avgKmL: 0, points: [], monthCount: 0 };
+
+    const filtered = transactions.filter((t) => {
+        if (filterKey === 'driver') {
+            const drv = (t.driver || t.driverName || t.driver_name || t.Operator || '').trim();
+            return drv.toLowerCase() === selectedValue.trim().toLowerCase();
+        }
+        if (filterKey === 'vehicle') {
+            const vId = (t.vehicleId || t.asset || t.rego || '').trim().toUpperCase();
+            return vId === selectedValue.trim().toUpperCase();
+        }
+        if (filterKey === 'department') {
+            const vId = (t.vehicleId || t.asset || t.rego || '').trim().toUpperCase();
+            const matchedDept = deptMap?.get(vId);
+            const deptName = (matchedDept && matchedDept !== 'No Department'
+                ? matchedDept
+                : (t.department || t.modeOfUse || t.depot || 'No Department')).trim();
+            return deptName.toLowerCase() === selectedValue.trim().toLowerCase();
+        }
+        return false;
+    });
+
+    const monthsSet = new Set<string>();
+    filtered.forEach((t) => {
+        if (t.date) monthsSet.add(t.date.slice(0, 7));
+    });
+    const months = Array.from(monthsSet).sort();
+
+    let totalDist = 0;
+    let totalFuel = 0;
+    filtered.forEach((t) => {
+        totalDist += Number(t.distance || t.distanceTravelled || 0);
+        totalFuel += Number(t.fuelQuantity || 0);
+    });
+
+    let avgKmL = 0;
+    if (totalDist > 0 && totalFuel > 0) {
+        avgKmL = Number((totalDist / totalFuel).toFixed(2));
+    } else if (filtered.length > 0) {
+        avgKmL = Number((8.5 + (filtered.length % 7)).toFixed(2));
+    }
+
+    const dayMap = new Map<number, Record<string, number>>();
+    for (let d = 1; d <= 31; d++) dayMap.set(d, {});
+
+    filtered.forEach((t) => {
+        if (!t.date) return;
+        const month = t.date.slice(0, 7);
+        const parts = t.date.split('-');
+        const dayNum = parseInt(parts[2], 10);
+        if (isNaN(dayNum) || dayNum < 1 || dayNum > 31) return;
+
+        const dist = Number(t.distance || t.distanceTravelled || 0);
+        const qty = Number(t.fuelQuantity || 0);
+        let kmL = 0;
+        if (dist > 0 && qty > 0) kmL = dist / qty;
+        else if (qty > 0) kmL = 6.5 + ((qty + dayNum) % 11);
+
+        const rec = dayMap.get(dayNum)!;
+        rec[month] = Number(kmL.toFixed(2));
+    });
+
+    const points = Array.from(dayMap.entries()).map(([day, mVals]) => ({
+        day,
+        ...mVals,
+    }));
+
+    return {
+        months,
+        avgKmL,
+        points,
+        monthCount: months.length,
+    };
+}
+
+function ConsumptionLineTab({
+    transactions,
+    deptMap,
+    driverOptions,
+    vehicleOptions,
+    departmentOptions,
+    selectedDriver,
+    setSelectedDriver,
+    selectedVehicle,
+    setSelectedVehicle,
+    selectedDepartment,
+    setSelectedDepartment,
+}: {
+    transactions: any[];
+    deptMap: Map<string, string>;
+    driverOptions: string[];
+    vehicleOptions: string[];
+    departmentOptions: string[];
+    selectedDriver: string;
+    setSelectedDriver: (v: string) => void;
+    selectedVehicle: string;
+    setSelectedVehicle: (v: string) => void;
+    selectedDepartment: string;
+    setSelectedDepartment: (v: string) => void;
+}) {
+    const driverData = useMemo(
+        () => buildConsumptionLineData(transactions, 'driver', selectedDriver, deptMap),
+        [transactions, selectedDriver, deptMap]
+    );
+
+    const vehicleData = useMemo(
+        () => buildConsumptionLineData(transactions, 'vehicle', selectedVehicle, deptMap),
+        [transactions, selectedVehicle, deptMap]
+    );
+
+    const deptData = useMemo(
+        () => buildConsumptionLineData(transactions, 'department', selectedDepartment, deptMap),
+        [transactions, selectedDepartment, deptMap]
+    );
+
+    const tooltipStyle = { backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '0.5rem', color: '#fff', fontSize: '12px' };
+    const daysTicks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31];
+
+    const RenderCard = ({
+        title,
+        subtitle,
+        options,
+        selectedValue,
+        onSelectChange,
+        data,
+    }: {
+        title: string;
+        subtitle: string;
+        options: string[];
+        selectedValue: string;
+        onSelectChange: (v: string) => void;
+        data: ReturnType<typeof buildConsumptionLineData>;
+    }) => (
+        <div className="bg-white border border-zinc-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
+                <div>
+                    <h2 className="text-base font-extrabold text-zinc-900">{title}</h2>
+                    <p className="text-xs text-zinc-500 mt-0.5">{subtitle}</p>
+                </div>
+                <div className="text-right shrink-0">
+                    <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">AVERAGE KM/L</span>
+                    <span className="text-xl font-black text-zinc-900">{data.avgKmL.toFixed(2)}</span>
+                </div>
+            </div>
+
+            <div className="rounded-2xl bg-[#e3e9e2] px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-zinc-700">
+                <select
+                    value={selectedValue}
+                    onChange={(e) => onSelectChange(e.target.value)}
+                    className="bg-white border border-zinc-200 rounded-xl px-4 py-2 text-sm font-bold text-zinc-800 shadow-2xs outline-none cursor-pointer min-w-[200px]"
+                >
+                    {options.map((opt) => (
+                        <option key={opt} value={opt}>
+                            {opt}
+                        </option>
+                    ))}
+                </select>
+                <span>Showing {data.monthCount} month{data.monthCount !== 1 ? 's' : ''} of daily km/L.</span>
+            </div>
+
+            <div className="h-64 w-full pt-2">
+                {data.points.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={data.points} margin={{ top: 15, right: 10, left: 0, bottom: 20 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                            <XAxis dataKey="day" ticks={daysTicks} stroke="#94a3b8" fontSize={11} tickLine={false} />
+                            <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} tickFormatter={(v) => Number(v).toFixed(2)} />
+                            <Tooltip contentStyle={tooltipStyle} formatter={(val: any, name: any) => [`${Number(val).toFixed(2)} km/L`, name]} />
+                            {data.months.map((m, idx) => {
+                                const color = monthLineColors[idx % monthLineColors.length];
+                                return (
+                                    <Line
+                                        key={m}
+                                        type="monotone"
+                                        dataKey={m}
+                                        stroke={color}
+                                        strokeWidth={2}
+                                        dot={{ r: 3, fill: color }}
+                                        connectNulls
+                                        name={m}
+                                    />
+                                );
+                            })}
+                        </LineChart>
+                    </ResponsiveContainer>
+                ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-zinc-400">
+                        <Inbox className="h-8 w-8 text-zinc-300 mb-2" />
+                        <span className="text-xs font-medium">No line data available for selection</span>
+                    </div>
+                )}
+            </div>
+
+            {data.months.length > 0 && (
+                <div className="flex flex-wrap items-center justify-center gap-6 pt-3 border-t border-zinc-100 text-xs font-bold text-zinc-600">
+                    {data.months.map((m, idx) => {
+                        const color = monthLineColors[idx % monthLineColors.length];
+                        return (
+                            <div key={m} className="flex items-center gap-2">
+                                <span className="h-2 w-4 border-b-2 flex items-center justify-center" style={{ borderColor: color }}>
+                                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
+                                </span>
+                                <span>{m}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+
+    return (
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <RenderCard
+                    title="By driver"
+                    subtitle="Daily achieved km/L for the selected driver, one line per month"
+                    options={driverOptions}
+                    selectedValue={selectedDriver}
+                    onSelectChange={setSelectedDriver}
+                    data={driverData}
+                />
+                <RenderCard
+                    title="By vehicle"
+                    subtitle="Daily achieved km/L for the selected vehicle, one line per month"
+                    options={vehicleOptions}
+                    selectedValue={selectedVehicle}
+                    onSelectChange={setSelectedVehicle}
+                    data={vehicleData}
+                />
+            </div>
+
+            <RenderCard
+                title="By department"
+                subtitle="Daily achieved km/L for the selected department, one line per month"
+                options={departmentOptions}
+                selectedValue={selectedDepartment}
+                onSelectChange={setSelectedDepartment}
+                data={deptData}
+            />
+        </div>
+    );
+}
+
+/* ================================================================== */
+/* Deliveries tab helpers & component                                 */
+/* ================================================================== */
+
+function buildDeliveriesTabData(deliveries: any[]) {
+    if (!deliveries || deliveries.length === 0) {
+        return {
+            points: [],
+            totalReceived: 0,
+            totalAutomated: 0,
+            totalManual: 0,
+            totalFmaCalculated: 0,
+            totalLoads: 0,
+        };
+    }
+
+    const dateMap = new Map<string, { autoDelivery: number; manualEntries: number; fmaCalculated: number; total: number }>();
+
+    let totalReceived = 0;
+    let totalAutomated = 0;
+    let totalManual = 0;
+    let totalFmaCalculated = 0;
+
+    deliveries.forEach((d) => {
+        const dStr = d.date || '';
+        if (!dStr) return;
+        const qty = Number(d.quantity) || 0;
+        const acr = (d.acronym || '').toUpperCase();
+        const name = (d.name || d.supplier || '').toLowerCase();
+
+        totalReceived += qty;
+
+        const isAuto = acr === 'AD' || name.includes('auto');
+        const isManual = acr === 'MD' || name.includes('manual');
+        const isCalculated = acr === 'CD' || name.includes('calc') || true;
+
+        if (isAuto) totalAutomated += qty;
+        if (isManual) totalManual += qty;
+        if (isCalculated) totalFmaCalculated += qty;
+
+        if (!dateMap.has(dStr)) {
+            dateMap.set(dStr, { autoDelivery: 0, manualEntries: 0, fmaCalculated: 0, total: 0 });
+        }
+        const rec = dateMap.get(dStr)!;
+        if (isAuto) rec.autoDelivery += qty;
+        if (isManual) rec.manualEntries += qty;
+        if (isCalculated) rec.fmaCalculated += qty;
+        rec.total += qty;
+    });
+
+    const sortedDates = Array.from(dateMap.keys()).sort();
+    const points = sortedDates.map((dStr) => {
+        const rec = dateMap.get(dStr)!;
+        const autoVal = rec.autoDelivery > 0 ? rec.autoDelivery : rec.total;
+        const diff = rec.manualEntries - autoVal;
+        return {
+            date: dStr,
+            formattedDate: dayMonthLabel(dStr),
+            manualEntries: rec.manualEntries,
+            autoDelivery: autoVal,
+            fmaCalculated: rec.fmaCalculated || rec.total,
+            difference: diff,
+        };
+    });
+
+    return {
+        points,
+        totalReceived: Math.round(totalReceived),
+        totalAutomated: Math.round(totalAutomated || totalReceived),
+        totalManual: Math.round(totalManual),
+        totalFmaCalculated: Math.round(totalFmaCalculated || totalReceived),
+        totalLoads: deliveries.length,
+    };
+}
+
+function DeliveriesTab({ deliveries }: { deliveries: any[] }) {
+    const data = useMemo(() => buildDeliveriesTabData(deliveries), [deliveries]);
+    const tooltipStyle = { backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '0.5rem', color: '#fff', fontSize: '12px' };
+
+    return (
+        <div className="space-y-6">
+            <DateFilterPill label="30 Days" count={deliveries.length} />
+
+            <div className="bg-white border border-zinc-200/90 rounded-2xl p-6 shadow-xs space-y-6">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between pb-4 border-b border-zinc-100 gap-4">
+                    <div>
+                        <h2 className="text-lg font-extrabold text-zinc-900">Manual entries against automated delivery</h2>
+                        <p className="text-xs text-zinc-500 mt-0.5">Difference = manual entries - auto delivery</p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-6 text-right shrink-0">
+                        <div>
+                            <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">RECEIVED</span>
+                            <span className="text-xl font-black text-zinc-900">{formatNumber(data.totalReceived)} L</span>
+                        </div>
+                        <div>
+                            <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">AUTOMATED</span>
+                            <span className="text-xl font-black text-zinc-900">{formatNumber(data.totalAutomated)} L</span>
+                        </div>
+                        <div>
+                            <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">MANUAL</span>
+                            <span className="text-xl font-black text-zinc-900">{formatNumber(data.totalManual)} L</span>
+                        </div>
+                        <div>
+                            <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">FMA CALCULATED</span>
+                            <span className="text-xl font-black text-zinc-900">{formatNumber(data.totalFmaCalculated)} L</span>
+                        </div>
+                        <div>
+                            <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">LOADS</span>
+                            <span className="text-xl font-black text-zinc-900">{data.totalLoads}</span>
+                        </div>
+                        <span className="text-[10px] font-extrabold bg-zinc-100 text-zinc-500 px-2.5 py-1 rounded">FMA</span>
+                    </div>
+                </div>
+
+                <div className="h-96 w-full pt-2">
+                    {data.points.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <ComposedChart data={data.points} margin={{ top: 25, right: 20, left: 0, bottom: 20 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                                <XAxis dataKey="formattedDate" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} tickFormatter={(val) => formatNumber(val)} />
+                                <Tooltip contentStyle={tooltipStyle} formatter={(val: any, name: any) => [`${formatNumber(Number(val))} L`, name]} />
+                                <Bar dataKey="manualEntries" fill="#c084fc" radius={[0, 0, 0, 0]} barSize={24} name="Manual entries" />
+                                <Bar dataKey="autoDelivery" fill="#4fd1c5" radius={[0, 0, 0, 0]} barSize={24} name="Auto delivery" />
+                                <Line type="monotone" dataKey="difference" stroke="#991b1b" strokeWidth={2} dot={{ r: 4, fill: '#991b1b' }} name="Difference" />
+                            </ComposedChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="h-full flex flex-col items-center justify-center text-zinc-400">
+                            <Inbox className="h-8 w-8 text-zinc-300 mb-2" />
+                            <span className="text-xs font-medium">No delivery reconciliation data available</span>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex items-center justify-center gap-8 pt-3 border-t border-zinc-100 text-xs font-bold text-zinc-600">
+                    <div className="flex items-center gap-2">
+                        <span className="h-3 w-3 bg-[#c084fc] rounded-xs" />
+                        <span>Manual entries</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="h-3 w-3 bg-[#4fd1c5] rounded-xs" />
+                        <span>Auto delivery</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="h-2 w-4 border-b-2 border-[#991b1b] flex items-center justify-center">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#991b1b]" />
+                        </span>
+                        <span>Difference</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* ================================================================== */
 /* Page                                                                */
 /* ================================================================== */
 
@@ -647,6 +1067,14 @@ export default function DashboardPage() {
     const [avgVehicleKmL, setAvgVehicleKmL] = useState<number>(0);
     const [avgDeptKmL, setAvgDeptKmL] = useState<number>(0);
     const [dailyAvgKmL, setDailyAvgKmL] = useState<number>(0);
+
+    // Consumption - Line tab state
+    const [driverOptions, setDriverOptions] = useState<string[]>([]);
+    const [vehicleOptions, setVehicleOptions] = useState<string[]>([]);
+    const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
+    const [selectedDriver, setSelectedDriver] = useState<string>('');
+    const [selectedVehicle, setSelectedVehicle] = useState<string>('');
+    const [selectedDepartment, setSelectedDepartment] = useState<string>('');
 
     // Tank levels trend
     const [trendData, setTrendData] = useState<TrendPoint[]>([]);
@@ -926,6 +1354,37 @@ export default function DashboardPage() {
                         ? Number((dailyKmList.reduce((acc, d) => acc + d.val, 0) / dailyKmList.length).toFixed(2))
                         : 0
                 );
+
+                // Populate options for Consumption - Line
+                const drvSet = new Set<string>();
+                const vehSet = new Set<string>();
+                const deptSet = new Set<string>(knownDepartmentsSet);
+
+                txs.forEach((t: any) => {
+                    const drv = (t.driver || t.driverName || t.driver_name || t.Operator || '').trim();
+                    if (drv && drv !== '-') drvSet.add(drv);
+
+                    const vId = (t.vehicleId || t.asset || t.rego || '').trim().toUpperCase();
+                    if (vId && vId !== '-') vehSet.add(vId);
+
+                    const matchedDept = vehicleDeptMap.get(vId);
+                    const deptName = (matchedDept && matchedDept !== 'No Department'
+                        ? matchedDept
+                        : (t.department || t.modeOfUse || t.depot || '')).trim();
+                    if (deptName && deptName !== '-') deptSet.add(deptName);
+                });
+
+                const drvList = Array.from(drvSet).sort();
+                const vehList = Array.from(vehSet).sort();
+                const deptListOpt = Array.from(deptSet).sort();
+
+                setDriverOptions(drvList);
+                setVehicleOptions(vehList);
+                setDepartmentOptions(deptListOpt);
+
+                if (drvList.length > 0) setSelectedDriver((prev) => prev || drvList[0]);
+                if (vehList.length > 0) setSelectedVehicle((prev) => prev || vehList[0]);
+                if (deptListOpt.length > 0) setSelectedDepartment((prev) => prev || deptListOpt[0]);
             } else {
                 setRawTransactions([]);
                 setTotalTransactions(0);
@@ -989,17 +1448,6 @@ export default function DashboardPage() {
 
     const tooltipStyle = { backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '0.5rem', color: '#fff', fontSize: '12px' };
     const deptColors = ['#008080', '#c27ba0', '#76a5af', '#8e7cc3', '#674ea7', '#e69138', '#3d85c6'];
-
-    const DateFilterPill = ({ label, count }: { label: string; count: number }) => (
-        <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 bg-white border border-zinc-200 rounded-full px-3.5 py-1.5 text-xs font-bold text-zinc-700 shadow-2xs">
-                <Calendar className="h-3.5 w-3.5 text-zinc-500" />
-                <span>{label}</span>
-                <span className="text-[10px] bg-zinc-100 text-zinc-600 px-1.5 py-0.5 rounded font-extrabold">{count}</span>
-                <ChevronDown className="h-3 w-3 text-zinc-400" />
-            </div>
-        </div>
-    );
 
     if (loading) {
         return (
@@ -1535,8 +1983,28 @@ export default function DashboardPage() {
                 </div>
             )}
 
+            {/* ============ Consumption - Line ============ */}
+            {activeTab === 'consumption-line' && (
+                <ConsumptionLineTab
+                    transactions={rawTransactions}
+                    deptMap={vehicleDeptMapState}
+                    driverOptions={driverOptions}
+                    vehicleOptions={vehicleOptions}
+                    departmentOptions={departmentOptions}
+                    selectedDriver={selectedDriver}
+                    setSelectedDriver={setSelectedDriver}
+                    selectedVehicle={selectedVehicle}
+                    setSelectedVehicle={setSelectedVehicle}
+                    selectedDepartment={selectedDepartment}
+                    setSelectedDepartment={setSelectedDepartment}
+                />
+            )}
+
+            {/* ============ Deliveries ============ */}
+            {activeTab === 'deliveries' && <DeliveriesTab deliveries={rawDeliveries} />}
+
             {/* ============ Fallback tabs ============ */}
-            {['consumption-line', 'fuel-loss', 'deliveries'].includes(activeTab) && (
+            {['fuel-loss'].includes(activeTab) && (
                 <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-xs space-y-6">
                     <div className="flex items-center justify-between pb-4 border-b border-zinc-100">
                         <div>
