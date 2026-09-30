@@ -144,16 +144,16 @@ function buildTotalSiteData(args: {
     const yesterday = getPastDateStr(1);
 
     const sumQty = (arr: any[]) => arr.reduce((a, d) => a + (Number(d.quantity) || 0), 0);
-    const receivedThisMonth = sumQty(deliveries.filter((d) => (d.date || '').startsWith(monthPrefix)));
-    const deliveredYesterday = sumQty(deliveries.filter((d) => d.date === yesterday));
-    const deliveredThisWeek = sumQty(deliveries.filter((d) => d.date >= mondayStr));
+    const receivedThisMonth = sumQty(deliveries.filter((d) => (d.date || '').slice(0, 7) === monthPrefix));
+    const deliveredYesterday = sumQty(deliveries.filter((d) => (d.date || '').slice(0, 10) === yesterday));
+    const deliveredThisWeek = sumQty(deliveries.filter((d) => (d.date || '').slice(0, 10) >= mondayStr));
     const latestDel = [...deliveries].sort((a, b) =>
         `${b.date} ${b.time || ''}`.localeCompare(`${a.date} ${a.time || ''}`))[0];
 
     // dispensed yesterday by department
     const deptTotals = new Map<string, number>();
     knownDepartments.forEach((d) => deptTotals.set(d, 0));
-    const yTx = transactions.filter((t) => t.date === yesterday);
+    const yTx = transactions.filter((t) => (t.date || '').slice(0, 10) === yesterday);
     yTx.forEach((t) => {
         const vId = (t.vehicleId || t.asset || '').trim().toUpperCase();
         const matched = deptMap.get(vId);
