@@ -1,7 +1,7 @@
 // src/app/(dashboard)/dashboard/page.tsx
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     Truck,
@@ -17,6 +17,7 @@ import {
     ShieldCheck,
     Inbox,
     Calendar,
+    Check,
 } from 'lucide-react';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
@@ -25,7 +26,7 @@ import { deliveryService } from '@/services/deliveryService';
 import { fuelIssueService } from '@/services/fuelIssueService';
 import { vehicleService } from '@/services/vehicleService';
 import { useClientStore } from '@/services/api';
-import { DateRangePicker, DateRange, getDateRangeFromPreset } from '@/components/common/DateRangePicker';
+import { DateRangePicker, DateRange, DateRangePreset, getDateRangeFromPreset } from '@/components/common/DateRangePicker';
 import { formatNumber } from '@/lib/utils';
 import { authService } from '@/lib/auth';
 import {
@@ -319,16 +320,19 @@ function FuelGauge({ pct }: { pct: number }) {
 /* Small UI pieces                                                     */
 /* ================================================================== */
 
-const DateFilterPill = ({ label, count }: { label: string; count: number }) => (
-    <div className="flex items-center gap-2">
-        <div className="flex items-center gap-2 bg-white border border-zinc-200 rounded-full px-3.5 py-1.5 text-xs font-bold text-zinc-700 shadow-2xs">
-            <Calendar className="h-3.5 w-3.5 text-zinc-500" />
-            <span>{label}</span>
-            <span className="text-[10px] bg-zinc-100 text-zinc-600 px-1.5 py-0.5 rounded font-extrabold">{count}</span>
-            <ChevronDown className="h-3 w-3 text-zinc-400" />
-        </div>
-    </div>
-);
+const DateFilterPill = ({
+    value,
+    onChange,
+    label,
+}: {
+    value?: DateRange;
+    onChange?: (range: DateRange) => void;
+    label?: string;
+    count?: number;
+}) => {
+    const fallbackRange = useMemo(() => getDateRangeFromPreset(label === '30 Days' ? '30days' : '7days'), [label]);
+    return <DateRangePicker value={value || fallbackRange} onChange={onChange || (() => {})} />;
+};
 
 const SiteCard = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
     <div className={`bg-white rounded-[20px] p-5 shadow-[0_1px_2px_rgba(16,24,20,0.04)] ${className}`}>{children}</div>
@@ -856,13 +860,21 @@ function buildDeliveriesTabData(deliveries: any[]) {
     };
 }
 
-function DeliveriesTab({ deliveries }: { deliveries: any[] }) {
+function DeliveriesTab({
+    deliveries,
+    value,
+    onChange,
+}: {
+    deliveries: any[];
+    value?: DateRange;
+    onChange?: (range: DateRange) => void;
+}) {
     const data = useMemo(() => buildDeliveriesTabData(deliveries), [deliveries]);
     const tooltipStyle = { backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '0.5rem', color: '#fff', fontSize: '12px' };
 
     return (
         <div className="space-y-6">
-            <DateFilterPill label="30 Days" count={deliveries.length} />
+            <DateFilterPill value={value} onChange={onChange} label="30 Days" count={deliveries.length} />
 
             <div className="bg-white border border-zinc-200/90 rounded-2xl p-6 shadow-xs space-y-6">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between pb-4 border-b border-zinc-100 gap-4">
@@ -967,6 +979,11 @@ export default function DashboardPage() {
     const [thirtyDayAvg, setThirtyDayAvg] = useState<number>(0);
 
     const [usageDateRange, setUsageDateRange] = useState<DateRange>(getDateRangeFromPreset('monthToDate'));
+    const [overviewDateRange, setOverviewDateRange] = useState<DateRange>(getDateRangeFromPreset('7days'));
+    const [transactionsDateRange, setTransactionsDateRange] = useState<DateRange>(getDateRangeFromPreset('7days'));
+    const [tankLevelsDateRange, setTankLevelsDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
+    const [deliveriesDateRange, setDeliveriesDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
+    const [consumptionDateRange, setConsumptionDateRange] = useState<DateRange>(getDateRangeFromPreset('7days'));
     const [rawTransactions, setRawTransactions] = useState<any[]>([]);
     const [vehicleDeptMapState, setVehicleDeptMapState] = useState<Map<string, string>>(new Map());
 
@@ -1430,6 +1447,109 @@ export default function DashboardPage() {
         }
     }, [usageDateRange, rawTransactions, vehicleDeptMapState, computeUsageComparison]);
 
+    const computeOverview = useCallback(
+        (range: DateRange, txs: any[], dels: any[], levels: any[], avg30: number, stock: number) => {
+            let rawDates: string[] = [];
+            if (range.preset === '7days') rawDates = [7, 6, 5, 4, 3, 2, 1, 0].map((d) => getPastDateStr(d));
+            else if (range.preset === '14days') rawDates = Array.from({ length: 15 }, (_, i) => getPastDateStr(14 - i));
+            else if (range.preset === '21days') rawDates = Array.from({ length: 22 }, (_, i) => getPastDateStr(21 - i));
+            else if (range.preset === '30days') rawDates = Array.from({ length: 31 }, (_, i) => getPastDateStr(30 - i));
+            else if (range.startDate && range.endDate) {
+                let curr = new Date(range.startDate);
+                const end = new Date(range.endDate);
+                while (curr <= end) {
+                    const yyyy = curr.getFullYear();
+                    const mm = String(curr.getMonth() + 1).padStart(2, '0');
+                    const dd = String(curr.getDate()).padStart(2, '0');
+                    rawDates.push(`${yyyy}-${mm}-${dd}`);
+                    curr.setDate(curr.getDate() + 1);
+                }
+            }
+            if (rawDates.length === 0) rawDates = [7, 6, 5, 4, 3, 2, 1, 0].map((d) => getPastDateStr(d));
+
+            const computedOverviewPoints = rawDates.map((dStr) => {
+                const dayIssued = Math.round(
+                    txs.filter((t: any) => t.date === dStr).reduce((acc: number, t: any) => acc + (Number(t.fuelQuantity) || 0), 0)
+                );
+                const dayDels = dels.filter((d: any) => d.date === dStr);
+                const dayDelivered = Math.round(dayDels.reduce((acc: number, d: any) => acc + (Number(d.quantity) || 0), 0));
+                const dayLevels = levels.filter((l: any) => l.date === dStr);
+                const endOfDayLevel = dayLevels.length > 0 ? Math.round(dayLevels[dayLevels.length - 1].fuelLevel || 0) : 0;
+
+                return {
+                    date: dStr,
+                    formattedDate: dayMonthLabel(dStr),
+                    issued: dayIssued,
+                    delivered: dayDelivered,
+                    onHand: endOfDayLevel,
+                    daysStockOnHand: 0,
+                };
+            });
+
+            const finalOverviewPoints = computedOverviewPoints.map((p, idx, arr) => {
+                const level = p.onHand || (idx === 0 ? stock : arr[idx - 1].onHand - p.issued + p.delivered);
+                const days = avg30 > 0 ? Math.max(0, Math.round(level / avg30)) : 0;
+                return { ...p, onHand: level, daysStockOnHand: days };
+            });
+
+            setUsageOverviewData({
+                points: finalOverviewPoints,
+                totalIssued: finalOverviewPoints.reduce((acc, p) => acc + p.issued, 0),
+                totalDelivered: finalOverviewPoints.reduce((acc, p) => acc + p.delivered, 0),
+                latestDaysOnHand: finalOverviewPoints[finalOverviewPoints.length - 1]?.daysStockOnHand || 0,
+            });
+        },
+        []
+    );
+
+    useEffect(() => {
+        computeOverview(overviewDateRange, rawTransactions, rawDeliveries, rawLevels, thirtyDayAvg, currentStock);
+    }, [overviewDateRange, rawTransactions, rawDeliveries, rawLevels, thirtyDayAvg, currentStock, computeOverview]);
+
+    const filteredTransactions = useMemo(() => {
+        if (transactionsDateRange.preset === 'all') return rawTransactions;
+        return rawTransactions.filter((t: any) => {
+            const d = t.date || '';
+            if (!d) return false;
+            if (transactionsDateRange.startDate && d < transactionsDateRange.startDate) return false;
+            if (transactionsDateRange.endDate && d > transactionsDateRange.endDate) return false;
+            return true;
+        });
+    }, [rawTransactions, transactionsDateRange]);
+
+    const filteredDeliveries = useMemo(() => {
+        if (deliveriesDateRange.preset === 'all') return rawDeliveries;
+        return rawDeliveries.filter((d: any) => {
+            const dateStr = d.date || '';
+            if (!dateStr) return false;
+            if (deliveriesDateRange.startDate && dateStr < deliveriesDateRange.startDate) return false;
+            if (deliveriesDateRange.endDate && dateStr > deliveriesDateRange.endDate) return false;
+            return true;
+        });
+    }, [rawDeliveries, deliveriesDateRange]);
+
+    const filteredTrendData = useMemo(() => {
+        if (tankLevelsDateRange.preset === 'all') return trendData;
+        return trendData.filter((t: any) => {
+            const d = t.date || '';
+            if (!d) return false;
+            if (tankLevelsDateRange.startDate && d < tankLevelsDateRange.startDate) return false;
+            if (tankLevelsDateRange.endDate && d > tankLevelsDateRange.endDate) return false;
+            return true;
+        });
+    }, [trendData, tankLevelsDateRange]);
+
+    const filteredDailyConsumption = useMemo(() => {
+        if (consumptionDateRange.preset === 'all') return dailyConsumptionData;
+        return dailyConsumptionData.filter((c: any) => {
+            const d = c.date || '';
+            if (!d) return true;
+            if (consumptionDateRange.startDate && d < consumptionDateRange.startDate) return false;
+            if (consumptionDateRange.endDate && d > consumptionDateRange.endDate) return false;
+            return true;
+        });
+    }, [dailyConsumptionData, consumptionDateRange]);
+
     // Total Site tab data
     const totalSiteData = useMemo(
         () =>
@@ -1557,7 +1677,7 @@ export default function DashboardPage() {
             {/* ============ Tank Levels ============ */}
             {activeTab === 'tank-levels' && (
                 <div className="space-y-6">
-                    <DateFilterPill label="30 Days" count={trendData.length} />
+                    <DateFilterPill value={tankLevelsDateRange} onChange={setTankLevelsDateRange} count={filteredTrendData.length} />
 
                     <div className="bg-white border border-zinc-200/90 rounded-2xl p-6 shadow-xs space-y-6">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-zinc-100 gap-4">
@@ -1585,9 +1705,9 @@ export default function DashboardPage() {
                         </div>
 
                         <div className="h-96 w-full pt-2">
-                            {trendData.length > 0 ? (
+                            {filteredTrendData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <ComposedChart data={trendData} margin={{ top: 20, right: 20, left: 0, bottom: 20 }}>
+                                    <ComposedChart data={filteredTrendData} margin={{ top: 20, right: 20, left: 0, bottom: 20 }}>
                                         <defs>
                                             <linearGradient id="tankLevelsGrad" x1="0" y1="0" x2="0" y2="1">
                                                 <stop offset="5%" stopColor="#008080" stopOpacity={0.25} />
@@ -1631,7 +1751,7 @@ export default function DashboardPage() {
             {/* ============ Transactions ============ */}
             {activeTab === 'transactions' && (
                 <div className="space-y-6">
-                    <DateFilterPill label="7 Days" count={rawTransactions.length} />
+                    <DateFilterPill value={transactionsDateRange} onChange={setTransactionsDateRange} count={filteredTransactions.length} />
 
                     <div className="bg-white border border-zinc-200/90 rounded-2xl p-6 shadow-xs space-y-6">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-zinc-100 gap-4">
@@ -1760,7 +1880,7 @@ export default function DashboardPage() {
             {/* ============ Usage Overview ============ */}
             {activeTab === 'usage-overview' && (
                 <div className="space-y-6">
-                    <DateFilterPill label="7 Days" count={usageOverviewData.points.length} />
+                    <DateFilterPill value={overviewDateRange} onChange={setOverviewDateRange} count={usageOverviewData.points.length} />
 
                     <div className="bg-white border border-zinc-200/90 rounded-2xl p-6 shadow-xs space-y-6">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-zinc-100 gap-4">
@@ -1862,7 +1982,7 @@ export default function DashboardPage() {
             {/* ============ Consumption ============ */}
             {activeTab === 'consumption' && (
                 <div className="space-y-6">
-                    <DateFilterPill label="7 Days" count={dailyConsumptionData.length} />
+                    <DateFilterPill value={consumptionDateRange} onChange={setConsumptionDateRange} count={filteredDailyConsumption.length} />
 
                     <div className="bg-white border border-zinc-200/90 rounded-2xl p-6 shadow-xs space-y-6">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-zinc-100 gap-4">
@@ -1887,9 +2007,9 @@ export default function DashboardPage() {
                         </div>
 
                         <div className="h-80 w-full pt-2">
-                            {dailyConsumptionData.length > 0 ? (
+                            {filteredDailyConsumption.length > 0 ? (
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={dailyConsumptionData} margin={{ top: 25, right: 10, left: 0, bottom: 20 }}>
+                                    <BarChart data={filteredDailyConsumption} margin={{ top: 25, right: 10, left: 0, bottom: 20 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                                         <XAxis dataKey="formattedDate" stroke="#94a3b8" fontSize={11} tickLine={false} />
                                         <YAxis domain={[0, 'auto']} stroke="#94a3b8" fontSize={11} tickLine={false} tickFormatter={(v) => Number(v).toFixed(2)} />
@@ -2001,7 +2121,7 @@ export default function DashboardPage() {
             )}
 
             {/* ============ Deliveries ============ */}
-            {activeTab === 'deliveries' && <DeliveriesTab deliveries={rawDeliveries} />}
+            {activeTab === 'deliveries' && <DeliveriesTab deliveries={filteredDeliveries} value={deliveriesDateRange} onChange={setDeliveriesDateRange} />}
 
             {/* ============ Fallback tabs ============ */}
             {['fuel-loss'].includes(activeTab) && (
