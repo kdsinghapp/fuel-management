@@ -1360,6 +1360,7 @@ export default function DashboardPage() {
                         kmL = 8.5 + ((rec.litres / (rec.count || 1)) % 7);
                     }
                     return {
+                        date: dStr,
                         formattedDate: dayMonthLabel(dStr),
                         val: Number(kmL.toFixed(2)),
                     };
@@ -1549,6 +1550,12 @@ export default function DashboardPage() {
             return true;
         });
     }, [dailyConsumptionData, consumptionDateRange]);
+
+    const filteredDailyAvgKmL = useMemo(() => {
+        if (filteredDailyConsumption.length === 0) return 0;
+        const sum = filteredDailyConsumption.reduce((acc: number, d: any) => acc + d.val, 0);
+        return Number((sum / filteredDailyConsumption.length).toFixed(2));
+    }, [filteredDailyConsumption]);
 
     // Total Site tab data
     const totalSiteData = useMemo(
@@ -1993,7 +2000,7 @@ export default function DashboardPage() {
                             <div className="flex items-center gap-6 text-right shrink-0">
                                 <div>
                                     <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">MEASURED</span>
-                                    <span className="text-xl font-black text-zinc-900">{dailyConsumptionData.length}</span>
+                                    <span className="text-xl font-black text-zinc-900">{filteredDailyConsumption.length}</span>
                                 </div>
                                 <div>
                                     <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">AVERAGE KM/L</span>
@@ -2001,7 +2008,7 @@ export default function DashboardPage() {
                                 </div>
                                 <div>
                                     <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">AVERAGE / DAY</span>
-                                    <span className="text-xl font-black text-zinc-900">{dailyAvgKmL > 0 ? dailyAvgKmL.toFixed(2) : '0.00'} km/L</span>
+                                    <span className="text-xl font-black text-zinc-900">{filteredDailyAvgKmL > 0 ? filteredDailyAvgKmL.toFixed(2) : '0.00'} km/L</span>
                                 </div>
                             </div>
                         </div>
@@ -2014,12 +2021,12 @@ export default function DashboardPage() {
                                         <XAxis dataKey="formattedDate" stroke="#94a3b8" fontSize={11} tickLine={false} />
                                         <YAxis domain={[0, 'auto']} stroke="#94a3b8" fontSize={11} tickLine={false} tickFormatter={(v) => Number(v).toFixed(2)} />
                                         <Tooltip contentStyle={tooltipStyle} formatter={(val: any) => [`${Number(val).toFixed(2)} km/L`, 'Consumption']} />
-                                        {dailyAvgKmL > 0 && (
+                                        {filteredDailyAvgKmL > 0 && (
                                             <ReferenceLine
-                                                y={dailyAvgKmL}
+                                                y={filteredDailyAvgKmL}
                                                 stroke="#475569"
                                                 strokeDasharray="4 4"
-                                                label={{ value: `Average ${dailyAvgKmL.toFixed(2)} km/L`, fill: '#475569', fontSize: 11, position: 'insideBottomLeft' }}
+                                                label={{ value: `Average ${filteredDailyAvgKmL.toFixed(2)} km/L`, fill: '#475569', fontSize: 11, position: 'insideBottomLeft' }}
                                             />
                                         )}
                                         <Bar dataKey="val" fill="#008080" radius={[0, 0, 0, 0]} barSize={32}>
