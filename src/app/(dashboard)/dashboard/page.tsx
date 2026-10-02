@@ -1518,6 +1518,83 @@ export default function DashboardPage() {
         });
     }, [rawTransactions, transactionsDateRange]);
 
+    const filteredTransactionsData = useMemo(() => {
+        const txs = filteredTransactions;
+        const totalIssued = Math.round(txs.reduce((acc: number, t: any) => acc + (Number(t.fuelQuantity) || 0), 0));
+
+        let rawDates: string[] = [];
+        if (transactionsDateRange.startDate && transactionsDateRange.endDate) {
+            let curr = new Date(transactionsDateRange.startDate);
+            const end = new Date(transactionsDateRange.endDate);
+            while (curr <= end) {
+                const yyyy = curr.getFullYear();
+                const mm = String(curr.getMonth() + 1).padStart(2, '0');
+                const dd = String(curr.getDate()).padStart(2, '0');
+                rawDates.push(`${yyyy}-${mm}-${dd}`);
+                curr.setDate(curr.getDate() + 1);
+            }
+        }
+
+        if (rawDates.length === 0) {
+            const dateSet = new Set<string>();
+            txs.forEach((t: any) => { if (t.date) dateSet.add(t.date); });
+            rawDates = Array.from(dateSet).sort();
+        }
+
+        const points = rawDates.map((dStr) => {
+            const dayIssued = Math.round(
+                txs.filter((t: any) => t.date === dStr).reduce((acc: number, t: any) => acc + (Number(t.fuelQuantity) || 0), 0)
+            );
+            return {
+                date: dStr,
+                formattedDate: dayMonthLabel(dStr),
+                issued: dayIssued,
+            };
+        });
+
+        const fleetMap = new Map<string, number>();
+        txs.forEach((t: any) => {
+            const vId = (t.vehicleId || t.asset || t.rego || 'Unassigned').trim().toUpperCase();
+            fleetMap.set(vId, (fleetMap.get(vId) || 0) + (Number(t.fuelQuantity) || 0));
+        });
+        const fleetList = Array.from(fleetMap.entries())
+            .map(([name, totalLtrs]) => ({ name, value: Math.round(totalLtrs) }))
+            .sort((a, b) => b.value - a.value);
+
+        const deptMap = new Map<string, number>();
+        txs.forEach((t: any) => {
+            const vId = (t.vehicleId || t.asset || '').trim().toUpperCase();
+            const matchedDept = vehicleDeptMapState.get(vId);
+            const deptName = (matchedDept && matchedDept !== 'No Department'
+                ? matchedDept
+                : (t.department || t.modeOfUse || t.depot || 'No Department')).trim();
+            deptMap.set(deptName, (deptMap.get(deptName) || 0) + (Number(t.fuelQuantity) || 0));
+        });
+        const deptList = Array.from(deptMap.entries())
+            .map(([name, totalLtrs]) => ({ name, value: Math.round(totalLtrs) }))
+            .sort((a, b) => b.value - a.value);
+
+        const activeFleetCount = fleetList.filter((f) => f.value > 0).length || fleetList.length || 1;
+        const avgPerVehicle = Math.round(totalIssued / activeFleetCount);
+
+        const activeDeptCount = deptList.filter((d) => d.value > 0).length || deptList.length || 1;
+        const avgPerDept = Math.round(totalIssued / activeDeptCount);
+
+        const daysCount = points.length || 1;
+        const avgPerDay = Math.round(totalIssued / daysCount);
+
+        return {
+            points,
+            totalIssued,
+            recordsCount: txs.length,
+            avgPerDay,
+            fleetBreakdown: fleetList,
+            deptBreakdown: deptList,
+            avgPerVehicle,
+            avgPerDept,
+        };
+    }, [filteredTransactions, transactionsDateRange, vehicleDeptMapState]);
+
     const filteredDeliveries = useMemo(() => {
         if (deliveriesDateRange.preset === 'all') return rawDeliveries;
         return rawDeliveries.filter((d: any) => {
@@ -1758,7 +1835,7 @@ export default function DashboardPage() {
             {/* ============ Transactions ============ */}
             {activeTab === 'transactions' && (
                 <div className="space-y-6">
-                    <DateFilterPill value={transactionsDateRange} onChange={setTransactionsDateRange} count={filteredTransactions.length} />
+                    <DateFilterPill value={transactionsDateRange} onChange={setTransactionsDateRange} count={filteredTransactionsData.recordsCount} />
 
                     <div className="bg-white border border-zinc-200/90 rounded-2xl p-6 shadow-xs space-y-6">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-zinc-100 gap-4">
@@ -1769,11 +1846,11 @@ export default function DashboardPage() {
                             <div className="flex items-center gap-6 text-right shrink-0">
                                 <div>
                                     <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">RECORDS</span>
-                                    <span className="text-xl font-black text-zinc-900">{totalTransactions}</span>
+                                    <span className="text-xl font-black text-zinc-900">{filteredTransactionsData.recordsCount}</span>
                                 </div>
                                 <div>
                                     <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">ISSUED</span>
-                                    <span className="text-xl font-black text-zinc-900">{formatNumber(usageOverviewData.totalIssued)} L</span>
+                                    <span className="text-xl font-black text-zinc-900">{formatNumber(filteredTransactionsData.totalIssued)} L</span>
                                 </div>
                                 <div>
                                     <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">AVERAGE KM/L</span>
@@ -1781,24 +1858,24 @@ export default function DashboardPage() {
                                 </div>
                                 <div>
                                     <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">AVERAGE / DAY</span>
-                                    <span className="text-xl font-black text-zinc-900">{formatNumber(thirtyDayAvg)} L</span>
+                                    <span className="text-xl font-black text-zinc-900">{formatNumber(filteredTransactionsData.avgPerDay)} L</span>
                                 </div>
                             </div>
                         </div>
 
                         <div className="h-80 w-full pt-2">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={usageOverviewData.points} margin={{ top: 25, right: 10, left: 0, bottom: 20 }}>
+                                <BarChart data={filteredTransactionsData.points} margin={{ top: 25, right: 10, left: 0, bottom: 20 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                                     <XAxis dataKey="formattedDate" stroke="#94a3b8" fontSize={11} tickLine={false} />
                                     <YAxis domain={[0, 'auto']} stroke="#94a3b8" fontSize={11} tickLine={false} />
                                     <Tooltip contentStyle={tooltipStyle} formatter={(val: any) => [`${formatNumber(Number(val))} L`, 'Issued']} />
-                                    {thirtyDayAvg > 0 && (
+                                    {filteredTransactionsData.avgPerDay > 0 && (
                                         <ReferenceLine
-                                            y={thirtyDayAvg}
+                                            y={filteredTransactionsData.avgPerDay}
                                             stroke="#475569"
                                             strokeDasharray="4 4"
-                                            label={{ value: 'Average', fill: '#475569', fontSize: 11, position: 'insideBottomLeft' }}
+                                            label={{ value: `Average ${formatNumber(filteredTransactionsData.avgPerDay)} L`, fill: '#475569', fontSize: 11, position: 'insideBottomLeft' }}
                                         />
                                     )}
                                     <Bar dataKey="issued" fill="#008080" radius={[0, 0, 0, 0]} barSize={32}>
@@ -1815,23 +1892,23 @@ export default function DashboardPage() {
                                 <h2 className="text-base font-extrabold text-zinc-900">Transactions by fleet</h2>
                                 <div className="text-right">
                                     <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">AVERAGE / VEHICLE</span>
-                                    <span className="text-lg font-black text-zinc-900">{avgPerVehicle} L</span>
+                                    <span className="text-lg font-black text-zinc-900">{filteredTransactionsData.avgPerVehicle} L</span>
                                 </div>
                             </div>
 
                             <div className="h-64 w-full pt-2">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart layout="vertical" data={fleetBreakdown.slice(0, 10)} margin={{ top: 5, right: 35, left: 35, bottom: 5 }}>
+                                    <BarChart layout="vertical" data={filteredTransactionsData.fleetBreakdown.slice(0, 10)} margin={{ top: 5, right: 35, left: 35, bottom: 5 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
                                         <XAxis type="number" stroke="#94a3b8" fontSize={11} tickLine={false} />
                                         <YAxis dataKey="name" type="category" stroke="#475569" fontSize={11} tickLine={false} width={90} />
                                         <Tooltip contentStyle={tooltipStyle} formatter={(val: any) => [`${val} L`, 'Issued']} />
-                                        {avgPerVehicle > 0 && (
+                                        {filteredTransactionsData.avgPerVehicle > 0 && (
                                             <ReferenceLine
-                                                x={avgPerVehicle}
+                                                x={filteredTransactionsData.avgPerVehicle}
                                                 stroke="#475569"
                                                 strokeDasharray="4 4"
-                                                label={{ value: `Avg ${avgPerVehicle} L`, fill: '#475569', fontSize: 10, position: 'top' }}
+                                                label={{ value: `Avg ${filteredTransactionsData.avgPerVehicle} L`, fill: '#475569', fontSize: 10, position: 'top' }}
                                             />
                                         )}
                                         <Bar dataKey="value" fill="#008080" radius={[0, 0, 0, 0]} barSize={18}>
@@ -1850,7 +1927,7 @@ export default function DashboardPage() {
                                 </div>
                                 <div className="text-right shrink-0">
                                     <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">AVERAGE / DEPT</span>
-                                    <span className="text-lg font-black text-zinc-900">{avgPerDept} L</span>
+                                    <span className="text-lg font-black text-zinc-900">{filteredTransactionsData.avgPerDept} L</span>
                                 </div>
                             </div>
 
@@ -1858,19 +1935,19 @@ export default function DashboardPage() {
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart
                                         layout="vertical"
-                                        data={departmentBreakdown.map((d) => ({ name: d.dept, value: Math.round(d.rawLitres) }))}
+                                        data={filteredTransactionsData.deptBreakdown.map((d) => ({ name: d.name, value: d.value }))}
                                         margin={{ top: 5, right: 35, left: 35, bottom: 5 }}
                                     >
                                         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
                                         <XAxis type="number" stroke="#94a3b8" fontSize={11} tickLine={false} />
                                         <YAxis dataKey="name" type="category" stroke="#475569" fontSize={11} tickLine={false} width={95} />
                                         <Tooltip contentStyle={tooltipStyle} formatter={(val: any) => [`${val} L`, 'Issued']} />
-                                        {avgPerDept > 0 && (
+                                        {filteredTransactionsData.avgPerDept > 0 && (
                                             <ReferenceLine
-                                                x={avgPerDept}
+                                                x={filteredTransactionsData.avgPerDept}
                                                 stroke="#475569"
                                                 strokeDasharray="4 4"
-                                                label={{ value: `Avg ${avgPerDept} L`, fill: '#475569', fontSize: 10, position: 'top' }}
+                                                label={{ value: `Avg ${filteredTransactionsData.avgPerDept} L`, fill: '#475569', fontSize: 10, position: 'top' }}
                                             />
                                         )}
                                         <Bar dataKey="value" fill="#008080" radius={[0, 0, 0, 0]} barSize={18}>
