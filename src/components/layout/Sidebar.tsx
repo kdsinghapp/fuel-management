@@ -36,7 +36,7 @@ import { useScheduleStore } from '@/services/scheduleStore';
 
 const navigationItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Fuel Levels', href: '/fuel-levels', icon: Droplet },
+    // { name: 'Fuel Levels', href: '/fuel-levels', icon: Droplet },
     { name: 'Deliveries', href: '/deliveries', icon: Truck },
     { name: 'Transactions', href: '/fuel-issues', icon: FileText },
     { name: 'Fuel Efficiency', href: '/vehicles', icon: Gauge },
@@ -118,24 +118,24 @@ export function Sidebar() {
                         return true;
                     })
                     .map((item) => {
-                    const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
-                    return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={cn(
-                                'flex items-center gap-3 py-[8.8px] pl-4 pr-6 text-[14px] font-bold transition-all duration-200 h-[44px] my-[3.2px] ml-[12.8px] mr-0 rounded-l-2xl rounded-r-none',
-                                isActive
-                                    ? 'bg-[#f26522] text-white shadow-md'
-                                    : 'text-zinc-300 hover:bg-white/5 hover:text-white',
-                                isCollapsed && 'justify-center px-2 mx-0 my-1 rounded-none'
-                            )}
-                        >
-                            <item.icon className={cn("h-[18px] w-[18px] shrink-0 transition-transform duration-200", !isActive && "group-hover:scale-110")} />
-                            {!isCollapsed && <span className="whitespace-nowrap">{item.name}</span>}
-                        </Link>
-                    );
-                })}
+                        const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className={cn(
+                                    'flex items-center gap-3 py-[8.8px] pl-4 pr-6 text-[14px] font-bold transition-all duration-200 h-[44px] my-[3.2px] ml-[12.8px] mr-0 rounded-l-2xl rounded-r-none',
+                                    isActive
+                                        ? 'bg-[#f26522] text-white shadow-md'
+                                        : 'text-zinc-300 hover:bg-white/5 hover:text-white',
+                                    isCollapsed && 'justify-center px-2 mx-0 my-1 rounded-none'
+                                )}
+                            >
+                                <item.icon className={cn("h-[18px] w-[18px] shrink-0 transition-transform duration-200", !isActive && "group-hover:scale-110")} />
+                                {!isCollapsed && <span className="whitespace-nowrap">{item.name}</span>}
+                            </Link>
+                        );
+                    })}
 
                 {user?.role === 'Administrator' && adminItems.map((item) => {
                     const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);

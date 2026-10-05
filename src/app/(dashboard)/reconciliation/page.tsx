@@ -374,9 +374,9 @@ export default function ReconciliationPage() {
             </div>
 
             {/* Dynamic Summary Cards */}
-            {summaryData && (
+            {/* {summaryData && (
                 <div className="grid gap-6 md:grid-cols-12 items-start">
-                    {/* Stock Reconciliation Summary (Span 4) */}
+                    Stock Reconciliation Summary (Span 4)
                     <div className="md:col-span-4 border border-slate-200 rounded-xl overflow-hidden shadow-xs">
                         <div className="bg-primary py-2 px-3 text-center border-b border-white/20">
                             <span className="text-xs font-bold text-white uppercase tracking-wider">Stock Reconciliation Summary</span>
@@ -415,7 +415,7 @@ export default function ReconciliationPage() {
                         </table>
                     </div>
 
-                    {/* Stock Demand Plan (Span 8) */}
+                    Stock Demand Plan (Span 8)
                     <div className="md:col-span-8 border border-slate-200 rounded-xl overflow-hidden shadow-xs">
                         <div className="bg-[#137e19] py-2 px-3 text-center border-b border-white/20">
                             <span className="text-xs font-bold text-white uppercase tracking-wider">Stock Demand Plan</span>
@@ -461,7 +461,7 @@ export default function ReconciliationPage() {
                         </table>
                     </div>
                 </div>
-            )}
+            )} */}
 
             {/* Historical Records */}
             <Card className="flex-1 flex flex-col rounded-xl border border-slate-200 shadow-sm p-4 mt-4">
