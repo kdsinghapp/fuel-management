@@ -827,35 +827,40 @@ function buildDeliveriesTabData(deliveries: any[]) {
 
         totalReceived += qty;
 
-        const isAuto = acr === 'AD' || name.includes('auto');
-        const isManual = acr === 'MD' || name.includes('manual');
-        const isCalculated = acr === 'CD' || name.includes('calc') || true;
+        const isManual = acr === 'ME' || acr === 'MD' || name.includes('manual');
 
-        if (isAuto) totalAutomated += qty;
-        if (isManual) totalManual += qty;
-        if (isCalculated) totalFmaCalculated += qty;
+        if (isManual) {
+            totalManual += qty;
+        } else {
+            totalAutomated += qty;
+            totalFmaCalculated += qty;
+        }
 
         if (!dateMap.has(dStr)) {
             dateMap.set(dStr, { autoDelivery: 0, manualEntries: 0, fmaCalculated: 0, total: 0 });
         }
         const rec = dateMap.get(dStr)!;
-        if (isAuto) rec.autoDelivery += qty;
-        if (isManual) rec.manualEntries += qty;
-        if (isCalculated) rec.fmaCalculated += qty;
+        if (isManual) {
+            rec.manualEntries += qty;
+        } else {
+            rec.autoDelivery += qty;
+            rec.fmaCalculated += qty;
+        }
         rec.total += qty;
     });
 
     const sortedDates = Array.from(dateMap.keys()).sort();
     const points = sortedDates.map((dStr) => {
         const rec = dateMap.get(dStr)!;
-        const autoVal = rec.autoDelivery > 0 ? rec.autoDelivery : rec.total;
-        const diff = rec.manualEntries - autoVal;
+        const manual = Number(rec.manualEntries.toFixed(1));
+        const autoVal = Number(rec.autoDelivery.toFixed(1));
+        const diff = Number((manual - autoVal).toFixed(1));
         return {
             date: dStr,
             formattedDate: dayMonthLabel(dStr),
-            manualEntries: rec.manualEntries,
+            manualEntries: manual,
             autoDelivery: autoVal,
-            fmaCalculated: rec.fmaCalculated || rec.total,
+            fmaCalculated: Number(rec.fmaCalculated.toFixed(1)),
             difference: diff,
         };
     });
@@ -863,9 +868,9 @@ function buildDeliveriesTabData(deliveries: any[]) {
     return {
         points,
         totalReceived: Math.round(totalReceived),
-        totalAutomated: Math.round(totalAutomated || totalReceived),
+        totalAutomated: Math.round(totalAutomated),
         totalManual: Math.round(totalManual),
-        totalFmaCalculated: Math.round(totalFmaCalculated || totalReceived),
+        totalFmaCalculated: Math.round(totalFmaCalculated),
         totalLoads: deliveries.length,
     };
 }
@@ -926,9 +931,75 @@ function DeliveriesTab({
                                 <XAxis dataKey="formattedDate" stroke="#94a3b8" fontSize={11} tickLine={false} />
                                 <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} tickFormatter={(val) => formatNumber(val)} />
                                 <Tooltip contentStyle={tooltipStyle} formatter={(val: any, name: any) => [`${formatNumber(Number(val))} L`, name]} />
-                                <Bar dataKey="manualEntries" fill="#c084fc" radius={[0, 0, 0, 0]} barSize={24} name="Manual entries" />
-                                <Bar dataKey="autoDelivery" fill="#4fd1c5" radius={[0, 0, 0, 0]} barSize={24} name="Auto delivery" />
-                                <Line type="monotone" dataKey="difference" stroke="#991b1b" strokeWidth={2} dot={{ r: 4, fill: '#991b1b' }} name="Difference" />
+                                <Bar dataKey="manualEntries" fill="#c084fc" radius={[0, 0, 0, 0]} barSize={24} name="Manual entries">
+                                    <LabelList
+                                        dataKey="manualEntries"
+                                        position="top"
+                                        content={(props: any) => {
+                                            const { x, y, width, value } = props;
+                                            const num = Number(value) || 0;
+                                            if (num <= 0) return null;
+                                            return (
+                                                <text
+                                                    x={x + width / 2}
+                                                    y={y - 6}
+                                                    fill="#7e22ce"
+                                                    textAnchor="middle"
+                                                    fontSize={10}
+                                                    fontWeight={700}
+                                                >
+                                                    {formatNumber(num)} L
+                                                </text>
+                                            );
+                                        }}
+                                    />
+                                </Bar>
+                                <Bar dataKey="autoDelivery" fill="#4fd1c5" radius={[0, 0, 0, 0]} barSize={24} name="Auto delivery">
+                                    <LabelList
+                                        dataKey="autoDelivery"
+                                        position="top"
+                                        content={(props: any) => {
+                                            const { x, y, width, value } = props;
+                                            const num = Number(value) || 0;
+                                            if (num <= 0) return null;
+                                            return (
+                                                <text
+                                                    x={x + width / 2}
+                                                    y={y - 6}
+                                                    fill="#0f766e"
+                                                    textAnchor="middle"
+                                                    fontSize={10}
+                                                    fontWeight={700}
+                                                >
+                                                    {formatNumber(num)} L
+                                                </text>
+                                            );
+                                        }}
+                                    />
+                                </Bar>
+                                <Line type="monotone" dataKey="difference" stroke="#991b1b" strokeWidth={2} dot={{ r: 4, fill: '#991b1b' }} name="Difference">
+                                    <LabelList
+                                        dataKey="difference"
+                                        position="top"
+                                        content={(props: any) => {
+                                            const { x, y, value } = props;
+                                            const num = Number(value) || 0;
+                                            if (num === 0) return null;
+                                            return (
+                                                <text
+                                                    x={x}
+                                                    y={y - 8}
+                                                    fill="#991b1b"
+                                                    textAnchor="middle"
+                                                    fontSize={10}
+                                                    fontWeight={800}
+                                                >
+                                                    Diff: {formatNumber(num)} L
+                                                </text>
+                                            );
+                                        }}
+                                    />
+                                </Line>
                             </ComposedChart>
                         </ResponsiveContainer>
                     ) : (
