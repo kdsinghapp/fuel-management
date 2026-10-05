@@ -34,6 +34,7 @@ import {
     Area,
     BarChart,
     Bar,
+    Cell,
     ComposedChart,
     LineChart,
     Line,
@@ -1032,6 +1033,381 @@ function DeliveriesTab({
 }
 
 /* ================================================================== */
+/* Fuel Loss tab helpers & component                                  */
+/* ================================================================== */
+
+function FuelLossTab({
+    dateRange,
+    onChange,
+}: {
+    dateRange: DateRange;
+    onChange: (range: DateRange) => void;
+}) {
+    const selectedClient = useClientStore((state) => state.selectedClient);
+    const [loading, setLoading] = useState(true);
+    const [transactions, setTransactions] = useState<any[]>([]);
+
+    useEffect(() => {
+        let isMounted = true;
+        const load = async () => {
+            try {
+                setLoading(true);
+                const res = await vehicleService.getFuelEfficiencyTransactions({
+                    startDate: dateRange.startDate || undefined,
+                    endDate: dateRange.endDate || undefined,
+                });
+                if (isMounted) {
+                    setTransactions(res.data || []);
+                }
+            } catch (err) {
+                console.error('Failed to load fuel loss transactions:', err);
+                if (isMounted) setTransactions([]);
+            } finally {
+                if (isMounted) setLoading(false);
+            }
+        };
+        load();
+        return () => {
+            isMounted = false;
+        };
+    }, [selectedClient, dateRange.startDate, dateRange.endDate, dateRange.preset]);
+
+    const {
+        totalVarianceLitres,
+        fleetVariances,
+        dateVariances,
+        deptVariances,
+    } = useMemo(() => {
+        let totalAct = 0;
+        let totalExp = 0;
+
+        const fleetMap = new Map<string, { actual: number; expected: number; varianceSum: number; count: number }>();
+        const dateMap = new Map<string, { actual: number; expected: number; varianceSum: number }>();
+        const deptMap = new Map<string, { actual: number; expected: number; varianceSum: number }>();
+
+        transactions.forEach((tx) => {
+            const litres = Number(tx.fuelQuantity) || 0;
+            const dist = Number(tx.distance) || 0;
+            const std = Number(tx.standardBurnRate) || 7.0;
+            const variance = tx.variance != null ? Number(tx.variance) : 0;
+            const dStr = (tx.date || '').split('T')[0];
+
+            let expectedL = litres;
+            if (dist > 0 && std > 0) {
+                expectedL = dist / std;
+            }
+
+            totalAct += litres;
+            totalExp += expectedL;
+
+            // Fleet grouping
+            const vId = (tx.vehicleId || tx.fleetId || 'Unassigned').trim().toUpperCase();
+            if (!fleetMap.has(vId)) fleetMap.set(vId, { actual: 0, expected: 0, varianceSum: 0, count: 0 });
+            const fRec = fleetMap.get(vId)!;
+            fRec.actual += litres;
+            fRec.expected += expectedL;
+            fRec.varianceSum += variance;
+            fRec.count += 1;
+
+            // Date grouping
+            if (dStr) {
+                if (!dateMap.has(dStr)) dateMap.set(dStr, { actual: 0, expected: 0, varianceSum: 0 });
+                const dtRec = dateMap.get(dStr)!;
+                dtRec.actual += litres;
+                dtRec.expected += expectedL;
+                dtRec.varianceSum += variance;
+            }
+
+            // Dept grouping
+            const dept = (tx.department || tx.depot || 'General').trim();
+            if (!deptMap.has(dept)) deptMap.set(dept, { actual: 0, expected: 0, varianceSum: 0 });
+            const dRec = deptMap.get(dept)!;
+            dRec.actual += litres;
+            dRec.expected += expectedL;
+            dRec.varianceSum += variance;
+        });
+
+        // 1. Fleet variances: Twelve largest variances, either direction
+        const fleetList = Array.from(fleetMap.entries()).map(([name, rec]) => {
+            const litresLoss = Number((rec.expected - rec.actual).toFixed(1));
+            const avgVarianceKmL = rec.count > 0 ? Number((rec.varianceSum / rec.count).toFixed(2)) : 0;
+            const value = avgVarianceKmL !== 0 ? avgVarianceKmL : litresLoss;
+            return {
+                name,
+                value,
+                litresLoss,
+                varianceKmL: avgVarianceKmL,
+                actual: Math.round(rec.actual),
+                expected: Math.round(rec.expected),
+            };
+        });
+        fleetList.sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
+        const top12Fleet = fleetList.slice(0, 12);
+
+        // 2. Date variances
+        const sortedDates = Array.from(dateMap.keys()).sort();
+        const dateList = sortedDates.map((dStr) => {
+            const rec = dateMap.get(dStr)!;
+            const loss = Math.round(rec.expected - rec.actual);
+            return {
+                date: dStr,
+                formattedDate: dayMonthLabel(dStr),
+                value: loss,
+            };
+        });
+
+        // 3. Department variances
+        const deptList = Array.from(deptMap.entries())
+            .map(([name, rec]) => {
+                const loss = Math.round(rec.expected - rec.actual);
+                return {
+                    name,
+                    value: loss,
+                };
+            })
+            .sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
+
+        const totalVar = Math.round(totalExp - totalAct);
+
+        return {
+            totalVarianceLitres: totalVar,
+            totalActualLitres: Math.round(totalAct),
+            totalExpectedLitres: Math.round(totalExp),
+            fleetVariances: top12Fleet,
+            dateVariances: dateList,
+            deptVariances: deptList,
+        };
+    }, [transactions]);
+
+    const tooltipStyle = { backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '0.5rem', color: '#fff', fontSize: '12px' };
+    const now = new Date();
+    const syncTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    return (
+        <div className="space-y-6">
+            <DateFilterPill value={dateRange} onChange={onChange} />
+
+            {/* Fuel Loss Main Card */}
+            <div className="bg-white border border-zinc-200/90 rounded-2xl p-6 shadow-xs space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-zinc-100 gap-4">
+                    <div>
+                        <h2 className="text-lg font-extrabold text-zinc-900">Fuel loss</h2>
+                        <p className="text-xs text-zinc-500 mt-0.5">
+                            Expected litres minus actual litres, from each vehicle's consumption target (km/L)
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-6 text-right shrink-0">
+                        <div>
+                            <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
+                                TOTAL VARIANCE
+                            </span>
+                            <span className={`text-xl font-black ${totalVarianceLitres >= 0 ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>
+                                {totalVarianceLitres > 0 ? `+${formatNumber(totalVarianceLitres)}` : formatNumber(totalVarianceLitres)} L
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-extrabold bg-zinc-100 text-zinc-600 px-2.5 py-1 rounded">
+                                Derived
+                            </span>
+                            <span className="text-xs text-zinc-400">synced {syncTimeStr}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {loading ? (
+                    <div className="h-64 flex items-center justify-center">
+                        <LoadingSpinner size="md" />
+                    </div>
+                ) : transactions.length === 0 ? (
+                    <div className="h-48 flex flex-col items-center justify-center text-zinc-400">
+                        <Inbox className="h-8 w-8 text-zinc-300 mb-2" />
+                        <span className="text-xs font-medium">No fuel loss / efficiency data for selected range</span>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-1">
+                        {/* Transactions by fleet */}
+                        <div className="bg-[#f8faf8] border border-zinc-200/80 rounded-xl p-5 space-y-3">
+                            <div className="flex items-center justify-between pb-2 border-b border-zinc-200">
+                                <div>
+                                    <h3 className="text-sm font-extrabold text-zinc-900">Transactions by fleet</h3>
+                                    <p className="text-[11px] text-zinc-500">Twelve largest variances, either direction</p>
+                                </div>
+                            </div>
+
+                            <div className="h-80 w-full pt-2">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                        layout="vertical"
+                                        data={fleetVariances}
+                                        margin={{ top: 10, right: 55, left: 35, bottom: 10 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
+                                        <XAxis type="number" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                                        <YAxis dataKey="name" type="category" stroke="#475569" fontSize={11} fontWeight={700} tickLine={false} width={80} />
+                                        <Tooltip
+                                            contentStyle={tooltipStyle}
+                                            formatter={(val: any, name: any, item: any) => [
+                                                `${Number(val) > 0 ? '+' : ''}${val} (${item.payload.litresLoss > 0 ? '+' : ''}${item.payload.litresLoss} L)`,
+                                                'Variance',
+                                            ]}
+                                        />
+                                        <ReferenceLine x={0} stroke="#94a3b8" strokeWidth={1.5} />
+                                        <Bar dataKey="value" barSize={18} radius={[2, 2, 2, 2]}>
+                                            {fleetVariances.map((entry, index) => (
+                                                <Cell
+                                                    key={`cell-fleet-${index}`}
+                                                    fill={entry.value >= 0 ? '#86efac' : '#fca5a5'}
+                                                    stroke={entry.value >= 0 ? '#22c55e' : '#ef4444'}
+                                                    strokeWidth={1.5}
+                                                />
+                                            ))}
+                                            <LabelList
+                                                dataKey="value"
+                                                position="right"
+                                                content={(props: any) => {
+                                                    const { x, y, width, value } = props;
+                                                    const num = Number(value) || 0;
+                                                    const isPos = num >= 0;
+                                                    return (
+                                                        <text
+                                                            x={x + width + (isPos ? 6 : -6)}
+                                                            y={y + 12}
+                                                            fill={isPos ? '#15803d' : '#b91c1c'}
+                                                            textAnchor={isPos ? 'start' : 'end'}
+                                                            fontSize={11}
+                                                            fontWeight={800}
+                                                        >
+                                                            {num > 0 ? `+${num}` : num}
+                                                        </text>
+                                                    );
+                                                }}
+                                            />
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* Right column: By date & By department */}
+                        <div className="space-y-6">
+                            {/* Transactions by date */}
+                            <div className="bg-[#f8faf8] border border-zinc-200/80 rounded-xl p-5 space-y-3">
+                                <div className="flex items-center justify-between pb-2 border-b border-zinc-200">
+                                    <h3 className="text-sm font-extrabold text-zinc-900">Transactions by date</h3>
+                                </div>
+
+                                <div className="h-44 w-full pt-1">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={dateVariances} margin={{ top: 20, right: 15, left: 0, bottom: 10 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                                            <XAxis dataKey="formattedDate" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                                            <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} />
+                                            <Tooltip
+                                                contentStyle={tooltipStyle}
+                                                formatter={(val: any) => [`${Number(val) > 0 ? '+' : ''}${val} L`, 'Variance']}
+                                            />
+                                            <ReferenceLine y={0} stroke="#94a3b8" strokeWidth={1.5} />
+                                            <Bar dataKey="value" barSize={24} radius={[2, 2, 2, 2]}>
+                                                {dateVariances.map((entry, index) => (
+                                                    <Cell
+                                                        key={`cell-date-${index}`}
+                                                        fill={entry.value >= 0 ? '#86efac' : '#fca5a5'}
+                                                        stroke={entry.value >= 0 ? '#22c55e' : '#ef4444'}
+                                                        strokeWidth={1.5}
+                                                    />
+                                                ))}
+                                                <LabelList
+                                                    dataKey="value"
+                                                    position="top"
+                                                    content={(props: any) => {
+                                                        const { x, y, width, value } = props;
+                                                        const num = Number(value) || 0;
+                                                        const isPos = num >= 0;
+                                                        return (
+                                                            <text
+                                                                x={x + width / 2}
+                                                                y={isPos ? y - 6 : y + 16}
+                                                                fill={isPos ? '#15803d' : '#b91c1c'}
+                                                                textAnchor="middle"
+                                                                fontSize={11}
+                                                                fontWeight={800}
+                                                            >
+                                                                {num > 0 ? `+${num}` : num}
+                                                            </text>
+                                                        );
+                                                    }}
+                                                />
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+
+                            {/* Transactions by department */}
+                            <div className="bg-[#f8faf8] border border-zinc-200/80 rounded-xl p-5 space-y-3">
+                                <div className="flex items-center justify-between pb-2 border-b border-zinc-200">
+                                    <h3 className="text-sm font-extrabold text-zinc-900">Transactions by department</h3>
+                                </div>
+
+                                <div className="h-44 w-full pt-1">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart
+                                            layout="vertical"
+                                            data={deptVariances}
+                                            margin={{ top: 10, right: 45, left: 35, bottom: 10 }}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
+                                            <XAxis type="number" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                                            <YAxis dataKey="name" type="category" stroke="#475569" fontSize={11} fontWeight={700} tickLine={false} width={80} />
+                                            <Tooltip
+                                                contentStyle={tooltipStyle}
+                                                formatter={(val: any) => [`${Number(val) > 0 ? '+' : ''}${val} L`, 'Variance']}
+                                            />
+                                            <ReferenceLine x={0} stroke="#94a3b8" strokeWidth={1.5} />
+                                            <Bar dataKey="value" barSize={18} radius={[2, 2, 2, 2]}>
+                                                {deptVariances.map((entry, index) => (
+                                                    <Cell
+                                                        key={`cell-dept-${index}`}
+                                                        fill={entry.value >= 0 ? '#86efac' : '#fca5a5'}
+                                                        stroke={entry.value >= 0 ? '#22c55e' : '#ef4444'}
+                                                        strokeWidth={1.5}
+                                                    />
+                                                ))}
+                                                <LabelList
+                                                    dataKey="value"
+                                                    position="right"
+                                                    content={(props: any) => {
+                                                        const { x, y, width, value } = props;
+                                                        const num = Number(value) || 0;
+                                                        const isPos = num >= 0;
+                                                        return (
+                                                            <text
+                                                                x={x + width + (isPos ? 6 : -6)}
+                                                                y={y + 12}
+                                                                fill={isPos ? '#15803d' : '#b91c1c'}
+                                                                textAnchor={isPos ? 'start' : 'end'}
+                                                                fontSize={11}
+                                                                fontWeight={800}
+                                                            >
+                                                                {num > 0 ? `+${num}` : num}
+                                                            </text>
+                                                        );
+                                                    }}
+                                                />
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/* ================================================================== */
 /* Page                                                                */
 /* ================================================================== */
 
@@ -1064,6 +1440,7 @@ export default function DashboardPage() {
     const [transactionsDateRange, setTransactionsDateRange] = useState<DateRange>(getDateRangeFromPreset('7days'));
     const [tankLevelsDateRange, setTankLevelsDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
     const [deliveriesDateRange, setDeliveriesDateRange] = useState<DateRange>(getDateRangeFromPreset('30days'));
+    const [fuelLossDateRange, setFuelLossDateRange] = useState<DateRange>(getDateRangeFromPreset('monthToDate'));
     const [consumptionDateRange, setConsumptionDateRange] = useState<DateRange>(getDateRangeFromPreset('7days'));
     const [rawTransactions, setRawTransactions] = useState<any[]>([]);
     const [vehicleDeptMapState, setVehicleDeptMapState] = useState<Map<string, string>>(new Map());
@@ -2445,37 +2822,8 @@ export default function DashboardPage() {
             {/* ============ Deliveries ============ */}
             {activeTab === 'deliveries' && <DeliveriesTab deliveries={filteredDeliveries} value={deliveriesDateRange} onChange={setDeliveriesDateRange} />}
 
-            {/* ============ Fallback tabs ============ */}
-            {['fuel-loss'].includes(activeTab) && (
-                <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-xs space-y-6">
-                    <div className="flex items-center justify-between pb-4 border-b border-zinc-100">
-                        <div>
-                            <h2 className="text-base font-bold text-zinc-900 capitalize">{activeTab.replace('-', ' ')} Analytics</h2>
-                            <p className="text-xs text-zinc-500">Detailed breakdown and metrics for {activeTab.replace('-', ' ')}</p>
-                        </div>
-                        <div className="flex items-center gap-4 text-right">
-                            <div>
-                                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">TOTAL DISPENSED</span>
-                                <span className="text-base font-extrabold text-[#008080]">{formatNumber(todayIssuedLitres)} L</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-slate-50 rounded-lg p-5 border border-slate-100 space-y-2">
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Fleet Summary</span>
-                            <div className="text-xl font-extrabold text-slate-900">{activeVehiclesCount} Vehicles Monitored</div>
-                            <p className="text-xs text-slate-500">Operational status running at {operationalPct}% capacity across all sites.</p>
-                        </div>
-
-                        <div className="bg-slate-50 rounded-lg p-5 border border-slate-100 space-y-2">
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Recent Deliveries Volume</span>
-                            <div className="text-xl font-extrabold text-emerald-700">{formatNumber(recentDeliveriesSum)} L</div>
-                            <p className="text-xs text-slate-500">Total volume delivered into main site storage tanks.</p>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* ============ Fuel Loss ============ */}
+            {activeTab === 'fuel-loss' && <FuelLossTab dateRange={fuelLossDateRange} onChange={setFuelLossDateRange} />}
         </PageContainer>
     );
 }
