@@ -1889,11 +1889,11 @@ export default function DashboardPage() {
                         <div className="h-96 w-full pt-2">
                             {filteredTrendData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <ComposedChart data={filteredTrendData} margin={{ top: 20, right: 20, left: 0, bottom: 20 }}>
+                                    <ComposedChart data={filteredTrendData} margin={{ top: 25, right: 20, left: 0, bottom: 20 }}>
                                         <defs>
                                             <linearGradient id="tankLevelsGrad" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#008080" stopOpacity={0.25} />
-                                                <stop offset="95%" stopColor="#008080" stopOpacity={0.02} />
+                                                 <stop offset="5%" stopColor="#008080" stopOpacity={0.25} />
+                                                 <stop offset="95%" stopColor="#008080" stopOpacity={0.02} />
                                             </linearGradient>
                                         </defs>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
@@ -1901,9 +1901,52 @@ export default function DashboardPage() {
                                         <YAxis yAxisId="left" domain={[0, 12000]} ticks={[0, 3000, 6000, 9000, 12000]} stroke="#94a3b8" fontSize={11} tickLine={false} tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)} />
                                         <YAxis yAxisId="right" orientation="right" domain={[0, 6000]} ticks={[0, 1500, 3000, 4500, 6000]} stroke="#94a3b8" fontSize={11} tickLine={false} />
                                         <Tooltip contentStyle={tooltipStyle} formatter={(val: any, name: any) => [`${formatNumber(Number(val))} L`, name]} />
-                                        <Bar yAxisId="left" dataKey="delivered" fill="#80cbd0" radius={[0, 0, 0, 0]} barSize={18} name="Delivered" />
+                                        <Bar yAxisId="left" dataKey="delivered" fill="#80cbd0" radius={[0, 0, 0, 0]} barSize={18} name="Delivered">
+                                            <LabelList
+                                                dataKey="delivered"
+                                                position="top"
+                                                content={(props: any) => {
+                                                    const { x, y, width, value } = props;
+                                                    const num = Number(value) || 0;
+                                                    if (num <= 0) return null;
+                                                    return (
+                                                        <text
+                                                            x={x + width / 2}
+                                                            y={y - 6}
+                                                            fill="#008080"
+                                                            textAnchor="middle"
+                                                            fontSize={10}
+                                                            fontWeight={700}
+                                                        >
+                                                            +{formatNumber(num)} L
+                                                        </text>
+                                                    );
+                                                }}
+                                            />
+                                        </Bar>
                                         <Area yAxisId="left" type="stepAfter" dataKey="level" stroke="none" fill="url(#tankLevelsGrad)" />
-                                        <Line yAxisId="left" type="stepAfter" dataKey="level" stroke="#008080" strokeWidth={2.5} dot={{ r: 3, fill: '#008080' }} name="Tank level" />
+                                        <Line yAxisId="left" type="stepAfter" dataKey="level" stroke="#008080" strokeWidth={2.5} dot={{ r: 4, fill: '#008080' }} name="Tank level">
+                                            <LabelList
+                                                dataKey="level"
+                                                position="top"
+                                                content={(props: any) => {
+                                                    const { x, y, value } = props;
+                                                    const num = Number(value) || 0;
+                                                    return (
+                                                        <text
+                                                            x={x}
+                                                            y={y - 8}
+                                                            fill="#0f172a"
+                                                            textAnchor="middle"
+                                                            fontSize={10}
+                                                            fontWeight={800}
+                                                        >
+                                                            {formatNumber(num)} L
+                                                        </text>
+                                                    );
+                                                }}
+                                            />
+                                        </Line>
                                     </ComposedChart>
                                 </ResponsiveContainer>
                             ) : (
