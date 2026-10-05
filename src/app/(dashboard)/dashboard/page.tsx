@@ -583,8 +583,8 @@ function buildConsumptionLineData(transactions: any[], filterKey: 'driver' | 've
         avgKmL = Number((8.5 + (filtered.length % 7)).toFixed(2));
     }
 
-    const dayMap = new Map<number, Record<string, number>>();
-    for (let d = 1; d <= 31; d++) dayMap.set(d, {});
+    const dayAggregation = new Map<number, Record<string, { dist: number; fuel: number; count: number }>>();
+    for (let d = 1; d <= 31; d++) dayAggregation.set(d, {});
 
     filtered.forEach((t) => {
         if (!t.date) return;
@@ -595,18 +595,29 @@ function buildConsumptionLineData(transactions: any[], filterKey: 'driver' | 've
 
         const dist = Number(t.distance || t.distanceTravelled || 0);
         const qty = Number(t.fuelQuantity || 0);
-        let kmL = 0;
-        if (dist > 0 && qty > 0) kmL = dist / qty;
-        else if (qty > 0) kmL = 6.5 + ((qty + dayNum) % 11);
 
-        const rec = dayMap.get(dayNum)!;
-        rec[month] = Number(kmL.toFixed(2));
+        const rec = dayAggregation.get(dayNum)!;
+        if (!rec[month]) rec[month] = { dist: 0, fuel: 0, count: 0 };
+        rec[month].dist += dist;
+        rec[month].fuel += qty;
+        rec[month].count += 1;
     });
 
-    const points = Array.from(dayMap.entries()).map(([day, mVals]) => ({
-        day,
-        ...mVals,
-    }));
+    const points = Array.from(dayAggregation.entries()).map(([day, mVals]) => {
+        const point: any = { day };
+        Object.entries(mVals).forEach(([month, acc]) => {
+            let kmL = 0;
+            if (acc.dist > 0 && acc.fuel > 0) {
+                kmL = acc.dist / acc.fuel;
+            } else if (acc.fuel > 0) {
+                kmL = 6.5 + ((acc.fuel + day) % 11);
+            }
+            if (kmL > 0) {
+                point[month] = Number(kmL.toFixed(2));
+            }
+        });
+        return point;
+    });
 
     return {
         months,
@@ -616,64 +627,40 @@ function buildConsumptionLineData(transactions: any[], filterKey: 'driver' | 've
     };
 }
 
-function ConsumptionLineTab({
+function ConsumptionLineCard({
+    title,
+    subtitle,
+    filterKey,
+    options,
+    initialValue,
     transactions,
     deptMap,
-    driverOptions,
-    vehicleOptions,
-    departmentOptions,
-    selectedDriver,
-    setSelectedDriver,
-    selectedVehicle,
-    setSelectedVehicle,
-    selectedDepartment,
-    setSelectedDepartment,
 }: {
+    title: string;
+    subtitle: string;
+    filterKey: 'driver' | 'vehicle' | 'department';
+    options: string[];
+    initialValue?: string;
     transactions: any[];
     deptMap: Map<string, string>;
-    driverOptions: string[];
-    vehicleOptions: string[];
-    departmentOptions: string[];
-    selectedDriver: string;
-    setSelectedDriver: (v: string) => void;
-    selectedVehicle: string;
-    setSelectedVehicle: (v: string) => void;
-    selectedDepartment: string;
-    setSelectedDepartment: (v: string) => void;
 }) {
-    const driverData = useMemo(
-        () => buildConsumptionLineData(transactions, 'driver', selectedDriver, deptMap),
-        [transactions, selectedDriver, deptMap]
-    );
+    const [selected, setSelected] = useState<string>(initialValue || '');
 
-    const vehicleData = useMemo(
-        () => buildConsumptionLineData(transactions, 'vehicle', selectedVehicle, deptMap),
-        [transactions, selectedVehicle, deptMap]
-    );
+    useEffect(() => {
+        if (options.length > 0) {
+            setSelected((prev) => (options.includes(prev) ? prev : options[0]));
+        }
+    }, [options]);
 
-    const deptData = useMemo(
-        () => buildConsumptionLineData(transactions, 'department', selectedDepartment, deptMap),
-        [transactions, selectedDepartment, deptMap]
+    const data = useMemo(
+        () => buildConsumptionLineData(transactions, filterKey, selected, deptMap),
+        [transactions, filterKey, selected, deptMap]
     );
 
     const tooltipStyle = { backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '0.5rem', color: '#fff', fontSize: '12px' };
     const daysTicks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31];
 
-    const RenderCard = ({
-        title,
-        subtitle,
-        options,
-        selectedValue,
-        onSelectChange,
-        data,
-    }: {
-        title: string;
-        subtitle: string;
-        options: string[];
-        selectedValue: string;
-        onSelectChange: (v: string) => void;
-        data: ReturnType<typeof buildConsumptionLineData>;
-    }) => (
+    return (
         <div className="bg-white border border-zinc-200/90 rounded-2xl p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
                 <div>
@@ -688,8 +675,8 @@ function ConsumptionLineTab({
 
             <div className="rounded-2xl bg-[#e3e9e2] px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-zinc-700">
                 <select
-                    value={selectedValue}
-                    onChange={(e) => onSelectChange(e.target.value)}
+                    value={selected}
+                    onChange={(e) => setSelected(e.target.value)}
                     className="bg-white border border-zinc-200 rounded-xl px-4 py-2 text-sm font-bold text-zinc-800 shadow-2xs outline-none cursor-pointer min-w-[200px]"
                 >
                     {options.map((opt) => (
@@ -702,7 +689,7 @@ function ConsumptionLineTab({
             </div>
 
             <div className="h-64 w-full pt-2">
-                {data.points.length > 0 ? (
+                {data.points.some((p: any) => data.months.some((m) => p[m] !== undefined)) ? (
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={data.points} margin={{ top: 15, right: 10, left: 0, bottom: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
@@ -751,35 +738,58 @@ function ConsumptionLineTab({
             )}
         </div>
     );
+}
 
+function ConsumptionLineTab({
+    transactions,
+    deptMap,
+    driverOptions,
+    vehicleOptions,
+    departmentOptions,
+    selectedDriver,
+    selectedVehicle,
+    selectedDepartment,
+}: {
+    transactions: any[];
+    deptMap: Map<string, string>;
+    driverOptions: string[];
+    vehicleOptions: string[];
+    departmentOptions: string[];
+    selectedDriver: string;
+    selectedVehicle: string;
+    selectedDepartment: string;
+}) {
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <RenderCard
+                <ConsumptionLineCard
                     title="By driver"
                     subtitle="Daily achieved km/L for the selected driver, one line per month"
+                    filterKey="driver"
                     options={driverOptions}
-                    selectedValue={selectedDriver}
-                    onSelectChange={setSelectedDriver}
-                    data={driverData}
+                    initialValue={selectedDriver}
+                    transactions={transactions}
+                    deptMap={deptMap}
                 />
-                <RenderCard
+                <ConsumptionLineCard
                     title="By vehicle"
                     subtitle="Daily achieved km/L for the selected vehicle, one line per month"
+                    filterKey="vehicle"
                     options={vehicleOptions}
-                    selectedValue={selectedVehicle}
-                    onSelectChange={setSelectedVehicle}
-                    data={vehicleData}
+                    initialValue={selectedVehicle}
+                    transactions={transactions}
+                    deptMap={deptMap}
                 />
             </div>
 
-            <RenderCard
+            <ConsumptionLineCard
                 title="By department"
                 subtitle="Daily achieved km/L for the selected department, one line per month"
+                filterKey="department"
                 options={departmentOptions}
-                selectedValue={selectedDepartment}
-                onSelectChange={setSelectedDepartment}
-                data={deptData}
+                initialValue={selectedDepartment}
+                transactions={transactions}
+                deptMap={deptMap}
             />
         </div>
     );
@@ -2356,11 +2366,8 @@ export default function DashboardPage() {
                     vehicleOptions={vehicleOptions}
                     departmentOptions={departmentOptions}
                     selectedDriver={selectedDriver}
-                    setSelectedDriver={setSelectedDriver}
                     selectedVehicle={selectedVehicle}
-                    setSelectedVehicle={setSelectedVehicle}
                     selectedDepartment={selectedDepartment}
-                    setSelectedDepartment={setSelectedDepartment}
                 />
             )}
 
