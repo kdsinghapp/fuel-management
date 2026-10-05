@@ -1028,11 +1028,44 @@ export default function DashboardPage() {
             dayRec[deptName] = (dayRec[deptName] || 0) + qty;
         });
 
-        const sortedUsageDates = Array.from(usageDateMap.keys()).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+        // Generate complete continuous range of dates
+        let rawDates: string[] = [];
+        if (dateRange.startDate && dateRange.endDate) {
+            let curr = new Date(dateRange.startDate);
+            const end = new Date(dateRange.endDate);
+            while (curr <= end) {
+                const yyyy = curr.getFullYear();
+                const mm = String(curr.getMonth() + 1).padStart(2, '0');
+                const dd = String(curr.getDate()).padStart(2, '0');
+                rawDates.push(`${yyyy}-${mm}-${dd}`);
+                curr.setDate(curr.getDate() + 1);
+            }
+        }
+
+        if (rawDates.length === 0) {
+            if (filteredTxs.length > 0) {
+                const txDates = filteredTxs.map((t: any) => t.date).filter(Boolean).sort();
+                if (txDates.length > 0) {
+                    let curr = new Date(txDates[0]);
+                    const end = new Date(txDates[txDates.length - 1]);
+                    while (curr <= end) {
+                        const yyyy = curr.getFullYear();
+                        const mm = String(curr.getMonth() + 1).padStart(2, '0');
+                        const dd = String(curr.getDate()).padStart(2, '0');
+                        rawDates.push(`${yyyy}-${mm}-${dd}`);
+                        curr.setDate(curr.getDate() + 1);
+                    }
+                }
+            }
+            if (rawDates.length === 0) {
+                rawDates = [7, 6, 5, 4, 3, 2, 1, 0].map((d) => getPastDateStr(d));
+            }
+        }
+
         const uniqueDepts = Array.from(allDeptsSet);
 
-        const stackedChartPoints = sortedUsageDates.map((dStr) => {
-            const dayRec = usageDateMap.get(dStr)!;
+        const stackedChartPoints = rawDates.map((dStr) => {
+            const dayRec = usageDateMap.get(dStr) || {};
             let dayTotal = 0;
             const point: any = { date: dStr, formattedDate: dayMonthLabel(dStr) };
             uniqueDepts.forEach((dept) => {
@@ -1536,9 +1569,23 @@ export default function DashboardPage() {
         }
 
         if (rawDates.length === 0) {
-            const dateSet = new Set<string>();
-            txs.forEach((t: any) => { if (t.date) dateSet.add(t.date); });
-            rawDates = Array.from(dateSet).sort();
+            if (txs.length > 0) {
+                const txDates = txs.map((t: any) => t.date).filter(Boolean).sort();
+                if (txDates.length > 0) {
+                    let curr = new Date(txDates[0]);
+                    const end = new Date(txDates[txDates.length - 1]);
+                    while (curr <= end) {
+                        const yyyy = curr.getFullYear();
+                        const mm = String(curr.getMonth() + 1).padStart(2, '0');
+                        const dd = String(curr.getDate()).padStart(2, '0');
+                        rawDates.push(`${yyyy}-${mm}-${dd}`);
+                        curr.setDate(curr.getDate() + 1);
+                    }
+                }
+            }
+            if (rawDates.length === 0) {
+                rawDates = [7, 6, 5, 4, 3, 2, 1, 0].map((d) => getPastDateStr(d));
+            }
         }
 
         const points = rawDates.map((dStr) => {
@@ -1643,7 +1690,7 @@ export default function DashboardPage() {
                 transactions: rawTransactions,
                 deptMap: vehicleDeptMapState,
                 knownDepartments,
-                capacity: 10000,
+                capacity: (selectedClient as any)?.capacity ?? (selectedClient as any)?.tankCapacity ?? 10000,
                 criticalLevel: selectedClient?.minStock ?? 4000,
                 leadTimeDays: 2,
             }),
@@ -1732,8 +1779,59 @@ export default function DashboardPage() {
                                                 fill={deptColors[index % deptColors.length]}
                                                 radius={[0, 0, 0, 0]}
                                                 barSize={32}
-                                            />
+                                            >
+                                                <LabelList
+                                                    dataKey={dept}
+                                                    position="center"
+                                                    content={(props: any) => {
+                                                        const { x, y, width, height, value } = props;
+                                                        const num = Number(value) || 0;
+                                                        if (num <= 0 || height < 16) return null;
+                                                        return (
+                                                            <text
+                                                                x={x + width / 2}
+                                                                y={y + height / 2 + 3.5}
+                                                                fill="#ffffff"
+                                                                textAnchor="middle"
+                                                                fontSize={10}
+                                                                fontWeight={700}
+                                                            >
+                                                                {formatNumber(num)}
+                                                            </text>
+                                                        );
+                                                    }}
+                                                />
+                                            </Bar>
                                         ))}
+                                        {/* Total / 0 Label on zero transaction days */}
+                                        <Bar
+                                            dataKey="total"
+                                            fill="transparent"
+                                            isAnimationActive={false}
+                                            barSize={32}
+                                            legendType="none"
+                                        >
+                                            <LabelList
+                                                dataKey="total"
+                                                position="top"
+                                                content={(props: any) => {
+                                                    const { x, y, width, value } = props;
+                                                    const num = Number(value) || 0;
+                                                    return (
+                                                        <text
+                                                            x={x + width / 2}
+                                                            y={y - 6}
+                                                            fill={num === 0 ? '#ef4444' : '#1e293b'}
+                                                            textAnchor="middle"
+                                                            fontSize={11}
+                                                            fontWeight={800}
+                                                        >
+                                                            {num === 0 ? '0' : `${formatNumber(num)} L`}
+                                                        </text>
+                                                    );
+                                                }}
+                                            />
+                                        </Bar>
                                     </BarChart>
                                 </ResponsiveContainer>
                             ) : (
@@ -1879,7 +1977,26 @@ export default function DashboardPage() {
                                         />
                                     )}
                                     <Bar dataKey="issued" fill="#008080" radius={[0, 0, 0, 0]} barSize={32}>
-                                        <LabelList dataKey="issued" position="top" style={{ fontSize: 10, fill: '#004d40', fontWeight: 700 }} />
+                                        <LabelList
+                                            dataKey="issued"
+                                            position="top"
+                                            content={(props: any) => {
+                                                const { x, y, width, value } = props;
+                                                const num = Number(value) || 0;
+                                                return (
+                                                    <text
+                                                        x={x + width / 2}
+                                                        y={y - 6}
+                                                        fill={num === 0 ? '#ef4444' : '#004d40'}
+                                                        textAnchor="middle"
+                                                        fontSize={10}
+                                                        fontWeight={700}
+                                                    >
+                                                        {num === 0 ? '0' : `${formatNumber(num)} L`}
+                                                    </text>
+                                                );
+                                            }}
+                                        />
                                     </Bar>
                                 </BarChart>
                             </ResponsiveContainer>
