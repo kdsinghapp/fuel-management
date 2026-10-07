@@ -40,7 +40,7 @@ const navigationItems = [
     { name: 'Deliveries', href: '/deliveries', icon: Truck },
     { name: 'Transactions', href: '/fuel-issues', icon: FileText },
     { name: 'Fuel Efficiency', href: '/vehicles', icon: Gauge },
-    { name: 'Fuel Efficiency Summary', href: '/fuel-efficiency-summary', icon: FileBarChart },
+    // { name: 'Fuel Efficiency Summary', href: '/fuel-efficiency-summary', icon: FileBarChart },
     { name: 'Fuel Limits', href: '/fuel-limits', icon: Sliders },
     { name: 'Reconciliation', href: '/reconciliation', icon: RefreshCw },
     { name: 'Vehicle', href: '/metadata', icon: Database },

@@ -185,12 +185,9 @@ export default function VehiclesPage() {
         try {
             const headers = [
                 'Date / Time',
-                'ID',
                 'Vehicle Reg',
                 'FleetId',
                 'Department',
-                'Site',
-                'DEM',
                 'Litres',
                 'Pump',
                 'Odo Meter',
@@ -204,12 +201,9 @@ export default function VehiclesPage() {
             ];
             const rows = filteredData.map((item) => [
                 `${item.date} ${item.time}`,
-                item.transactionId,
                 item.vehicleId || '-',
                 item.fleetId || '-',
                 item.department || item.depot || '-',
-                item.siteId || item.depot || '-',
-                item.dem || item.status || '-',
                 item.fuelQuantity,
                 item.pump || '1',
                 item.odometer > 0 ? item.odometer : '-',
@@ -444,12 +438,9 @@ export default function VehiclesPage() {
                             <thead className="sticky top-0 z-10 shadow-xs">
                                 <tr>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Date / Time</th>
-                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">ID</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Vehicle Reg</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">FleetId</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Department</th>
-                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Site</th>
-                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">DEM</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Litres</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Pump</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Odo Meter</th>
@@ -465,7 +456,7 @@ export default function VehiclesPage() {
                             <tbody>
                                 {paginatedData.length === 0 ? (
                                     <tr>
-                                        <td colSpan={17} className="p-8 text-center text-slate-400 bg-slate-50">
+                                        <td colSpan={14} className="p-8 text-center text-slate-400 bg-slate-50">
                                             No vehicle fuel efficiency records found
                                         </td>
                                     </tr>
@@ -478,9 +469,6 @@ export default function VehiclesPage() {
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">
                                                 {item.date} {item.time}
                                             </td>
-                                            <td className="py-1.5 px-3 font-bold text-slate-900 align-middle">
-                                                {item.transactionId}
-                                            </td>
                                             <td className="py-1.5 px-3 font-bold text-[#138024] align-middle">
                                                 {item.vehicleId || '—'}
                                             </td>
@@ -489,21 +477,6 @@ export default function VehiclesPage() {
                                             </td>
                                             <td className="py-1.5 px-3 text-slate-600 font-medium align-middle">
                                                 {item.department || item.depot || '—'}
-                                            </td>
-                                            <td className="py-1.5 px-3 text-slate-600 align-middle">
-                                                {item.siteId || item.depot || '—'}
-                                            </td>
-                                            <td className="py-1.5 px-3 align-middle">
-                                                <span
-                                                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
-                                                        (item.dem || item.status || '').toLowerCase().includes('matched') || (item.dem || '').toUpperCase().startsWith('ST')
-                                                            ? 'bg-[#eefcf2] border-[#d6f2e1] text-[#138024]'
-                                                            : 'bg-[#fff6f0] border-[#ffe3d1] text-[#f26522]'
-                                                    }`}
-                                                >
-                                                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                                                    {item.dem || item.status || '—'}
-                                                </span>
                                             </td>
                                             <td className="py-1.5 px-3 font-bold text-slate-900 align-middle">
                                                 {formatNumber(item.fuelQuantity, 2)}

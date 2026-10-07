@@ -204,18 +204,16 @@ export default function FuelIssuesPage() {
                 setExportOpen(false);
                 return;
             }
-            const headers = ['Date', 'Time', 'ID', 'Vehicle Req', 'Fleet Id', 'Site', 'Litres', 'Pump', 'Odo Meter', 'DEM/Status'];
+            const headers = ['Date', 'Time', 'Vehicle Req', 'Fleet Id', 'Site', 'Litres', 'Pump', 'Odo Meter'];
             const rows = exportIssues.map(issue => [
                 issue.date,
                 issue.time,
-                issue.transactionId,
                 issue.vehicleId,
                 issue.fleetId,
                 issue.siteId || issue.depot,
                 issue.fuelQuantity,
                 issue.pump,
-                issue.odometer,
-                issue.dem || issue.status
+                issue.odometer
             ]);
             const dateLabel = dateRange.preset || 'custom';
 
@@ -397,20 +395,18 @@ export default function FuelIssuesPage() {
                             <thead className="sticky top-0 z-10 shadow-xs">
                                 <tr>
                                     <th className="bg-[#f26522] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Date / Time</th>
-                                    <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">ID</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Vehicle Req</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Fleet Id</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Site</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Litres</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Pump</th>
                                     <th className="bg-[#137e19] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">Odo Meter</th>
-                                    <th className="bg-[#222222] text-white py-2 px-3 text-left font-semibold sticky top-0 z-10">DEM</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {issues.length === 0 ? (
                                     <tr>
-                                        <td colSpan={9} className="p-8 text-center text-slate-400 bg-slate-50">
+                                        <td colSpan={7} className="p-8 text-center text-slate-400 bg-slate-50">
                                             No transactions found
                                         </td>
                                     </tr>
@@ -418,22 +414,12 @@ export default function FuelIssuesPage() {
                                     issues.map((issue, idx) => (
                                         <tr key={issue.id || issue.transactionId || idx} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors odd:bg-white even:bg-[#fff9f5]">
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.date} {issue.time}</td>
-                                            <td className="py-1.5 px-3 font-bold text-slate-900 align-middle">{issue.transactionId}</td>
                                             <td className="py-1.5 px-3 font-bold text-green-600 align-middle">{issue.vehicleId}</td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.fleetId || '—'}</td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.siteId || issue.depot || '—'}</td>
                                             <td className="py-1.5 px-3 font-bold text-slate-900 align-middle">{formatFuel(issue.fuelQuantity)}</td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.pump || '—'}</td>
                                             <td className="py-1.5 px-3 text-slate-600 align-middle">{issue.odometer || '—'}</td>
-                                            <td className="py-1.5 px-3 align-middle">
-                                                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold border ${issue.status === 'Matched'
-                                                    ? 'bg-[#eefcf2] border-[#d6f2e1] text-[#138024]'
-                                                    : 'bg-[#fff6f0] border-[#ffe3d1] text-[#f26522]'
-                                                    }`}>
-                                                    <span className={`h-1.5 w-1.5 rounded-full bg-current`} />
-                                                    {issue.dem || issue.status || '—'}
-                                                </span>
-                                            </td>
                                         </tr>
                                     ))
                                 )}
