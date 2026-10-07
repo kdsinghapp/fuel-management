@@ -7,30 +7,28 @@ export interface ClientConfig {
   clientid: string;
   userid: number;
   divisionid: number;
+  tank_capacity?: number;
+  min_stock?: number;
   minStock?: number;
-  depot?: string;
+  depot?: string | null;
+  lead_time_days?: number;
+  is_active?: boolean;
 }
 
-export const CLIENTS: ClientConfig[] = [
-  { name: 'St Johns Pom', clientid: '2591', userid: 2094, divisionid: 845, minStock: 5000 },
-  { name: 'Digicel POM', clientid: '843', userid: 2094, divisionid: 586, minStock: 5000 },
-  { name: 'Digicel Hagen', clientid: '797', userid: 2094, divisionid: 586, minStock: 5000 },
-  { name: 'PNG Biomass - Zifasing Field Base', clientid: '2042', userid: 2094, divisionid: 653, minStock: 5000 },
-  { name: 'Paradise Foods Hanta', clientid: '2003', userid: 2094, divisionid: 744, minStock: 2500 },
-  { name: 'Paradise Foods HQ', clientid: '2004', userid: 2094, divisionid: 744, minStock: 5000 },
-  { name: 'Laga Industries Taraka', clientid: '2008', userid: 2094, divisionid: 757, minStock: 5000 },
-  { name: 'Laga Industries Gabaka', clientid: '1967', userid: 2094, divisionid: 757, minStock: 5000 },
-  { name: 'TWL Lae', clientid: '2023', userid: 2094, divisionid: 753, minStock: 5000 },
-  { name: 'TWL Hagen', clientid: '2006', userid: 2094, divisionid: 829, minStock: 5000 },
-  { name: 'TWL Pom Transport', clientid: '2394', userid: 2094, divisionid: 816, minStock: 2500 },
-  { name: 'Golden Valley Enterprises', clientid: '2005', userid: 2094, divisionid: 789, minStock: 1000 },
-  { name: 'IPI Lae Bowser', clientid: '2035', userid: 2094, divisionid: 792, minStock: 5000 },
-  { name: 'IPI Hagen Bowser', clientid: '2036', userid: 2094, divisionid: 793, minStock: 5000 },
-  { name: 'Peuna - NFS Bowser', clientid: '1963', userid: 2094, divisionid: 788, minStock: 1500 },
-  {name: 'PFL Lae Genset & Tank 01', clientid: '2043', userid: 2094, divisionid: 730, minStock: 2500},
-  {name: 'PFL Lae Genset & Tank 02', clientid: '2044', userid: 2094, divisionid: 730, minStock: 2500},
-  {name: 'PFL Lae Beverage Genset & Tank 03', clientid: '2045', userid: 2094, divisionid: 730, minStock: 2500}
-];
+export const DEFAULT_CLIENT: ClientConfig = {
+  name: 'St Johns Pom',
+  clientid: '2591',
+  userid: 2094,
+  divisionid: 845,
+  minStock: 5000,
+  tank_capacity: 10000,
+  min_stock: 5000,
+  lead_time_days: 2,
+  is_active: true,
+};
+
+// Dynamic client list fallback
+export const CLIENTS: ClientConfig[] = [DEFAULT_CLIENT];
 
 export interface ExtraColumnConfig {
   id: string;
@@ -102,18 +100,21 @@ export const CLIENT_EXTRA_RECON_COLUMNS: Record<string, ExtraColumnConfig[]> = {
   ]
 };
 
-
 interface ClientStore {
   selectedClient: ClientConfig;
+  clientsList: ClientConfig[];
   isClientLoading: boolean;
   selectClient: (client: ClientConfig) => void;
   setClientLoading: (loading: boolean) => void;
+  fetchClients: () => Promise<void>;
+  updateClientConfig: (clientid: string, updates: Partial<ClientConfig>) => void;
 }
 
 export const useClientStore = create<ClientStore>()(
   persist(
-    (set) => ({
-      selectedClient: CLIENTS[0],
+    (set, get) => ({
+      selectedClient: DEFAULT_CLIENT,
+      clientsList: [],
       isClientLoading: false,
       selectClient: (client) => {
         set({ selectedClient: client, isClientLoading: true });
@@ -123,6 +124,54 @@ export const useClientStore = create<ClientStore>()(
         }, 10000);
       },
       setClientLoading: (loading) => set({ isClientLoading: loading }),
+      fetchClients: async () => {
+        try {
+          const res = await fetch('/api/clients');
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data.data) && data.data.length > 0) {
+              const formattedList: ClientConfig[] = data.data.map((c: any) => ({
+                name: c.name,
+                clientid: String(c.clientid),
+                userid: Number(c.userid),
+                divisionid: Number(c.divisionid),
+                tank_capacity: Number(c.tank_capacity),
+                min_stock: Number(c.min_stock),
+                minStock: Number(c.min_stock),
+                depot: c.depot,
+                lead_time_days: Number(c.lead_time_days),
+                is_active: Boolean(c.is_active),
+              }));
+              set({ clientsList: formattedList });
+
+              // Sync currently selected client attributes if it exists in list
+              const cur = get().selectedClient;
+              const matched = formattedList.find(c => c.clientid === cur?.clientid);
+              if (matched) {
+                set({ selectedClient: { ...cur, ...matched } });
+              } else if (formattedList.length > 0 && (!cur || !cur.clientid || cur.clientid === DEFAULT_CLIENT.clientid)) {
+                set({ selectedClient: formattedList[0] });
+              }
+            }
+          }
+        } catch {
+          // Ignore network errors on initial offline mode
+        }
+      },
+      updateClientConfig: (clientid, updates) => {
+        set((state) => {
+          const updatedList = state.clientsList.map((c) =>
+            c.clientid === clientid ? { ...c, ...updates, minStock: updates.min_stock ?? updates.minStock ?? c.minStock } : c
+          );
+          const isSelected = state.selectedClient?.clientid === clientid;
+          return {
+            clientsList: updatedList,
+            selectedClient: isSelected
+              ? { ...state.selectedClient, ...updates, minStock: updates.min_stock ?? updates.minStock ?? state.selectedClient.minStock }
+              : state.selectedClient,
+          };
+        });
+      },
     }),
     {
       name: 'client-settings-storage',

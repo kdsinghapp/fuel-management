@@ -2148,9 +2148,9 @@ export default function DashboardPage() {
                 transactions: rawTransactions,
                 deptMap: vehicleDeptMapState,
                 knownDepartments,
-                capacity: (selectedClient as any)?.capacity ?? (selectedClient as any)?.tankCapacity ?? 10000,
-                criticalLevel: selectedClient?.minStock ?? 4000,
-                leadTimeDays: 2,
+                capacity: selectedClient?.tank_capacity ?? (selectedClient as any)?.capacity ?? (selectedClient as any)?.tankCapacity ?? 10000,
+                criticalLevel: selectedClient?.min_stock ?? selectedClient?.minStock ?? 4000,
+                leadTimeDays: selectedClient?.lead_time_days ?? 2,
             }),
         [rawLevels, rawDeliveries, rawTransactions, vehicleDeptMapState, knownDepartments, selectedClient]
     );

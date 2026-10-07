@@ -170,8 +170,7 @@ export default function ReconciliationPage() {
         const daysStock = avDailyCons > 0 ? Math.round(closingDip / avDailyCons) : 0;
         const today = new Date();
         const reorderDays = 7;
-        const matchedClient = CLIENTS.find(c => c.clientid === selectedClient?.clientid || c.name === selectedClient?.name);
-        const minStock = matchedClient?.minStock ?? selectedClient?.minStock ?? Math.round(avDailyCons * reorderDays);
+        const minStock = selectedClient?.min_stock ?? selectedClient?.minStock ?? matchedClient?.min_stock ?? matchedClient?.minStock ?? Math.round(avDailyCons * reorderDays);
         const reorderDate = new Date(today);
         reorderDate.setDate(today.getDate() + Math.max(0, daysStock - reorderDays));
         const arrivalDate = new Date(reorderDate);

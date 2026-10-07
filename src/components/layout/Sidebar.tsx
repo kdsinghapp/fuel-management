@@ -48,6 +48,7 @@ const navigationItems = [
 ];
 
 const adminItems = [
+    { name: 'Client Settings', href: '/admin/clients', icon: Settings },
     { name: 'Users', href: '/admin/users', icon: Users },
     { name: 'Roles', href: '/admin/roles', icon: Smartphone },
 ];

@@ -55,6 +55,10 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
         title: 'Automated Reports',
         subtitle: 'Configure automated daily email reports via Microsoft 365'
     },
+    '/admin/clients': {
+        title: 'Client & Tank Configuration',
+        subtitle: 'Configure storage tank capacities, critical levels, lead times and sites'
+    },
     '/admin/users': {
         title: 'User Management',
         subtitle: 'Manage system users and access'
@@ -72,24 +76,30 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
 export function Header() {
     const pathname = usePathname();
     const { toggle, isOpen } = useSidebar();
-    const { selectedClient, selectClient } = useClientStore();
+    const { selectedClient, selectClient, clientsList, fetchClients } = useClientStore();
     const { user } = useAuth();
 
     const currentPage = PAGE_TITLES[pathname] || null;
 
+    useEffect(() => {
+        fetchClients();
+    }, [fetchClients]);
+
+    const activeClientsList = (clientsList && clientsList.length > 0 ? clientsList : CLIENTS).filter(c => c.is_active !== false);
+
     // Determine accessible clients for the current logged-in user
     const accessibleClients = (() => {
-        if (!user) return CLIENTS;
+        if (!user) return activeClientsList;
         // If user is a Viewer or has specific assignedClients, restrict to only assigned clients
         if (user.role === 'Viewer' && user.assignedClients && user.assignedClients.length > 0) {
-            const filtered = CLIENTS.filter(c => user.assignedClients!.includes(c.name));
-            return filtered.length > 0 ? filtered : CLIENTS;
+            const filtered = activeClientsList.filter(c => user.assignedClients!.includes(c.name));
+            return filtered.length > 0 ? filtered : activeClientsList;
         }
         if (user.assignedClients && user.assignedClients.length > 0 && !user.assignedClients.includes('All')) {
-            const filtered = CLIENTS.filter(c => user.assignedClients!.includes(c.name));
-            return filtered.length > 0 ? filtered : CLIENTS;
+            const filtered = activeClientsList.filter(c => user.assignedClients!.includes(c.name));
+            return filtered.length > 0 ? filtered : activeClientsList;
         }
-        return CLIENTS;
+        return activeClientsList;
     })();
 
     // Ensure selected client is within user's accessible list
