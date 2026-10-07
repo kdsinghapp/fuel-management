@@ -221,8 +221,8 @@ export default function ClientSettingsPage() {
       statusFilter === 'all'
         ? true
         : statusFilter === 'active'
-        ? c.is_active
-        : !c.is_active;
+          ? c.is_active
+          : !c.is_active;
 
     return matchesSearch && matchesStatus;
   });
@@ -233,13 +233,13 @@ export default function ClientSettingsPage() {
   const avgThresholdPct =
     clients.length > 0
       ? Math.round(
-          (clients.reduce(
-            (sum, c) =>
-              sum + (c.tank_capacity > 0 ? (c.min_stock / c.tank_capacity) * 100 : 0),
-            0
-          ) /
-            clients.length)
-        )
+        (clients.reduce(
+          (sum, c) =>
+            sum + (c.tank_capacity > 0 ? (c.min_stock / c.tank_capacity) * 100 : 0),
+          0
+        ) /
+          clients.length)
+      )
       : 0;
 
   const thresholdPercent =
@@ -279,36 +279,6 @@ export default function ClientSettingsPage() {
                     Configure storage tank capacities, critical thresholds & reorder parameters
                   </p>
                 </div>
-
-                <div className="h-7 w-[1px] bg-emerald-200 hidden sm:block" />
-
-                {/* Total Clients Stat */}
-                <div className="flex items-center gap-2 bg-white px-2.5 py-1 rounded border border-slate-200 shadow-xs">
-                  <span className="text-[10px] font-bold uppercase text-slate-500">Clients:</span>
-                  <span className="text-xs font-bold text-slate-800">{totalClients}</span>
-                </div>
-
-                {/* Combined Capacity Stat */}
-                <div className="flex items-center gap-2 bg-white px-2.5 py-1 rounded border border-slate-200 shadow-xs">
-                  <span className="text-[10px] font-bold uppercase text-slate-500">Total Capacity:</span>
-                  <span className="text-xs font-bold text-[#138024]">
-                    {formatNumber(totalCapacity, 0)} L
-                  </span>
-                </div>
-
-                {/* Avg Critical Level % */}
-                <div className="flex items-center gap-2 bg-white px-2.5 py-1 rounded border border-slate-200 shadow-xs">
-                  <span className="text-[10px] font-bold uppercase text-slate-500">Avg Critical Level:</span>
-                  <span className="text-xs font-bold text-[#f26522]">{avgThresholdPct}%</span>
-                </div>
-
-                {/* Active Stat */}
-                <div className="flex items-center gap-2 bg-white px-2.5 py-1 rounded border border-slate-200 shadow-xs">
-                  <span className="text-[10px] font-bold uppercase text-slate-500">Active:</span>
-                  <span className="text-xs font-bold text-emerald-700">
-                    {activeCount} / {totalClients}
-                  </span>
-                </div>
               </div>
 
               {/* Right Action Buttons */}
@@ -335,9 +305,8 @@ export default function ClientSettingsPage() {
           </div>
 
           {/* Search & Filter Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-2 px-1">
+          {/* <div className="flex flex-wrap items-center justify-between gap-2 mb-2 px-1">
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Search Box */}
               <div className="flex h-8 w-[240px]">
                 <span className="flex items-center px-2.5 border border-r-0 border-slate-200 bg-slate-50 rounded-l text-slate-400">
                   <Search className="h-3.5 w-3.5" />
@@ -351,38 +320,34 @@ export default function ClientSettingsPage() {
                 />
               </div>
 
-              {/* Status Filter */}
               <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded border border-slate-200">
                 <button
                   type="button"
                   onClick={() => setStatusFilter('all')}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded ${
-                    statusFilter === 'all'
-                      ? 'bg-white text-slate-900 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded ${statusFilter === 'all'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                    }`}
                 >
                   All ({clients.length})
                 </button>
                 <button
                   type="button"
                   onClick={() => setStatusFilter('active')}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded ${
-                    statusFilter === 'active'
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded ${statusFilter === 'active'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                    }`}
                 >
                   Active ({activeCount})
                 </button>
                 <button
                   type="button"
                   onClick={() => setStatusFilter('inactive')}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded ${
-                    statusFilter === 'inactive'
-                      ? 'bg-slate-700 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded ${statusFilter === 'inactive'
+                    ? 'bg-slate-700 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                    }`}
                 >
                   Inactive ({totalClients - activeCount})
                 </button>
@@ -393,7 +358,7 @@ export default function ClientSettingsPage() {
               Showing <span className="font-bold text-slate-700">{filteredClients.length}</span> of{' '}
               <span className="font-bold text-slate-700">{clients.length}</span> sites
             </div>
-          </div>
+          </div> */}
 
           {/* Client Table */}
           <div className="overflow-x-auto overflow-y-auto border border-slate-200 shadow-xs rounded mb-1 flex-1 min-h-0">
@@ -515,13 +480,12 @@ export default function ClientSettingsPage() {
                           <div className="flex items-center gap-2">
                             <div className="w-14 h-2 bg-slate-200 rounded-full overflow-hidden">
                               <div
-                                className={`h-full rounded-full ${
-                                  criticalPct <= 25
-                                    ? 'bg-emerald-500'
-                                    : criticalPct <= 50
+                                className={`h-full rounded-full ${criticalPct <= 25
+                                  ? 'bg-emerald-500'
+                                  : criticalPct <= 50
                                     ? 'bg-amber-500'
                                     : 'bg-rose-500'
-                                }`}
+                                  }`}
                                 style={{ width: `${Math.min(criticalPct, 100)}%` }}
                               />
                             </div>
@@ -716,11 +680,10 @@ export default function ClientSettingsPage() {
                         key={preset}
                         type="button"
                         onClick={() => setFormData({ ...formData, tank_capacity: preset })}
-                        className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
-                          formData.tank_capacity === preset
-                            ? 'bg-blue-600 text-white border-blue-600 font-bold'
-                            : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-100'
-                        }`}
+                        className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${formData.tank_capacity === preset
+                          ? 'bg-blue-600 text-white border-blue-600 font-bold'
+                          : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-100'
+                          }`}
                       >
                         {formatNumber(preset, 0)} L
                       </button>
