@@ -84,16 +84,5 @@ export const clientService = {
     }
     return true;
   },
-
-  async syncDefaultClients(): Promise<{ success: boolean; data: ClientSettingItem[]; message: string }> {
-    const res = await fetch('/api/clients/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || `Failed to sync clients (${res.status})`);
-    }
-    return await res.json();
-  },
 };
+

@@ -226,3 +226,4 @@ export async function deleteClientFromDb(clientid: string): Promise<boolean> {
 
   return (result.rowsAffected[0] || 0) > 0;
 }
+
