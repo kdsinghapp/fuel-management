@@ -1,7 +1,7 @@
 // src/app/(dashboard)/vehicles/page.tsx
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
     Search,
@@ -65,7 +65,7 @@ interface VehicleMeta {
     TargetKmPerL?: number;
 }
 
-export default function VehiclesPage() {
+function VehiclesContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const selectedClient = useClientStore((state) => state.selectedClient);
@@ -1419,3 +1419,20 @@ export default function VehiclesPage() {
         </PageContainer>
     );
 }
+
+export default function VehiclesPage() {
+    return (
+        <Suspense
+            fallback={
+                <PageContainer>
+                    <div className="flex h-64 items-center justify-center">
+                        <LoadingSpinner size="lg" />
+                    </div>
+                </PageContainer>
+            }
+        >
+            <VehiclesContent />
+        </Suspense>
+    );
+}
+
