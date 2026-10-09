@@ -34,12 +34,28 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSidebar } from '@/hooks/useSidebar';
 import { useScheduleStore } from '@/services/scheduleStore';
 
-const navigationItems = [
+interface NavItem {
+    name: string;
+    href: string;
+    icon: any;
+    subItems?: { name: string; href: string; tab?: string }[];
+}
+
+const navigationItems: NavItem[] = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     // { name: 'Fuel Levels', href: '/fuel-levels', icon: Droplet },
     { name: 'Deliveries', href: '/deliveries', icon: Truck },
     { name: 'Transactions', href: '/fuel-issues', icon: FileText },
-    { name: 'Fuel Efficiency', href: '/vehicles', icon: Gauge },
+    {
+        name: 'Vehicles',
+        href: '/vehicles',
+        icon: Gauge,
+        subItems: [
+            { name: 'Chart', href: '/vehicles?tab=chart', tab: 'chart' },
+            { name: 'Report', href: '/vehicles?tab=report', tab: 'report' },
+            { name: 'Summary', href: '/vehicles?tab=summary', tab: 'summary' },
+        ],
+    },
     // { name: 'Fuel Efficiency Summary', href: '/fuel-efficiency-summary', icon: FileBarChart },
     { name: 'Fuel Limits', href: '/fuel-limits', icon: Sliders },
     { name: 'Reconciliation', href: '/reconciliation', icon: RefreshCw },
@@ -47,7 +63,7 @@ const navigationItems = [
     { name: 'Report Settings', href: '/reports', icon: Mail },
 ];
 
-const adminItems = [
+const adminItems: NavItem[] = [
     { name: 'Client Settings', href: '/admin/clients', icon: Settings },
     { name: 'Users', href: '/admin/users', icon: Users },
     { name: 'Roles', href: '/admin/roles', icon: Smartphone },
@@ -58,6 +74,7 @@ export function Sidebar() {
     const { user } = useAuth();
     const { isOpen, toggle, setOpen, isMobile } = useSidebar();
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [vehiclesExpanded, setVehiclesExpanded] = useState(true);
 
     useEffect(() => {
         if (isMobile) {
@@ -119,22 +136,63 @@ export function Sidebar() {
                         return true;
                     })
                     .map((item) => {
-                        const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
+                        const isExactMatch = pathname === item.href;
+                        const isChildActive = pathname?.startsWith(`${item.href}/`) || pathname === item.href;
+                        const hasSubItems = item.subItems && item.subItems.length > 0;
+
                         return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className={cn(
-                                    'flex items-center gap-3 py-[8.8px] pl-4 pr-6 text-[14px] font-bold transition-all duration-200 h-[44px] my-[3.2px] ml-[12.8px] mr-0 rounded-l-2xl rounded-r-none',
-                                    isActive
-                                        ? 'bg-[#f26522] text-white shadow-md'
-                                        : 'text-zinc-300 hover:bg-white/5 hover:text-white',
-                                    isCollapsed && 'justify-center px-2 mx-0 my-1 rounded-none'
+                            <div key={item.href} className="flex flex-col">
+                                <Link
+                                    href={item.href}
+                                    onClick={() => {
+                                        if (hasSubItems) {
+                                            setVehiclesExpanded((prev) => !prev);
+                                        }
+                                    }}
+                                    className={cn(
+                                        'flex items-center justify-between py-[8.8px] pl-4 pr-6 text-[14px] font-bold transition-all duration-200 h-[44px] my-[3.2px] ml-[12.8px] mr-0 rounded-l-2xl rounded-r-none group',
+                                        isChildActive
+                                            ? 'bg-[#f26522] text-white shadow-md'
+                                            : 'text-zinc-300 hover:bg-white/5 hover:text-white',
+                                        isCollapsed && 'justify-center px-2 mx-0 my-1 rounded-none'
+                                    )}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <item.icon className={cn("h-[18px] w-[18px] shrink-0 transition-transform duration-200", !isChildActive && "group-hover:scale-110")} />
+                                        {!isCollapsed && <span className="whitespace-nowrap">{item.name}</span>}
+                                    </div>
+                                    {!isCollapsed && hasSubItems && (
+                                        <ChevronRight className={cn("h-3.5 w-3.5 transition-transform duration-200 text-white/70", vehiclesExpanded && "rotate-90")} />
+                                    )}
+                                </Link>
+
+                                {!isCollapsed && hasSubItems && isChildActive && vehiclesExpanded && (
+                                    <div className="flex flex-col pl-10 pr-4 py-1 space-y-1">
+                                        {item.subItems!.map((sub) => {
+                                            let isSubActive = false;
+                                            if (typeof window !== 'undefined') {
+                                                const urlParams = new URLSearchParams(window.location.search);
+                                                const currentTab = urlParams.get('tab') || 'chart';
+                                                isSubActive = currentTab === sub.tab;
+                                            }
+                                            return (
+                                                <Link
+                                                    key={sub.name}
+                                                    href={sub.href}
+                                                    className={cn(
+                                                        'px-3 py-1.5 text-xs font-semibold rounded-md transition-colors block',
+                                                        isSubActive
+                                                            ? 'text-[#facc15] bg-white/10 font-bold'
+                                                            : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                                                    )}
+                                                >
+                                                    {sub.name}
+                                                </Link>
+                                            );
+                                        })}
+                                    </div>
                                 )}
-                            >
-                                <item.icon className={cn("h-[18px] w-[18px] shrink-0 transition-transform duration-200", !isActive && "group-hover:scale-110")} />
-                                {!isCollapsed && <span className="whitespace-nowrap">{item.name}</span>}
-                            </Link>
+                            </div>
                         );
                     })}
 
