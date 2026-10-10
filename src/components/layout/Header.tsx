@@ -31,6 +31,10 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
         title: 'Fuel Efficiency',
         subtitle: 'Monitor fleet vehicle fuel efficiency metrics'
     },
+    '/fuel-efficiency': {
+        title: 'Fuel Efficiency',
+        subtitle: 'Monitor and analyze fleet vehicle fuel efficiency'
+    },
     '/fuel-efficiency-summary': {
         title: 'Fuel Efficiency Summary',
         subtitle: 'Detailed view of vehicle fuel burn rates and usage'

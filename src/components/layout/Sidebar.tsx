@@ -44,7 +44,7 @@ interface NavItem {
 const navigationItems: NavItem[] = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     // { name: 'Fuel Levels', href: '/fuel-levels', icon: Droplet },
-    { name: 'Deliveries', href: '/deliveries', icon: Truck },
+    // { name: 'Deliveries', href: '/deliveries', icon: Truck },
     { name: 'Transactions', href: '/fuel-issues', icon: FileText },
     {
         name: 'Vehicles',
@@ -61,6 +61,7 @@ const navigationItems: NavItem[] = [
     { name: 'Reconciliation', href: '/reconciliation', icon: RefreshCw },
     { name: 'Vehicle', href: '/metadata', icon: Database },
     { name: 'Report Settings', href: '/reports', icon: Mail },
+    { name: 'Fuel Efficiency', href: '/fuel-efficiency', icon: FileBarChart },
 ];
 
 const adminItems: NavItem[] = [
