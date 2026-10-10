@@ -18,6 +18,7 @@ import {
     AlertTriangle,
     RotateCcw,
     Check,
+    Calendar,
 } from 'lucide-react';
 import {
     ResponsiveContainer,
@@ -35,6 +36,7 @@ import { vehicleService } from '@/services/vehicleService';
 import { authService } from '@/lib/auth';
 import { formatNumber, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils';
 import { FuelEfficiencyTransaction } from '@/types/vehicle';
+import { DateRangePreset, DateRange, getDateRangeFromPreset } from '@/components/common/DateRangePicker';
 import { useClientStore } from '@/services/api';
 import { cn } from '@/lib/utils';
 
@@ -106,7 +108,17 @@ function VehiclesContent() {
     const [selectedReportVehicles, setSelectedReportVehicles] = useState<string[]>([]);
     const [reportPage, setReportPage] = useState(1);
     const [reportPageSize, setReportPageSize] = useState<number>(10);
-    const [allDataFilter, setAllDataFilter] = useState<string>('all');
+    const [reportDateRange, setReportDateRange] = useState<DateRange>({
+        preset: 'all',
+        startDate: undefined,
+        endDate: undefined,
+        label: 'All data',
+    });
+    const [dateRangeOpen, setDateRangeOpen] = useState(false);
+    const [customStart, setCustomStart] = useState('');
+    const [customEnd, setCustomEnd] = useState('');
+    const [customTabActive, setCustomTabActive] = useState(false);
+    const dateRangeRef = useRef<HTMLDivElement>(null);
 
     // Summary view states
     const [summaryGranularity, setSummaryGranularity] = useState<SummaryGranularity>('Yearly');
@@ -122,6 +134,9 @@ function VehiclesContent() {
         const handleClickOutside = (e: MouseEvent) => {
             if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
                 setExportOpen(false);
+            }
+            if (dateRangeRef.current && !dateRangeRef.current.contains(e.target as Node)) {
+                setDateRangeOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -320,12 +335,64 @@ function VehiclesContent() {
     }, [transactions, selectedMonth, selectedChartVehicles]);
 
     // -------------------------------------------------------------
-    // 2. REPORT VIEW COMPUTATIONS
+    // 2. REPORT VIEW COMPUTATIONS & DATE RANGE
     // -------------------------------------------------------------
+    const dateRangePresets: { key: DateRangePreset; label: string; hasCalendarIcon?: boolean }[] = [
+        { key: 'all', label: 'All data' },
+        { key: 'today', label: 'Today' },
+        { key: 'yesterday', label: 'Yesterday' },
+        { key: 'weekToDate', label: 'Week to Date' },
+        { key: '7days', label: '7 Days' },
+        { key: '14days', label: '14 Days' },
+        { key: '21days', label: '21 Days' },
+        { key: '30days', label: '30 Days' },
+        { key: 'monthToDate', label: 'Month to Date', hasCalendarIcon: true },
+        { key: 'lastMonth', label: 'Last Month', hasCalendarIcon: true },
+        { key: 'custom', label: 'Custom Range', hasCalendarIcon: true },
+    ];
+
+    const countForPreset = (preset: DateRangePreset) => {
+        const { startDate, endDate } = getDateRangeFromPreset(preset);
+        return transactions.filter((tx) => {
+            const vId = (tx.vehicleId || tx.fleetId || '').trim();
+            if (selectedReportVehicles.length > 0 && !selectedReportVehicles.includes(vId)) {
+                return false;
+            }
+            if (startDate && tx.date && tx.date < startDate) return false;
+            if (endDate && tx.date && tx.date > endDate) return false;
+            return true;
+        }).length;
+    };
+
+    const handleSelectPreset = (preset: DateRangePreset) => {
+        if (preset === 'custom') {
+            setCustomTabActive(true);
+        } else {
+            setCustomTabActive(false);
+            const range = getDateRangeFromPreset(preset);
+            setReportDateRange(range);
+            setReportPage(1);
+            setDateRangeOpen(false);
+        }
+    };
+
+    const handleApplyCustom = () => {
+        const range = getDateRangeFromPreset('custom', customStart, customEnd);
+        setReportDateRange(range);
+        setReportPage(1);
+        setDateRangeOpen(false);
+    };
+
     const reportData = useMemo(() => {
         return transactions.filter((tx) => {
             const vId = (tx.vehicleId || tx.fleetId || '').trim();
             if (selectedReportVehicles.length > 0 && !selectedReportVehicles.includes(vId)) {
+                return false;
+            }
+            if (reportDateRange.startDate && tx.date && tx.date < reportDateRange.startDate) {
+                return false;
+            }
+            if (reportDateRange.endDate && tx.date && tx.date > reportDateRange.endDate) {
                 return false;
             }
             if (!searchTerm.trim()) return true;
@@ -337,7 +404,7 @@ function VehiclesContent() {
                 (tx.depot && tx.depot.toLowerCase().includes(q))
             );
         });
-    }, [transactions, selectedReportVehicles, searchTerm]);
+    }, [transactions, selectedReportVehicles, searchTerm, reportDateRange]);
 
     // Group report transactions by vehicle
     const groupedReportData = useMemo(() => {
@@ -938,17 +1005,103 @@ function VehiclesContent() {
                                         )}
                                     </div>
 
-                                    {/* All Data Filter Pill */}
-                                    <button
-                                        onClick={() => setAllDataFilter(allDataFilter === 'all' ? 'filtered' : 'all')}
-                                        className="bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg h-8 px-3 border border-slate-200 shadow-2xs flex items-center gap-1.5 cursor-pointer"
-                                    >
-                                        <span>All data</span>
-                                        <span className="bg-[#dcfce7] text-[#166534] px-1.5 py-0.5 rounded text-[10px] font-bold">
-                                            {reportData.length}
-                                        </span>
-                                        <ChevronDown className="h-3 w-3 text-slate-400" />
-                                    </button>
+                                    {/* Date Range Dropdown */}
+                                    <div className="relative" ref={dateRangeRef}>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setDateRangeOpen((prev) => !prev);
+                                                setCustomTabActive(reportDateRange.preset === 'custom');
+                                            }}
+                                            className="bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg h-8 px-3 border border-slate-200 shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                                        >
+                                            <span>{reportDateRange.label}</span>
+                                            <span className="bg-[#dcfce7] text-[#166534] px-1.5 py-0.5 rounded text-[10px] font-bold">
+                                                {reportData.length}
+                                            </span>
+                                            <ChevronDown className={cn('h-3 w-3 text-slate-400 transition-transform duration-150', dateRangeOpen && 'rotate-180')} />
+                                        </button>
+
+                                        {dateRangeOpen && (
+                                            <div className="absolute left-0 mt-1.5 w-64 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                                                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                                    PREDEFINED RANGES
+                                                </div>
+
+                                                <div className="mt-1 max-h-[280px] overflow-y-auto">
+                                                    {dateRangePresets.map((p) => {
+                                                        const isSelected = reportDateRange.preset === p.key;
+                                                        const count = countForPreset(p.key);
+                                                        return (
+                                                            <div key={p.key}>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleSelectPreset(p.key)}
+                                                                    className={cn(
+                                                                        'w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer',
+                                                                        isSelected ? 'bg-emerald-50 text-slate-900 font-semibold' : 'text-slate-700'
+                                                                    )}
+                                                                >
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span>{p.label}</span>
+                                                                        {isSelected && <Check className="h-3.5 w-3.5 text-emerald-600" />}
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        {p.hasCalendarIcon && <Calendar className="h-3 w-3 text-slate-400" />}
+                                                                        <span
+                                                                            className={cn(
+                                                                                'px-1.5 py-0.5 rounded text-[10px] font-medium min-w-[20px] text-center',
+                                                                                isSelected
+                                                                                    ? 'bg-[#dcfce7] text-[#166534] font-bold'
+                                                                                    : 'bg-slate-100 text-slate-500'
+                                                                            )}
+                                                                        >
+                                                                            {count}
+                                                                        </span>
+                                                                    </div>
+                                                                </button>
+                                                                {(p.key === '30days' || p.key === 'lastMonth') && (
+                                                                    <div className="my-1 border-t border-slate-100" />
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                {customTabActive && (
+                                                    <div className="px-3 pt-2.5 mt-1 border-t border-slate-100 flex flex-col gap-2">
+                                                        <div className="flex gap-2">
+                                                            <div className="flex-1">
+                                                                <label className="text-[10px] text-slate-500 font-medium block mb-0.5">From</label>
+                                                                <input
+                                                                    type="date"
+                                                                    value={customStart}
+                                                                    onChange={(e) => setCustomStart(e.target.value)}
+                                                                    className="w-full border border-slate-200 rounded-md px-2 py-1 text-[11px] text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                                                                />
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <label className="text-[10px] text-slate-500 font-medium block mb-0.5">To</label>
+                                                                <input
+                                                                    type="date"
+                                                                    value={customEnd}
+                                                                    onChange={(e) => setCustomEnd(e.target.value)}
+                                                                    className="w-full border border-slate-200 rounded-md px-2 py-1 text-[11px] text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleApplyCustom}
+                                                            className="w-full bg-[#1b2e23] hover:bg-[#122319] text-white py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                                                        >
+                                                            Apply Custom Range
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Pagination & Page Size */}
@@ -1105,7 +1258,7 @@ function VehiclesContent() {
                                         <span>Export results</span>
                                     </Button>
                                     <div className="bg-white text-slate-700 text-xs font-semibold rounded-lg h-8 px-3 border border-slate-200 shadow-2xs flex items-center gap-1.5">
-                                        <span>All data</span>
+                                        <span>{reportDateRange.label}</span>
                                         <span className="bg-[#dcfce7] text-[#166534] px-1.5 py-0.5 rounded text-[10px] font-bold">
                                             {reportData.length}
                                         </span>
