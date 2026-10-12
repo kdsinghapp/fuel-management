@@ -54,6 +54,8 @@ const VEHICLE_COLORS = [
     '#059669', // Emerald
 ];
 
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+
 type TabType = 'chart' | 'report' | 'summary';
 type SummaryGranularity = 'Yearly' | 'Quarterly' | 'Monthly' | 'Weekly' | 'Daily';
 
@@ -482,6 +484,7 @@ function VehiclesContent() {
             string,
             {
                 period: string;
+                periodOrder: number;
                 vehicleId: string;
                 vehicleReg: string;
                 refills: number;
@@ -498,26 +501,54 @@ function VehiclesContent() {
             const reg = tx.fleetId || meta?.FleetId || '';
 
             // Format period label
-            const d = new Date(tx.date);
+            const dateStr = tx.date.split('T')[0];
+            const parts = dateStr.split('-');
+            const d =
+                parts.length === 3
+                    ? new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0)
+                    : new Date(tx.date);
+
             let periodKey = '2026';
+            let periodOrder = 0;
+
             if (summaryGranularity === 'Yearly') {
                 periodKey = d.getFullYear().toString();
+                periodOrder = d.getFullYear();
             } else if (summaryGranularity === 'Quarterly') {
                 const q = Math.floor(d.getMonth() / 3) + 1;
                 periodKey = `Q${q} ${d.getFullYear()}`;
+                periodOrder = d.getFullYear() * 10 + q;
             } else if (summaryGranularity === 'Monthly') {
-                periodKey = `${d.toLocaleString('en-US', { month: 'short' })} ${d.getFullYear()}`;
+                const mName = MONTH_NAMES[d.getMonth()] || d.toLocaleString('en-US', { month: 'short' });
+                periodKey = `${mName} ${d.getFullYear()}`;
+                periodOrder = d.getFullYear() * 100 + (d.getMonth() + 1);
             } else if (summaryGranularity === 'Weekly') {
-                const weekNum = Math.ceil(d.getDate() / 7);
-                periodKey = `W${weekNum} ${d.toLocaleString('en-US', { month: 'short' })}`;
+                // Monday to Sunday week period (e.g. 05 Oct – 11 Oct, 28 Sept – 04 Oct)
+                const day = d.getDay(); // 0 is Sunday, 1 is Monday ... 6 is Saturday
+                const diffToMonday = day === 0 ? -6 : 1 - day;
+                const monday = new Date(d);
+                monday.setDate(d.getDate() + diffToMonday);
+
+                const sunday = new Date(monday);
+                sunday.setDate(monday.getDate() + 6);
+
+                const mDay = String(monday.getDate()).padStart(2, '0');
+                const mMonth = MONTH_NAMES[monday.getMonth()] || monday.toLocaleString('en-US', { month: 'short' });
+                const sDay = String(sunday.getDate()).padStart(2, '0');
+                const sMonth = MONTH_NAMES[sunday.getMonth()] || sunday.toLocaleString('en-US', { month: 'short' });
+
+                periodKey = `${mDay} ${mMonth} \u2013 ${sDay} ${sMonth}`;
+                periodOrder = monday.getTime();
             } else if (summaryGranularity === 'Daily') {
-                periodKey = tx.date;
+                periodKey = dateStr;
+                periodOrder = d.getTime();
             }
 
             const aggKey = `${periodKey}__${vId}`;
             if (!map.has(aggKey)) {
                 map.set(aggKey, {
                     period: periodKey,
+                    periodOrder: periodOrder,
                     vehicleId: vId,
                     vehicleReg: reg,
                     refills: 0,
@@ -551,6 +582,7 @@ function VehiclesContent() {
 
             return {
                 period: item.period,
+                periodOrder: item.periodOrder,
                 vehicleId: item.vehicleId,
                 vehicleReg: item.vehicleReg,
                 refills: item.refills,
@@ -560,6 +592,16 @@ function VehiclesContent() {
                 travelled: item.totalDistance,
                 consumption: avgConsumption,
             };
+        });
+
+        // Sort: newest period first, then vehicles alphabetically with '—' at top
+        rows.sort((a, b) => {
+            if (b.periodOrder !== a.periodOrder) {
+                return b.periodOrder - a.periodOrder;
+            }
+            if (a.vehicleId === '—') return -1;
+            if (b.vehicleId === '—') return 1;
+            return a.vehicleId.localeCompare(b.vehicleId);
         });
 
         // Filter by search
