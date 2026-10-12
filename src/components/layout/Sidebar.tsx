@@ -45,7 +45,7 @@ const navigationItems: NavItem[] = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     // { name: 'Fuel Levels', href: '/fuel-levels', icon: Droplet },
     // { name: 'Deliveries', href: '/deliveries', icon: Truck },
-    { name: 'Transactions', href: '/fuel-issues', icon: FileText },
+    // { name: 'Transactions', href: '/fuel-issues', icon: FileText },
     {
         name: 'Vehicles',
         href: '/vehicles',
