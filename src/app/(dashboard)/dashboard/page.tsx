@@ -274,44 +274,255 @@ function DashboardTopBar({ activeTab, onTabChange }: { activeTab: string; onTabC
 /* Gauge                                                               */
 /* ================================================================== */
 
-const CX = 200, CY = 200, R = 150, SW = 36;
-const polar = (t: number, r: number) => {
-    const a = Math.PI * (1 - t);
-    return [CX + r * Math.cos(a), CY - r * Math.sin(a)];
-};
-const arc = (t0: number, t1: number, r: number) => {
-    const [x0, y0] = polar(t0, r);
-    const [x1, y1] = polar(t1, r);
-    return `M ${x0} ${y0} A ${r} ${r} 0 0 1 ${x1} ${y1}`;
-};
+const GAUGE_CX = 295;
+const GAUGE_CY = 268;
+const GAUGE_R_OUT = 205;
+const GAUGE_R_IN = 143;
 
-const GAUGE_SEGMENTS = [
-    { from: 0, to: 0.2, color: '#d0101f' },
-    { from: 0.2, to: 0.4, color: '#e05a00' },
-    { from: 0.4, to: 0.6, color: '#e09400' },
-    { from: 0.6, to: 0.8, color: '#3cb43c' },
-    { from: 0.8, to: 1, color: '#0a6b2d' },
+const gaugeRad = (d: number) => (d * Math.PI) / 180;
+const gaugeAng = (v: number, maxV: number) => 180 - (v / maxV) * 180;
+const gaugePt = (r: number, v: number, maxV: number): [number, number] => [
+    GAUGE_CX + r * Math.cos(gaugeRad(gaugeAng(v, maxV))),
+    GAUGE_CY - r * Math.sin(gaugeRad(gaugeAng(v, maxV))),
 ];
 
-function FuelGauge({ pct }: { pct: number }) {
-    const t = Math.min(Math.max(pct, 0), 100) / 100;
-    const [px, py] = polar(t, R + SW / 2 + 14);
-    const GAP = 0.006;
+interface FuelGaugeProps {
+    value?: number;
+    max?: number;
+    pct?: number;
+    className?: string;
+}
+
+function FuelGauge({ value = 0, max = 20000, pct, className = '' }: FuelGaugeProps) {
+    const needleRef = useRef<SVGGElement | null>(null);
+    const prevValueRef = useRef<number>(0);
+
+    const safeMax = max > 0 ? max : 20000;
+    const targetValue = pct !== undefined ? (pct / 100) * safeMax : value;
+    const boundedValue = Math.min(Math.max(targetValue, 0), safeMax);
+
+    useEffect(() => {
+        let animId: number;
+        const startVal = prevValueRef.current;
+        const endVal = boundedValue;
+        const startTime = performance.now();
+        const duration = 1400;
+
+        const tick = (now: number) => {
+            const progress = Math.min((now - startTime) / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const currentVal = startVal + (endVal - startVal) * eased;
+            const deg = (currentVal / safeMax) * 180;
+
+            if (needleRef.current) {
+                needleRef.current.setAttribute(
+                    'transform',
+                    `translate(${GAUGE_CX},${GAUGE_CY}) rotate(${deg})`
+                );
+            }
+
+            if (progress < 1) {
+                animId = requestAnimationFrame(tick);
+            } else {
+                prevValueRef.current = endVal;
+            }
+        };
+
+        animId = requestAnimationFrame(tick);
+        return () => {
+            if (animId) cancelAnimationFrame(animId);
+        };
+    }, [boundedValue, safeMax]);
+
+    // Outer light ring: r = 214
+    const [rx1, ry1] = gaugePt(214, 0, safeMax);
+    const [rx2, ry2] = gaugePt(214, safeMax, safeMax);
+
+    // 5 coloured segments
+    const segments = useMemo(() => {
+        const segDefs = [
+            { from: 0, to: safeMax * 0.2, color: '#d9001b' },
+            { from: safeMax * 0.2, to: safeMax * 0.4, color: '#e8530e' },
+            { from: safeMax * 0.4, to: safeMax * 0.6, color: '#e69100' },
+            { from: safeMax * 0.6, to: safeMax * 0.8, color: '#27b833' },
+            { from: safeMax * 0.8, to: safeMax, color: '#006b1e' },
+        ];
+        return segDefs.map((s) => {
+            const [a, b] = gaugePt(GAUGE_R_OUT, s.from, safeMax);
+            const [c, d] = gaugePt(GAUGE_R_OUT, s.to, safeMax);
+            const [e, f] = gaugePt(GAUGE_R_IN, s.to, safeMax);
+            const [g, h] = gaugePt(GAUGE_R_IN, s.from, safeMax);
+            return {
+                d: `M${a},${b} A${GAUGE_R_OUT},${GAUGE_R_OUT} 0 0 1 ${c},${d} L${e},${f} A${GAUGE_R_IN},${GAUGE_R_IN} 0 0 0 ${g},${h} Z`,
+                color: s.color,
+            };
+        });
+    }, [safeMax]);
+
+    // Outer major ticks (10 divisions) + labels
+    const outerTicks = useMemo(() => {
+        const step = safeMax / 10;
+        const ticks = [];
+        for (let i = 0; i <= 10; i++) {
+            const v = i * step;
+            const [x1, y1] = gaugePt(221, v, safeMax);
+            const [x2, y2] = gaugePt(237, v, safeMax);
+
+            if (i === 0) {
+                ticks.push({
+                    v,
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    textX: 82,
+                    textY: 292,
+                    dominantBaseline: undefined,
+                    label: fmt(v),
+                });
+            } else if (i === 10) {
+                ticks.push({
+                    v,
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    textX: 508,
+                    textY: 292,
+                    dominantBaseline: undefined,
+                    label: fmt(v),
+                });
+            } else {
+                const [tx, ty] = gaugePt(258, v, safeMax);
+                ticks.push({
+                    v,
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    textX: tx,
+                    textY: ty,
+                    dominantBaseline: 'middle' as const,
+                    label: fmt(v),
+                });
+            }
+        }
+        return ticks;
+    }, [safeMax]);
+
+    // Inner 0–100 scale: ticks every 1%, labels every 10%
+    const innerScale = useMemo(() => {
+        const ticks = [];
+        for (let p = 0; p <= 100; p++) {
+            const v = (p * safeMax) / 100;
+            const len = p % 10 === 0 ? 14 : p % 5 === 0 ? 10 : 6;
+            const [x1, y1] = gaugePt(GAUGE_R_IN - 3, v, safeMax);
+            const [x2, y2] = gaugePt(GAUGE_R_IN - 3 - len, v, safeMax);
+            ticks.push({
+                p,
+                x1,
+                y1,
+                x2,
+                y2,
+                strokeWidth: p % 10 === 0 ? 1.4 : 0.8,
+            });
+        }
+        const labels = [];
+        for (let p = 0; p <= 100; p += 10) {
+            const [x, y] = gaugePt(GAUGE_R_IN - 30, (p * safeMax) / 100, safeMax);
+            labels.push({ p, x, y });
+        }
+        return { ticks, labels };
+    }, [safeMax]);
+
     return (
-        <svg viewBox="0 0 400 232" className="w-full h-full overflow-visible">
-            <path d={arc(0, 1, R)} fill="none" stroke="#dfe5df" strokeWidth={SW} strokeLinecap="round" />
-            {GAUGE_SEGMENTS.map((s, i) => (
+        <svg
+            viewBox="0 0 590 300"
+            xmlns="http://www.w3.org/2000/svg"
+            className={`w-full h-auto select-none overflow-visible ${className}`}
+            style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}
+        >
+            {/* Outer light ring */}
+            <path
+                d={`M${rx1},${ry1} A214,214 0 0 1 ${rx2},${ry2}`}
+                fill="none"
+                stroke="#c9d3e3"
+                strokeWidth={12}
+            />
+
+            {/* Coloured segments */}
+            {segments.map((s, idx) => (
                 <path
-                    key={i}
-                    d={arc(s.from + (i === 0 ? 0 : GAP), s.to - (i === GAUGE_SEGMENTS.length - 1 ? 0 : GAP), R)}
-                    fill="none"
-                    stroke={s.color}
-                    strokeWidth={SW}
-                    strokeLinecap="butt"
+                    key={idx}
+                    d={s.d}
+                    fill={s.color}
+                    stroke="#fff"
+                    strokeWidth={3}
+                    strokeLinejoin="round"
                 />
             ))}
-            <g transform={`translate(${px} ${py}) rotate(${(t - 0.5) * 180})`}>
-                <polygon points="-9,-8 9,-8 0,10" fill="#141a17" />
+
+            {/* Outer major ticks + labels */}
+            {outerTicks.map((t) => (
+                <g key={t.v}>
+                    <line
+                        x1={t.x1}
+                        y1={t.y1}
+                        x2={t.x2}
+                        y2={t.y2}
+                        stroke="#2b3340"
+                        strokeWidth={3.5}
+                    />
+                    <text
+                        x={t.textX}
+                        y={t.textY}
+                        textAnchor="middle"
+                        dominantBaseline={t.dominantBaseline}
+                        fontSize={16}
+                        fontWeight={700}
+                        fill="#1f2229"
+                    >
+                        {t.label}
+                    </text>
+                </g>
+            ))}
+
+            {/* Inner 0–100 scale ticks */}
+            {innerScale.ticks.map((t) => (
+                <line
+                    key={t.p}
+                    x1={t.x1}
+                    y1={t.y1}
+                    x2={t.x2}
+                    y2={t.y2}
+                    stroke="#2b3340"
+                    strokeWidth={t.strokeWidth}
+                />
+            ))}
+
+            {/* Inner 0–100 scale labels */}
+            {innerScale.labels.map((lbl) => (
+                <text
+                    key={lbl.p}
+                    x={lbl.x}
+                    y={lbl.y}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fontSize={13}
+                    fontWeight={500}
+                    fill="#1f2229"
+                >
+                    {lbl.p}
+                </text>
+            ))}
+
+            {/* Needle */}
+            <g
+                ref={needleRef}
+                transform={`translate(${GAUGE_CX},${GAUGE_CY}) rotate(${(prevValueRef.current / safeMax) * 180})`}
+            >
+                <polygon points="-200,0 -8,-6 -8,6" fill="#1f2229" />
+                <circle cx={0} cy={0} r={23} fill="#1f2229" />
             </g>
         </svg>
     );
@@ -413,22 +624,23 @@ function TotalSiteTab({ data }: { data: TotalSiteData }) {
                 </div>
                 <p className="mt-2 text-sm text-zinc-600">Last updated {data.lastUpdated}</p>
 
-                <div className="relative mx-auto mt-10 w-full max-w-[470px] aspect-[400/232]">
-                    <FuelGauge pct={pct} />
-                    <div className="absolute left-1/2 top-[46%] -translate-x-1/2 text-center">
-                        <div className="text-[44px] sm:text-[56px] leading-none font-extrabold tracking-tight text-[#141a17] whitespace-nowrap">
-                            {fmt(data.currentStock)} L
-                        </div>
-                        <div className="mt-3 flex items-center justify-center gap-2">
-                            <span className="text-[17px] font-extrabold text-[#0a6b2d]">{pct}%</span>
-                            <span className="rounded-full bg-[#e3e9e2] px-3 py-0.5 text-[13px] font-semibold text-zinc-700">
-                                {data.daysOfStock} Days
-                            </span>
-                        </div>
+                <div className="mx-auto mt-6 w-full max-w-[560px]">
+                    <FuelGauge value={data.currentStock} max={data.capacity || 20000} />
+                </div>
+
+                <div className="mt-3 text-center">
+                    <div className="text-[36px] sm:text-[44px] leading-none font-extrabold tracking-tight text-[#141a17] whitespace-nowrap">
+                        {fmt(data.currentStock)} <span className="text-xl sm:text-2xl font-bold">L</span>
+                    </div>
+                    <div className="mt-2.5 flex items-center justify-center gap-2">
+                        <span className="text-[17px] font-extrabold text-[#0a6b2d]">{pct}%</span>
+                        <span className="rounded-full bg-[#e3e9e2] px-3 py-0.5 text-[13px] font-semibold text-zinc-700">
+                            {data.daysOfStock} Days
+                        </span>
                     </div>
                 </div>
 
-                <p className="mt-6 text-center text-[13px] text-zinc-700">
+                <p className="mt-3 text-center text-[13px] text-zinc-700">
                     of {fmt(data.capacity)} L capacity ·{' '}
                     <strong className={critical ? 'text-rose-600' : 'text-[#0a6b2d]'}>{critical ? 'Low' : 'Normal'}</strong>
                 </p>
