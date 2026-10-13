@@ -56,6 +56,8 @@ export default function VehicleDetailsPage() {
     const { user } = useAuth();
     const canManageVehicles = user?.role === 'Administrator' || user?.role === 'Manager';
     const selectedClient = useClientStore((state) => state.selectedClient);
+    const clientsList = useClientStore((state) => state.clientsList);
+    const availableClients = (clientsList && clientsList.length > 0 ? clientsList : CLIENTS).filter(c => c.is_active !== false);
     const [records, setRecords] = useState<VehicleDetailRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
@@ -1063,12 +1065,12 @@ export default function VehicleDetailsPage() {
                                         onChange={(e) => setFormData({ ...formData, Department: e.target.value })}
                                         className="w-full h-8 px-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#f26522] focus:border-[#f26522] bg-white text-slate-900 font-medium text-xs"
                                     >
-                                        {CLIENTS.map((c) => (
+                                        {availableClients.map((c) => (
                                             <option key={c.clientid} value={c.name}>
                                                 {c.name}
                                             </option>
                                         ))}
-                                        {formData.Department && !CLIENTS.some(c => c.name === formData.Department) && (
+                                        {formData.Department && !availableClients.some(c => c.name === formData.Department) && (
                                             <option value={formData.Department}>{formData.Department}</option>
                                         )}
                                     </select>

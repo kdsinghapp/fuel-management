@@ -17,10 +17,12 @@ import {
     Shield,
     CheckCircle2,
     AlertTriangle,
+    Search,
 } from 'lucide-react';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Card, CardContent } from '@/components/ui/card';
 import { userService } from '@/services/userService';
+import { clientService } from '@/services/clientService';
 import { authService, hasPermission, PERMISSIONS } from '@/lib/auth';
 import { CLIENTS } from '@/services/api';
 
@@ -28,6 +30,9 @@ export default function CreateUserPage() {
     const router = useRouter();
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+    const [availableClients, setAvailableClients] = useState<Array<{ name: string; clientid?: string; is_active?: boolean }>>(CLIENTS);
+    const [isLoadingClients, setIsLoadingClients] = useState(false);
+    const [clientSearch, setClientSearch] = useState('');
 
     const [form, setForm] = useState<{
         name: string;
@@ -50,6 +55,24 @@ export default function CreateUserPage() {
     const [showTempPassword, setShowTempPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const loadClients = async () => {
+            try {
+                setIsLoadingClients(true);
+                const data = await clientService.getClients();
+                if (Array.isArray(data) && data.length > 0) {
+                    const active = data.filter((c: any) => c.is_active !== false);
+                    setAvailableClients(active);
+                }
+            } catch (err) {
+                console.error('Failed to load clients:', err);
+            } finally {
+                setIsLoadingClients(false);
+            }
+        };
+        loadClients();
+    }, []);
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -254,12 +277,13 @@ export default function CreateUserPage() {
                                     <div className="text-xs font-bold text-slate-800 uppercase tracking-wider pb-2 border-b border-slate-100 flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <Building2 className="h-4 w-4 text-[#f26522]" />
-                                            <span>2. Client Access Scope ({form.assignedClients.length} Selected)</span>
+                                            <span>2. Client Access Scope ({form.assignedClients.length} of {availableClients.length} Selected)</span>
+                                            {isLoadingClients && <Loader2 className="h-3 w-3 animate-spin text-[#f26522]" />}
                                         </div>
                                         <div className="flex gap-2">
                                             <button
                                                 type="button"
-                                                onClick={() => setForm(prev => ({ ...prev, assignedClients: CLIENTS.map(c => c.name) }))}
+                                                onClick={() => setForm(prev => ({ ...prev, assignedClients: availableClients.map(c => c.name) }))}
                                                 className="text-xs font-bold text-[#f26522] hover:underline cursor-pointer"
                                             >
                                                 Select All
@@ -276,32 +300,53 @@ export default function CreateUserPage() {
                                     </div>
 
                                     <div className="p-4 bg-orange-50/40 border border-orange-200 rounded-2xl space-y-3">
-                                        <p className="text-xs text-slate-600 leading-relaxed">
-                                            This Viewer account will be strictly restricted to only view dashboards, fuel levels, deliveries, and transactions for the chosen clients:
-                                        </p>
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                            <p className="text-xs text-slate-600 leading-relaxed">
+                                                This Viewer account will be strictly restricted to only view dashboards, fuel levels, deliveries, and transactions for the chosen clients:
+                                            </p>
+                                        </div>
 
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 bg-white p-3.5 rounded-xl border border-slate-200 max-h-56 overflow-y-auto">
-                                            {CLIENTS.map((client) => {
-                                                const isSelected = form.assignedClients.includes(client.name);
-                                                return (
-                                                    <label
-                                                        key={client.name}
-                                                        className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer text-xs font-medium transition-all ${
-                                                            isSelected
-                                                                ? 'bg-orange-50 text-[#f26522] font-bold border border-orange-200 shadow-2xs'
-                                                                : 'hover:bg-slate-50 text-slate-700 border border-transparent'
-                                                        }`}
-                                                    >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={isSelected}
-                                                            onChange={() => toggleClient(client.name)}
-                                                            className="rounded border-slate-300 text-[#f26522] focus:ring-[#f26522] h-4 w-4 cursor-pointer"
-                                                        />
-                                                        <span className="truncate">{client.name}</span>
-                                                    </label>
-                                                );
-                                            })}
+                                        {/* Filter search input */}
+                                        <div className="relative">
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                                            <input
+                                                type="text"
+                                                placeholder="Search among all registered clients..."
+                                                value={clientSearch}
+                                                onChange={(e) => setClientSearch(e.target.value)}
+                                                className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#f26522]/30 focus:border-[#f26522]"
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 bg-white p-3.5 rounded-xl border border-slate-200 max-h-64 overflow-y-auto">
+                                            {availableClients
+                                                .filter(c => c.name.toLowerCase().includes(clientSearch.toLowerCase()))
+                                                .map((client) => {
+                                                    const isSelected = form.assignedClients.includes(client.name);
+                                                    return (
+                                                        <label
+                                                            key={client.name}
+                                                            className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer text-xs font-medium transition-all ${
+                                                                isSelected
+                                                                    ? 'bg-orange-50 text-[#f26522] font-bold border border-orange-200 shadow-2xs'
+                                                                    : 'hover:bg-slate-50 text-slate-700 border border-transparent'
+                                                            }`}
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isSelected}
+                                                                onChange={() => toggleClient(client.name)}
+                                                                className="rounded border-slate-300 text-[#f26522] focus:ring-[#f26522] h-4 w-4 cursor-pointer"
+                                                            />
+                                                            <span className="truncate">{client.name}</span>
+                                                        </label>
+                                                    );
+                                                })}
+                                            {availableClients.filter(c => c.name.toLowerCase().includes(clientSearch.toLowerCase())).length === 0 && (
+                                                <div className="col-span-full py-4 text-center text-xs text-slate-400">
+                                                    No clients match &quot;{clientSearch}&quot;
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

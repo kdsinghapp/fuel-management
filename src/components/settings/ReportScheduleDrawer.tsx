@@ -33,7 +33,7 @@ import {
   FileBarChart,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { CLIENTS } from '@/services/api';
+import { CLIENTS, useClientStore } from '@/services/api';
 import { useScheduleStore } from '@/services/scheduleStore';
 import {
   ReportSchedule,
@@ -143,6 +143,8 @@ export function ReportScheduleDrawer() {
   } = useScheduleStore();
 
   const { user } = useAuth();
+  const { clientsList } = useClientStore();
+  const availableClients = (clientsList && clientsList.length > 0 ? clientsList : CLIENTS).filter(c => c.is_active !== false);
 
   // Form State
   const [scheduleName, setScheduleName] = useState('');
@@ -599,7 +601,7 @@ export function ReportScheduleDrawer() {
                     <span className="text-[11px] text-[#f26522] font-semibold">Select Client</span>
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1 border border-zinc-800 rounded-xl p-2 bg-black/40">
-                    {CLIENTS.map((client) => {
+                    {availableClients.map((client) => {
                       const isSelected = selectedClient === client.name;
                       return (
                         <button

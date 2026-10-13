@@ -37,7 +37,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { useScheduleStore } from '@/services/scheduleStore';
-import { CLIENTS } from '@/services/api';
+import { CLIENTS, useClientStore } from '@/services/api';
 import {
   ReportSchedule,
   ReportType,
@@ -142,6 +142,8 @@ export default function ReportsFullPage() {
 
   const { user } = useAuth();
   const router = useRouter();
+  const { clientsList } = useClientStore();
+  const availableClients = (clientsList && clientsList.length > 0 ? clientsList : CLIENTS).filter(c => c.is_active !== false);
 
   useEffect(() => {
     if (user && user.role === 'Viewer') {
@@ -480,7 +482,7 @@ export default function ReportsFullPage() {
                       Supported Clients
                     </span>
                     <p className="text-2xl font-black text-zinc-900">
-                      {CLIENTS.length}{' '}
+                      {availableClients.length}{' '}
                       <span className="text-xs text-zinc-500 font-semibold">Locations</span>
                     </p>
                   </div>
@@ -726,7 +728,7 @@ export default function ReportsFullPage() {
                     <span className="text-xs font-bold text-[#f26522]">Selected: {selectedClient}</span>
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 max-h-56 overflow-y-auto p-2 border border-zinc-200 rounded-2xl bg-zinc-50">
-                    {CLIENTS.map((client) => {
+                    {availableClients.map((client) => {
                       const isSelected = selectedClient === client.name;
                       return (
                         <button
@@ -1214,7 +1216,7 @@ export default function ReportsFullPage() {
                     onChange={(e) => setQuickClient(e.target.value)}
                     className="w-full bg-white border border-zinc-300 rounded-xl p-3 text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#f26522]"
                   >
-                    {CLIENTS.map((c) => (
+                    {availableClients.map((c) => (
                       <option key={c.name} value={c.name}>
                         {c.name}
                       </option>

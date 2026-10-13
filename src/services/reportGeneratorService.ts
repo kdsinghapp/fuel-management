@@ -2,7 +2,7 @@
 import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { CLIENTS, ClientConfig, CLIENT_EXTRA_RECON_COLUMNS, ExtraColumnConfig } from '@/services/api';
+import { CLIENTS, ClientConfig, CLIENT_EXTRA_RECON_COLUMNS, ExtraColumnConfig, useClientStore } from '@/services/api';
 import { DateWindowPreset, ReportType, ReportFormat } from '@/types/schedule';
 import { getPGTTimeInfo } from '@/lib/pgtTime';
 
@@ -944,7 +944,8 @@ export async function generateReportData(
   const { startDate, endDate, label: dateRangeStr } = computeDatesFromPreset(preset, customStart, customEnd);
 
   // Determine which client config to use
-  const targetClient = CLIENTS.find((c) => c.name.toLowerCase() === clientName.toLowerCase()) || CLIENTS[0];
+  const clientsPool = useClientStore.getState().clientsList?.length > 0 ? useClientStore.getState().clientsList : CLIENTS;
+  const targetClient = clientsPool.find((c) => c.name.toLowerCase() === clientName.toLowerCase()) || clientsPool[0];
   const actualClientName = clientName === 'ALL' ? 'All Clients (Consolidated)' : targetClient.name;
 
   let headers: string[] = [];
