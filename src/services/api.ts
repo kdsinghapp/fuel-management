@@ -28,26 +28,7 @@ export const DEFAULT_CLIENT: ClientConfig = {
 };
 
 // Dynamic client list fallback
-export const CLIENTS: ClientConfig[] = [
-  DEFAULT_CLIENT,
-  { name: 'Digicel POM', clientid: '843', userid: 2094, divisionid: 586, minStock: 5000, tank_capacity: 20000, min_stock: 5000, lead_time_days: 2, is_active: true },
-  { name: 'Digicel Hagen', clientid: '797', userid: 2094, divisionid: 586, minStock: 5000, tank_capacity: 45000, min_stock: 5000, lead_time_days: 2, is_active: true },
-  { name: 'PNG Biomass - Zifasing Field Base', clientid: '2042', userid: 2094, divisionid: 653, minStock: 5000, tank_capacity: 10000, min_stock: 5000, lead_time_days: 2, is_active: true },
-  { name: 'Paradise Foods Hanta', clientid: '2003', userid: 2094, divisionid: 744, minStock: 2500, tank_capacity: 5000, min_stock: 2500, lead_time_days: 2, is_active: true },
-  { name: 'Paradise Foods HQ', clientid: '2004', userid: 2094, divisionid: 744, minStock: 5000, tank_capacity: 10000, min_stock: 5000, lead_time_days: 2, is_active: true },
-  { name: 'Laga Industries Taraka', clientid: '2008', userid: 2094, divisionid: 757, minStock: 5000, tank_capacity: 10000, min_stock: 5000, lead_time_days: 2, is_active: true },
-  { name: 'Laga Industries Gabaka', clientid: '1967', userid: 2094, divisionid: 757, minStock: 5000, tank_capacity: 10000, min_stock: 5000, lead_time_days: 2, is_active: true },
-  { name: 'TWL Lae', clientid: '2023', userid: 2094, divisionid: 753, minStock: 5000, tank_capacity: 10000, min_stock: 5000, lead_time_days: 2, is_active: true },
-  { name: 'TWL Hagen', clientid: '2006', userid: 2094, divisionid: 829, minStock: 5000, tank_capacity: 10000, min_stock: 5000, lead_time_days: 2, is_active: true },
-  { name: 'TWL Pom Transport', clientid: '2394', userid: 2094, divisionid: 816, minStock: 2500, tank_capacity: 5000, min_stock: 2500, lead_time_days: 2, is_active: true },
-  { name: 'Golden Valley Enterprises', clientid: '2005', userid: 2094, divisionid: 789, minStock: 1000, tank_capacity: 5000, min_stock: 1000, lead_time_days: 2, is_active: true },
-  { name: 'IPI Lae Bowser', clientid: '2035', userid: 2094, divisionid: 792, minStock: 5000, tank_capacity: 10000, min_stock: 5000, lead_time_days: 2, is_active: true },
-  { name: 'IPI Hagen Bowser', clientid: '2036', userid: 2094, divisionid: 793, minStock: 5000, tank_capacity: 10000, min_stock: 5000, lead_time_days: 2, is_active: true },
-  { name: 'Peuna - NFS Bowser', clientid: '1963', userid: 2094, divisionid: 788, minStock: 1500, tank_capacity: 5000, min_stock: 1500, lead_time_days: 2, is_active: true },
-  { name: 'PFL Lae Genset & Tank 01', clientid: '2043', userid: 2094, divisionid: 730, minStock: 2500, tank_capacity: 5000, min_stock: 2500, lead_time_days: 2, is_active: true },
-  { name: 'PFL Lae Genset & Tank 02', clientid: '2044', userid: 2094, divisionid: 730, minStock: 2500, tank_capacity: 5000, min_stock: 2500, lead_time_days: 2, is_active: true },
-  { name: 'PFL Lae Beverage Genset & Tank 03', clientid: '2045', userid: 2094, divisionid: 730, minStock: 2500, tank_capacity: 5000, min_stock: 2500, lead_time_days: 2, is_active: true },
-];
+export const CLIENTS: ClientConfig[] = [DEFAULT_CLIENT];
 
 export interface ExtraColumnConfig {
   id: string;
