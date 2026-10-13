@@ -19,7 +19,10 @@ import {
     AlertTriangle,
     RotateCcw,
     Check,
+    CheckCircle2,
     Calendar,
+    Car,
+    ArrowUpDown,
 } from 'lucide-react';
 import {
     ResponsiveContainer,
@@ -68,6 +71,21 @@ interface VehicleMeta {
     Department?: string;
     StandardBurnRate?: number;
     TargetKmPerL?: number;
+}
+
+function formatSpaceNumber(num: number | null | undefined, decimals = 0): string {
+    if (num == null || isNaN(num)) return '—';
+    if (decimals === 0) {
+        const rounded = Math.round(num);
+        const sign = rounded < 0 ? '-' : '';
+        const absStr = Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+        return `${sign}${absStr}`;
+    }
+    const fixed = num.toFixed(decimals);
+    const [intPart, decPart] = fixed.split('.');
+    const sign = Number(intPart) < 0 || fixed.startsWith('-') ? '-' : '';
+    const absInt = Math.abs(parseInt(intPart, 10)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    return `${sign}${absInt}.${decPart}`;
 }
 
 function VehiclesContent() {
@@ -132,12 +150,32 @@ function VehiclesContent() {
     // Summary view states
     const [summaryGranularity, setSummaryGranularity] = useState<SummaryGranularity>('Yearly');
     const [summaryPage, setSummaryPage] = useState(1);
-    const [summaryPageSize, setSummaryPageSize] = useState<number>(20);
+    const [summaryPageSize, setSummaryPageSize] = useState<number>(25);
+
+    // Summary filters & dropdowns matching screenshot
+    const [summaryDateRange, setSummaryDateRange] = useState<DateRange>(() => getDateRangeFromPreset('monthToDate'));
+    const [summaryDateRangeOpen, setSummaryDateRangeOpen] = useState(false);
+    const [summaryVehicleFilter, setSummaryVehicleFilter] = useState<string>('all');
+    const [summaryVehicleDropdownOpen, setSummaryVehicleDropdownOpen] = useState(false);
+    const [summaryVehicleSearch, setSummaryVehicleSearch] = useState('');
+    const [summaryCustomStart, setSummaryCustomStart] = useState('');
+    const [summaryCustomEnd, setSummaryCustomEnd] = useState('');
+    const [summaryCustomTabActive, setSummaryCustomTabActive] = useState(false);
+
+    // Summary sorting state
+    const [summarySortField, setSummarySortField] = useState<
+        'vehicle' | 'dateFrom' | 'fillUps' | 'distance' | 'litresUsed' | 'litresExpected' | 'difference' | 'consumption'
+    >('litresUsed');
+    const [summarySortDirection, setSummarySortDirection] = useState<'asc' | 'desc'>('desc');
 
     // Export dropdown
     const [exportOpen, setExportOpen] = useState(false);
+    const [summaryExportOpen, setSummaryExportOpen] = useState(false);
     const [isExporting, setIsExporting] = useState<string | null>(null);
     const exportRef = useRef<HTMLDivElement>(null);
+    const summaryExportRef = useRef<HTMLDivElement>(null);
+    const summaryDateRangeRef = useRef<HTMLDivElement>(null);
+    const summaryVehicleRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
@@ -146,6 +184,15 @@ function VehiclesContent() {
             }
             if (dateRangeRef.current && !dateRangeRef.current.contains(e.target as Node)) {
                 setDateRangeOpen(false);
+            }
+            if (summaryExportRef.current && !summaryExportRef.current.contains(e.target as Node)) {
+                setSummaryExportOpen(false);
+            }
+            if (summaryDateRangeRef.current && !summaryDateRangeRef.current.contains(e.target as Node)) {
+                setSummaryDateRangeOpen(false);
+            }
+            if (summaryVehicleRef.current && !summaryVehicleRef.current.contains(e.target as Node)) {
+                setSummaryVehicleDropdownOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -483,150 +530,323 @@ function VehiclesContent() {
     const totalReportPages = Math.ceil(totalReportVehicles / reportPageSize) || 1;
 
     // -------------------------------------------------------------
-    // 3. SUMMARY VIEW COMPUTATIONS
+    // 3. VEHICLE SUMMARY VIEW COMPUTATIONS & FILTERS
     // -------------------------------------------------------------
-    const summaryData = useMemo(() => {
-        // Group by vehicle + period according to summaryGranularity
-        const map = new Map<
-            string,
-            {
-                period: string;
-                periodOrder: number;
-                vehicleId: string;
-                vehicleReg: string;
-                refills: number;
-                totalLitres: number;
-                totalDistance: number;
-                consumptions: number[];
-            }
-        >();
+    const summaryDatePresets: { key: DateRangePreset; label: string; hasCalendarIcon?: boolean }[] = [
+        { key: 'monthToDate', label: 'Month to Date', hasCalendarIcon: true },
+        { key: 'all', label: 'All data' },
+        { key: 'today', label: 'Today' },
+        { key: 'yesterday', label: 'Yesterday' },
+        { key: 'weekToDate', label: 'Week to Date' },
+        { key: '7days', label: '7 Days' },
+        { key: '14days', label: '14 Days' },
+        { key: '21days', label: '21 Days' },
+        { key: '30days', label: '30 Days' },
+        { key: 'lastMonth', label: 'Last Month', hasCalendarIcon: true },
+        { key: 'custom', label: 'Custom Range', hasCalendarIcon: true },
+    ];
 
+    const countForSummaryPreset = (preset: DateRangePreset) => {
+        const { startDate, endDate } = getDateRangeFromPreset(preset);
+        return transactions.filter((tx) => {
+            const vId = (tx.vehicleId || tx.fleetId || '').trim();
+            if (summaryVehicleFilter !== 'all' && vId !== summaryVehicleFilter) {
+                return false;
+            }
+            if (startDate && tx.date && tx.date < startDate) return false;
+            if (endDate && tx.date && tx.date > endDate) return false;
+            return true;
+        }).length;
+    };
+
+    const handleSelectSummaryPreset = (preset: DateRangePreset) => {
+        if (preset === 'custom') {
+            setSummaryCustomTabActive(true);
+        } else {
+            setSummaryCustomTabActive(false);
+            const range = getDateRangeFromPreset(preset);
+            setSummaryDateRange(range);
+            setSummaryPage(1);
+            setSummaryDateRangeOpen(false);
+        }
+    };
+
+    const handleApplySummaryCustom = () => {
+        if (!summaryCustomStart) return;
+        const start = summaryCustomStart;
+        const end = summaryCustomEnd || summaryCustomStart;
+        setSummaryDateRange({
+            preset: 'custom',
+            startDate: start,
+            endDate: end,
+            label: `${start.replace(/-/g, '/')} - ${end.replace(/-/g, '/')}`,
+        });
+        setSummaryPage(1);
+        setSummaryDateRangeOpen(false);
+    };
+
+    // List of unique vehicles for Summary vehicle filter dropdown
+    const summaryVehicleOptions = useMemo(() => {
+        const set = new Set<string>();
         transactions.forEach((tx) => {
-            if (!tx.date) return;
-            const vId = (tx.vehicleId || tx.fleetId || '—').trim();
-            const meta = vehicleMetadata.get(vId.toUpperCase());
-            const reg = tx.fleetId || meta?.FleetId || '';
+            const vId = (tx.vehicleId || tx.fleetId || '').trim();
+            if (vId) set.add(vId);
+        });
+        return Array.from(set).sort();
+    }, [transactions]);
 
-            // Format period label
-            const dateStr = tx.date.split('T')[0];
-            const parts = dateStr.split('-');
-            const d =
-                parts.length === 3
-                    ? new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0)
-                    : new Date(tx.date);
+    const handleSummarySort = (
+        field: 'vehicle' | 'dateFrom' | 'fillUps' | 'distance' | 'litresUsed' | 'litresExpected' | 'difference' | 'consumption'
+    ) => {
+        if (summarySortField === field) {
+            setSummarySortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+        } else {
+            setSummarySortField(field);
+            setSummarySortDirection('desc');
+        }
+    };
 
-            let periodKey = '2026';
-            let periodOrder = 0;
-
-            if (summaryGranularity === 'Yearly') {
-                periodKey = d.getFullYear().toString();
-                periodOrder = d.getFullYear();
-            } else if (summaryGranularity === 'Quarterly') {
-                const q = Math.floor(d.getMonth() / 3) + 1;
-                periodKey = `Q${q} ${d.getFullYear()}`;
-                periodOrder = d.getFullYear() * 10 + q;
-            } else if (summaryGranularity === 'Monthly') {
-                const mName = MONTH_NAMES[d.getMonth()] || d.toLocaleString('en-US', { month: 'short' });
-                periodKey = `${mName} ${d.getFullYear()}`;
-                periodOrder = d.getFullYear() * 100 + (d.getMonth() + 1);
-            } else if (summaryGranularity === 'Weekly') {
-                // Monday to Sunday week period (e.g. 05 Oct – 11 Oct, 28 Sept – 04 Oct)
-                const day = d.getDay(); // 0 is Sunday, 1 is Monday ... 6 is Saturday
-                const diffToMonday = day === 0 ? -6 : 1 - day;
-                const monday = new Date(d);
-                monday.setDate(d.getDate() + diffToMonday);
-
-                const sunday = new Date(monday);
-                sunday.setDate(monday.getDate() + 6);
-
-                const mDay = String(monday.getDate()).padStart(2, '0');
-                const mMonth = MONTH_NAMES[monday.getMonth()] || monday.toLocaleString('en-US', { month: 'short' });
-                const sDay = String(sunday.getDate()).padStart(2, '0');
-                const sMonth = MONTH_NAMES[sunday.getMonth()] || sunday.toLocaleString('en-US', { month: 'short' });
-
-                periodKey = `${mDay} ${mMonth} \u2013 ${sDay} ${sMonth}`;
-                periodOrder = monday.getTime();
-            } else if (summaryGranularity === 'Daily') {
-                periodKey = dateStr;
-                periodOrder = d.getTime();
+    // Filter transactions for vehicle summary based on date range and vehicle filter
+    const summaryFilteredTransactions = useMemo(() => {
+        return transactions.filter((tx) => {
+            const vId = (tx.vehicleId || tx.fleetId || '').trim();
+            if (summaryVehicleFilter !== 'all' && vId !== summaryVehicleFilter) {
+                return false;
             }
+            if (summaryDateRange.startDate && tx.date && tx.date < summaryDateRange.startDate) {
+                return false;
+            }
+            if (summaryDateRange.endDate && tx.date && tx.date > summaryDateRange.endDate) {
+                return false;
+            }
+            return true;
+        });
+    }, [transactions, summaryVehicleFilter, summaryDateRange]);
 
-            const aggKey = `${periodKey}__${vId}`;
-            if (!map.has(aggKey)) {
-                map.set(aggKey, {
-                    period: periodKey,
-                    periodOrder: periodOrder,
-                    vehicleId: vId,
-                    vehicleReg: reg,
-                    refills: 0,
-                    totalLitres: 0,
-                    totalDistance: 0,
-                    consumptions: [],
-                });
-            }
+    interface VehicleSummaryRow {
+        vehicleKey: string;
+        vehicleName: string;
+        make: string;
+        model: string;
+        type: string;
+        dateFrom: string;
+        dateTo: string;
+        fillUps: number;
+        distance: number | null;
+        litresUsed: number;
+        litresExpected: number | null;
+        difference: number | null;
+        consumption: number | null;
+        expectedConsumption: number | null;
+        detailsPercent: number | null;
+        detailsType: 'under' | 'over' | null;
+    }
 
-            const item = map.get(aggKey)!;
-            item.refills += 1;
-            item.totalLitres += tx.fuelQuantity || 0;
-            if (tx.distance && tx.distance > 0) {
-                item.totalDistance += tx.distance;
+    const vehicleSummaryData = useMemo(() => {
+        // Group by vehicle
+        const groupMap = new Map<string, FuelEfficiencyTransaction[]>();
+
+        summaryFilteredTransactions.forEach((tx) => {
+            const rawKey = (tx.vehicleId || tx.fleetId || '').trim();
+            const vKey = rawKey === '' ? '—' : rawKey;
+            if (!groupMap.has(vKey)) {
+                groupMap.set(vKey, []);
             }
-            if (tx.consumption != null) {
-                item.consumptions.push(tx.consumption);
-            }
+            groupMap.get(vKey)!.push(tx);
         });
 
-        // Format into final summary rows
-        const rows = Array.from(map.values()).map((item) => {
-            const avgByRefill = item.refills > 0 ? Math.round(item.totalLitres / item.refills) : 0;
-            const avgByRange = item.refills > 0 ? Math.round(item.totalDistance / item.refills) : 0;
-            const avgConsumption =
-                item.consumptions.length > 0
-                    ? Number((item.consumptions.reduce((a, b) => a + b, 0) / item.consumptions.length).toFixed(2))
-                    : item.totalLitres > 0 && item.totalDistance > 0
-                        ? Number((item.totalDistance / item.totalLitres).toFixed(2))
-                        : 0.0;
+        const rows: VehicleSummaryRow[] = [];
 
-            return {
-                period: item.period,
-                periodOrder: item.periodOrder,
-                vehicleId: item.vehicleId,
-                vehicleReg: item.vehicleReg,
-                refills: item.refills,
-                avgByRefill: avgByRefill,
-                avgByRange: avgByRange,
-                litresUsed: item.totalLitres,
-                travelled: item.totalDistance,
-                consumption: avgConsumption,
-            };
-        });
+        groupMap.forEach((txs, vKey) => {
+            const meta = vKey !== '—' ? vehicleMetadata.get(vKey.toUpperCase()) : undefined;
+            const reg = meta?.FleetId || '';
+            const make = meta?.Make || (vKey !== '—' ? 'POM' : '—');
+            const model = meta?.Model || (vKey !== '—' ? 'Toyota L/C' : '—');
+            const type = (meta as any)?.VehicleType || (meta as any)?.Type || '—';
+            const vehicleName =
+                vKey === '—'
+                    ? '—'
+                    : `${vKey} ${make} ${model} ${reg ? `(${reg})` : ''}`.replace(/\s+/g, ' ').trim();
 
-        // Sort: newest period first, then vehicles alphabetically with '—' at top
-        rows.sort((a, b) => {
-            if (b.periodOrder !== a.periodOrder) {
-                return b.periodOrder - a.periodOrder;
+            const dates = txs
+                .map((t) => (t.date || '').split('T')[0])
+                .filter(Boolean)
+                .sort();
+            const dateFrom = dates.length > 0 ? dates[0].replace(/-/g, '/') : '—';
+            const dateTo = dates.length > 0 ? dates[dates.length - 1].replace(/-/g, '/') : '—';
+
+            let sumDistance = 0;
+            let hasDistance = false;
+            let sumLitresUsed = 0;
+            let sumLitresExpected = 0;
+            let hasExpected = false;
+            let sumDifference = 0;
+            let hasDifference = false;
+
+            txs.forEach((tx) => {
+                const qty = tx.fuelQuantity || 0;
+                sumLitresUsed += qty;
+
+                const dist = tx.distance;
+                if (dist != null && !isNaN(dist)) {
+                    sumDistance += dist;
+                    hasDistance = true;
+
+                    const standardRate =
+                        tx.standardBurnRate || (meta?.StandardBurnRate ? Number(meta.StandardBurnRate) : 7.0);
+                    if (dist > 0 && standardRate > 0) {
+                        const exp = Math.round(dist / standardRate);
+                        sumLitresExpected += exp;
+                        hasExpected = true;
+                        if (qty > 0) {
+                            const diff = exp - qty;
+                            sumDifference += diff;
+                            hasDifference = true;
+                        }
+                    }
+                }
+            });
+
+            const distance = hasDistance ? sumDistance : null;
+            const litresUsed = Math.round(sumLitresUsed);
+            const litresExpected = hasExpected ? Math.round(sumLitresExpected) : null;
+            const difference = hasDifference ? Math.round(sumDifference) : null;
+
+            const consumption =
+                hasDistance && litresUsed > 0
+                    ? Number((sumDistance / litresUsed).toFixed(2))
+                    : null;
+
+            const expectedConsumption =
+                hasExpected || hasDistance
+                    ? meta?.TargetKmPerL
+                        ? Number(meta.TargetKmPerL)
+                        : 10.0
+                    : null;
+
+            let detailsPercent: number | null = null;
+            let detailsType: 'under' | 'over' | null = null;
+            if (difference != null && litresExpected != null && litresExpected > 0) {
+                detailsPercent = Math.round((Math.abs(difference) / litresExpected) * 100);
+                detailsType = difference >= 0 ? 'under' : 'over';
             }
-            if (a.vehicleId === '—') return -1;
-            if (b.vehicleId === '—') return 1;
-            return a.vehicleId.localeCompare(b.vehicleId);
+
+            rows.push({
+                vehicleKey: vKey,
+                vehicleName: vehicleName,
+                make: make,
+                model: model,
+                type: type,
+                dateFrom: dateFrom,
+                dateTo: dateTo,
+                fillUps: txs.length,
+                distance: distance,
+                litresUsed: litresUsed,
+                litresExpected: litresExpected,
+                difference: difference,
+                consumption: consumption,
+                expectedConsumption: expectedConsumption,
+                detailsPercent: detailsPercent,
+                detailsType: detailsType,
+            });
         });
 
-        // Filter by search
-        if (!searchTerm.trim()) return rows;
-        const q = searchTerm.trim().toLowerCase();
-        return rows.filter(
-            (r) =>
-                r.vehicleId.toLowerCase().includes(q) ||
-                r.vehicleReg.toLowerCase().includes(q) ||
-                r.period.toLowerCase().includes(q)
-        );
-    }, [transactions, vehicleMetadata, summaryGranularity, searchTerm]);
+        // Filter by searchTerm if active
+        let filtered = rows;
+        if (searchTerm.trim()) {
+            const q = searchTerm.trim().toLowerCase();
+            filtered = rows.filter(
+                (r) =>
+                    r.vehicleKey.toLowerCase().includes(q) ||
+                    r.vehicleName.toLowerCase().includes(q) ||
+                    r.make.toLowerCase().includes(q) ||
+                    r.model.toLowerCase().includes(q)
+            );
+        }
 
-    const totalSummaryRows = summaryData.length;
-    const paginatedSummaryRows = useMemo(() => {
+        // Sort rows (default: litresUsed desc)
+        filtered.sort((a, b) => {
+            let res = 0;
+            switch (summarySortField) {
+                case 'vehicle':
+                    if (a.vehicleKey === '—') return -1;
+                    if (b.vehicleKey === '—') return 1;
+                    res = a.vehicleName.localeCompare(b.vehicleName);
+                    break;
+                case 'dateFrom':
+                    res = a.dateFrom.localeCompare(b.dateFrom);
+                    break;
+                case 'fillUps':
+                    res = a.fillUps - b.fillUps;
+                    break;
+                case 'distance': {
+                    const valA = a.distance ?? -Infinity;
+                    const valB = b.distance ?? -Infinity;
+                    res = valA - valB;
+                    break;
+                }
+                case 'litresUsed':
+                    res = a.litresUsed - b.litresUsed;
+                    break;
+                case 'litresExpected': {
+                    const valA = a.litresExpected ?? -Infinity;
+                    const valB = b.litresExpected ?? -Infinity;
+                    res = valA - valB;
+                    break;
+                }
+                case 'difference': {
+                    const valA = a.difference ?? -Infinity;
+                    const valB = b.difference ?? -Infinity;
+                    res = valA - valB;
+                    break;
+                }
+                case 'consumption': {
+                    const valA = a.consumption ?? -Infinity;
+                    const valB = b.consumption ?? -Infinity;
+                    res = valA - valB;
+                    break;
+                }
+                default:
+                    res = b.litresUsed - a.litresUsed;
+            }
+            return summarySortDirection === 'asc' ? res : -res;
+        });
+
+        return filtered;
+    }, [
+        summaryFilteredTransactions,
+        vehicleMetadata,
+        searchTerm,
+        summarySortField,
+        summarySortDirection,
+    ]);
+
+    // Summary KPIs matching screenshot: LITRES ISSUED and TOTAL DIFFERENCE
+    const summaryKpis = useMemo(() => {
+        let totalLitres = 0;
+        let totalDiff = 0;
+        let totalFillUps = 0;
+
+        vehicleSummaryData.forEach((r) => {
+            totalLitres += r.litresUsed;
+            if (r.difference != null) {
+                totalDiff += r.difference;
+            }
+            totalFillUps += r.fillUps;
+        });
+
+        return {
+            totalLitres: Math.round(totalLitres),
+            totalDifference: Math.round(totalDiff),
+            totalFillUps: totalFillUps,
+        };
+    }, [vehicleSummaryData]);
+
+    const totalSummaryRows = vehicleSummaryData.length;
+    const paginatedVehicleSummaryRows = useMemo(() => {
         const start = (summaryPage - 1) * summaryPageSize;
-        return summaryData.slice(start, start + summaryPageSize);
-    }, [summaryData, summaryPage, summaryPageSize]);
+        return vehicleSummaryData.slice(start, start + summaryPageSize);
+    }, [vehicleSummaryData, summaryPage, summaryPageSize]);
 
     const totalSummaryPages = Math.ceil(totalSummaryRows / summaryPageSize) || 1;
 
@@ -669,28 +889,46 @@ function VehiclesContent() {
                 else if (format === 'pdf') exportToPDF('Vehicles Fuel Consumption Report', headers, rows);
             } else if (activeTab === 'summary') {
                 const headers = [
-                    'Period',
                     'Vehicle',
-                    'Refills',
-                    'Avg by Refill',
-                    'Avg by Range',
+                    'Make',
+                    'Model',
+                    'Type',
+                    'Date From',
+                    'Date To',
+                    'Fill ups',
+                    'Distance (km)',
                     'Litres Used',
-                    'Travelled (km)',
+                    'Litres Expected',
+                    'Difference',
                     'Consumption (km/L)',
+                    'Expected (km/L)',
+                    'Details',
                 ];
-                const rows = summaryData.map((r) => [
-                    r.period,
-                    `${r.vehicleId} ${r.vehicleReg}`.trim(),
-                    r.refills,
-                    formatNumber(r.avgByRefill, 0),
-                    formatNumber(r.avgByRange, 0),
-                    formatNumber(r.litresUsed, 0),
-                    formatNumber(r.travelled, 0),
-                    r.consumption.toFixed(2),
+                const rows = vehicleSummaryData.map((r) => [
+                    r.vehicleName,
+                    r.make,
+                    r.model,
+                    r.type,
+                    r.dateFrom,
+                    r.dateTo,
+                    r.fillUps,
+                    r.distance != null ? formatSpaceNumber(r.distance, 0) : '—',
+                    formatSpaceNumber(r.litresUsed, 0),
+                    r.litresExpected != null ? formatSpaceNumber(r.litresExpected, 0) : '—',
+                    r.difference != null
+                        ? r.difference > 0
+                            ? `+${r.difference}`
+                            : `${r.difference}`
+                        : '—',
+                    r.consumption != null ? r.consumption.toFixed(2) : '—',
+                    r.expectedConsumption != null ? r.expectedConsumption.toFixed(2) : '—',
+                    r.detailsPercent != null && r.detailsType != null
+                        ? `${r.detailsPercent}% ${r.detailsType === 'under' ? 'Under' : 'Over'}`
+                        : '—',
                 ]);
-                if (format === 'csv') exportToCSV(`vehicles_summary_${summaryGranularity.toLowerCase()}.csv`, headers, rows);
-                else if (format === 'excel') exportToExcel(`vehicles_summary_${summaryGranularity.toLowerCase()}.xlsx`, headers, rows, 'Summary');
-                else if (format === 'pdf') exportToPDF(`Vehicles ${summaryGranularity} Summary Report`, headers, rows);
+                if (format === 'csv') exportToCSV('vehicle_summary.csv', headers, rows);
+                else if (format === 'excel') exportToExcel('vehicle_summary.xlsx', headers, rows, 'Vehicle Summary');
+                else if (format === 'pdf') exportToPDF('Vehicle Summary Report', headers, rows);
             }
         } catch (err) {
             console.error('Failed export:', err);
@@ -710,7 +948,7 @@ function VehiclesContent() {
     const printTitle =
         activeTab === 'report'
             ? 'Vehicles Fuel Consumption Report'
-            : `Vehicles ${summaryGranularity} Summary Report`;
+            : 'Vehicle Summary Report';
 
     // Print-only section: rendered into document.body via portal.
     // It holds ALL rows (not just the current page) and everything else is hidden while printing.
@@ -741,7 +979,7 @@ function VehiclesContent() {
                     <div className="meta">
                         {activeTab === 'report'
                             ? `Date range: ${reportDateRange.label} · Vehicles: ${groupedReportData.length} · Records: ${reportData.length}`
-                            : `Rows: ${summaryData.length}`}
+                            : `Date range: ${summaryDateRange.label} · Vehicles: ${vehicleSummaryData.length} · Fill ups: ${summaryKpis.totalFillUps}`}
                         {' · '}Generated: {new Date().toLocaleString()}
                     </div>
 
@@ -801,30 +1039,49 @@ function VehiclesContent() {
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Period</th>
-                                    <th>Vehicle</th>
-                                    <th className="r">Refills</th>
-                                    <th className="r">Avg by Refill</th>
-                                    <th className="r">Avg by Range</th>
-                                    <th className="r">Litres Used</th>
-                                    <th className="r">Travelled</th>
-                                    <th className="r">Consumption</th>
+                                    <th rowSpan={2}>Vehicle</th>
+                                    <th rowSpan={2}>Make</th>
+                                    <th rowSpan={2}>Model</th>
+                                    <th rowSpan={2}>Type</th>
+                                    <th rowSpan={2}>Date From</th>
+                                    <th rowSpan={2}>Date To</th>
+                                    <th rowSpan={2} className="r">Fill ups</th>
+                                    <th colSpan={4} style={{ background: '#d7ecdb', textAlign: 'center' }}>Distance and Litres</th>
+                                    <th colSpan={3} style={{ background: '#fcecd7', textAlign: 'center' }}>Fuel Consumption km/L</th>
+                                </tr>
+                                <tr>
+                                    <th className="r" style={{ background: '#d7ecdb' }}>Distance</th>
+                                    <th className="r" style={{ background: '#d7ecdb' }}>Litres Used</th>
+                                    <th className="r" style={{ background: '#d7ecdb' }}>Litres Expected</th>
+                                    <th className="r" style={{ background: '#d7ecdb' }}>Difference</th>
+                                    <th className="r" style={{ background: '#fcecd7' }}>Consumption</th>
+                                    <th className="r" style={{ background: '#fcecd7' }}>Expected</th>
+                                    <th style={{ background: '#fcecd7', textAlign: 'center' }}>Details</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {summaryData.map((r, i) => (
-                                    <tr key={`${r.period}-${r.vehicleId}-${i}`}>
-                                        <td>{r.period}</td>
-                                        <td>
-                                            {r.vehicleId}
-                                            {r.vehicleReg ? ` (${r.vehicleReg})` : ''}
+                                {vehicleSummaryData.map((r, i) => (
+                                    <tr key={`${r.vehicleKey}-${i}`}>
+                                        <td>{r.vehicleName}</td>
+                                        <td>{r.make}</td>
+                                        <td>{r.model}</td>
+                                        <td>{r.type}</td>
+                                        <td>{r.dateFrom}</td>
+                                        <td>{r.dateTo}</td>
+                                        <td className="r">{r.fillUps}</td>
+                                        <td className="r">{r.distance != null ? formatSpaceNumber(r.distance, 0) : '—'}</td>
+                                        <td className="r">{formatSpaceNumber(r.litresUsed, 0)}</td>
+                                        <td className="r">{r.litresExpected != null ? formatSpaceNumber(r.litresExpected, 0) : '—'}</td>
+                                        <td className="r">
+                                            {r.difference != null ? (r.difference > 0 ? `+${r.difference}` : r.difference) : '—'}
                                         </td>
-                                        <td className="r">{r.refills}</td>
-                                        <td className="r">{formatNumber(r.avgByRefill, 0)}</td>
-                                        <td className="r">{formatNumber(r.avgByRange, 0)}</td>
-                                        <td className="r">{formatNumber(r.litresUsed, 0)}</td>
-                                        <td className="r">{formatNumber(r.travelled, 0)}</td>
-                                        <td className="r">{r.consumption.toFixed(2)}</td>
+                                        <td className="r">{r.consumption != null ? r.consumption.toFixed(2) : '—'}</td>
+                                        <td className="r">{r.expectedConsumption != null ? r.expectedConsumption.toFixed(2) : '—'}</td>
+                                        <td style={{ textAlign: 'center' }}>
+                                            {r.detailsPercent != null && r.detailsType != null
+                                                ? `${r.detailsPercent}% ${r.detailsType === 'under' ? 'Under' : 'Over'}`
+                                                : '—'}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -863,7 +1120,9 @@ function VehiclesContent() {
                 {/* Top Navigation Bar with Title, Subtabs and Search */}
                 <div className="flex flex-wrap items-center justify-between gap-3 shrink-0 pb-1">
                     <div className="flex items-center gap-6">
-                        <h1 className="text-xl font-bold text-slate-900 tracking-tight">Vehicles</h1>
+                        <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+                            {activeTab === 'summary' ? 'Vehicle Summary' : 'Vehicles'}
+                        </h1>
                         {/* Horizontal Pill Tabs for easy switching */}
                         <div className="flex items-center bg-[#dcece0] p-1 rounded-lg gap-1 border border-[#cbe0d0]">
                             {(['chart', 'report', 'summary'] as TabType[]).map((tab) => (
@@ -1494,40 +1753,40 @@ function VehiclesContent() {
                     {/* TAB 3: SUMMARY VIEW */}
                     {/* ------------------------------------------------------------- */}
                     {activeTab === 'summary' && (
-                        <div className="bg-[#f3f9f4] rounded-2xl border border-[#d6e7da] p-4 flex flex-col justify-between shadow-2xs flex-1 min-h-0 overflow-hidden">
-                            {/* Top Action Bar */}
-                            <div className="flex flex-wrap items-center justify-between gap-3 mb-3 bg-white/70 backdrop-blur-xs p-2.5 rounded-xl border border-white/80">
-                                <div className="flex items-center gap-3">
-                                    {/* Export results */}
-                                    <div className="relative" ref={exportRef}>
-                                        <Button
+                        <div className="bg-[#dbeadf] rounded-2xl sm:rounded-3xl border border-[#cbe0d0] p-3 sm:p-4 flex flex-col gap-3 shadow-2xs flex-1 min-h-0 overflow-hidden">
+                            {/* Top Control Bar */}
+                            <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
+                                <div className="flex flex-wrap items-center gap-2.5">
+                                    {/* Export results dropdown */}
+                                    <div className="relative" ref={summaryExportRef}>
+                                        <button
                                             type="button"
-                                            onClick={() => setExportOpen((prev) => !prev)}
-                                            className="bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold rounded-lg h-8 px-3 border border-slate-200 shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                                            onClick={() => setSummaryExportOpen((prev) => !prev)}
+                                            className="bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold rounded-full h-8 px-3.5 border border-slate-200/90 shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
                                         >
-                                            <Download className="h-3.5 w-3.5 text-slate-500" />
+                                            <Download className="h-3.5 w-3.5 text-slate-600" />
                                             <span>Export results</span>
-                                        </Button>
+                                        </button>
 
-                                        {exportOpen && (
-                                            <div className="absolute left-0 mt-1.5 w-48 bg-white rounded-lg shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                                        {summaryExportOpen && (
+                                            <div className="absolute left-0 mt-1.5 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
                                                 <button
                                                     onClick={() => handleExport('excel')}
-                                                    className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2 cursor-pointer"
+                                                    className="w-full text-left px-3.5 py-2 text-xs text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2 cursor-pointer transition-colors"
                                                 >
                                                     <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
                                                     <span>Excel (.xlsx)</span>
                                                 </button>
                                                 <button
                                                     onClick={() => handleExport('csv')}
-                                                    className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-sky-50 hover:text-sky-700 flex items-center gap-2 cursor-pointer"
+                                                    className="w-full text-left px-3.5 py-2 text-xs text-slate-700 hover:bg-sky-50 hover:text-sky-700 flex items-center gap-2 cursor-pointer transition-colors"
                                                 >
                                                     <FileText className="h-4 w-4 text-sky-600" />
                                                     <span>CSV (.csv)</span>
                                                 </button>
                                                 <button
                                                     onClick={() => handleExport('pdf')}
-                                                    className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-rose-50 hover:text-rose-700 flex items-center gap-2 cursor-pointer"
+                                                    className="w-full text-left px-3.5 py-2 text-xs text-slate-700 hover:bg-rose-50 hover:text-rose-700 flex items-center gap-2 cursor-pointer transition-colors"
                                                 >
                                                     <FileDown className="h-4 w-4 text-rose-600" />
                                                     <span>PDF Document</span>
@@ -1536,33 +1795,212 @@ function VehiclesContent() {
                                         )}
                                     </div>
 
-                                    {/* Granularity Tabs */}
-                                    <div className="flex items-center bg-[#d8e8dc] p-0.5 rounded-lg gap-1 border border-[#cbe0d0]">
-                                        {(['Yearly', 'Quarterly', 'Monthly', 'Weekly', 'Daily'] as SummaryGranularity[]).map(
-                                            (gran) => (
-                                                <button
-                                                    key={gran}
-                                                    onClick={() => {
-                                                        setSummaryGranularity(gran);
-                                                        setSummaryPage(1);
-                                                    }}
-                                                    className={cn(
-                                                        'px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer',
-                                                        summaryGranularity === gran
-                                                            ? 'bg-[#1b2e23] text-white shadow-xs'
-                                                            : 'text-slate-700 hover:text-slate-900'
-                                                    )}
-                                                >
-                                                    {gran}
-                                                </button>
-                                            )
+                                    {/* Date Range Picker with Fill-up count badge: e.g. "📅 Month to Date [53] ⌵" */}
+                                    <div className="relative" ref={summaryDateRangeRef}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSummaryDateRangeOpen((prev) => !prev)}
+                                            className="bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold rounded-full h-8 px-3.5 border border-slate-200/90 shadow-2xs flex items-center gap-2 cursor-pointer transition-colors"
+                                        >
+                                            <Calendar className="h-3.5 w-3.5 text-slate-600" />
+                                            <span>{summaryDateRange.label}</span>
+                                            <span className="bg-[#d7ecdb] text-[#1b5e28] px-2 py-0.5 rounded-full text-[11px] font-bold">
+                                                {summaryKpis.totalFillUps}
+                                            </span>
+                                            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                                        </button>
+
+                                        {summaryDateRangeOpen && (
+                                            <div className="absolute left-0 mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                                                <div className="flex border-b border-slate-100 pb-1.5 mb-1.5">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSummaryCustomTabActive(false)}
+                                                        className={cn(
+                                                            'flex-1 text-center py-1 text-xs font-semibold rounded-md transition-colors',
+                                                            !summaryCustomTabActive ? 'bg-[#1b2e23] text-white' : 'text-slate-600 hover:bg-slate-100'
+                                                        )}
+                                                    >
+                                                        Presets
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSummaryCustomTabActive(true)}
+                                                        className={cn(
+                                                            'flex-1 text-center py-1 text-xs font-semibold rounded-md transition-colors',
+                                                            summaryCustomTabActive ? 'bg-[#1b2e23] text-white' : 'text-slate-600 hover:bg-slate-100'
+                                                        )}
+                                                    >
+                                                        Custom
+                                                    </button>
+                                                </div>
+
+                                                {!summaryCustomTabActive ? (
+                                                    <div className="max-h-64 overflow-y-auto space-y-0.5">
+                                                        {summaryDatePresets.map((preset) => {
+                                                            const cnt = countForSummaryPreset(preset.key);
+                                                            const isSelected = summaryDateRange.preset === preset.key;
+                                                            return (
+                                                                <button
+                                                                    key={preset.key}
+                                                                    type="button"
+                                                                    onClick={() => handleSelectSummaryPreset(preset.key)}
+                                                                    className={cn(
+                                                                        'w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer',
+                                                                        isSelected ? 'bg-emerald-50 text-emerald-800 font-semibold' : 'text-slate-700 hover:bg-slate-50'
+                                                                    )}
+                                                                >
+                                                                    <div className="flex items-center gap-2">
+                                                                        {preset.hasCalendarIcon && <Calendar className="h-3 w-3 text-slate-400" />}
+                                                                        <span>{preset.label}</span>
+                                                                    </div>
+                                                                    <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono">
+                                                                        {cnt}
+                                                                    </span>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                ) : (
+                                                    <div className="p-2 space-y-2.5">
+                                                        <div>
+                                                            <label className="block text-[11px] font-semibold text-slate-600 mb-1">Start Date</label>
+                                                            <input
+                                                                type="date"
+                                                                value={summaryCustomStart}
+                                                                onChange={(e) => setSummaryCustomStart(e.target.value)}
+                                                                className="w-full text-xs p-1.5 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1b2e23]"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-[11px] font-semibold text-slate-600 mb-1">End Date</label>
+                                                            <input
+                                                                type="date"
+                                                                value={summaryCustomEnd}
+                                                                onChange={(e) => setSummaryCustomEnd(e.target.value)}
+                                                                className="w-full text-xs p-1.5 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1b2e23]"
+                                                            />
+                                                        </div>
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            onClick={handleApplySummaryCustom}
+                                                            className="w-full bg-[#1b2e23] hover:bg-[#253f30] text-white text-xs h-7 mt-1 cursor-pointer"
+                                                        >
+                                                            Apply Range
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         )}
+                                    </div>
+
+                                    {/* Vehicle Filter: "🚗 All vehicles ⌵" */}
+                                    <div className="relative" ref={summaryVehicleRef}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSummaryVehicleDropdownOpen((prev) => !prev)}
+                                            className="bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold rounded-full h-8 px-3.5 border border-slate-200/90 shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                                        >
+                                            <Car className="h-3.5 w-3.5 text-slate-600" />
+                                            <span>
+                                                {summaryVehicleFilter === 'all'
+                                                    ? 'All vehicles'
+                                                    : summaryVehicleFilter}
+                                            </span>
+                                            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                                        </button>
+
+                                        {summaryVehicleDropdownOpen && (
+                                            <div className="absolute left-0 mt-1.5 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                                                <div className="relative mb-1.5">
+                                                    <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Filter vehicles..."
+                                                        value={summaryVehicleSearch}
+                                                        onChange={(e) => setSummaryVehicleSearch(e.target.value)}
+                                                        className="w-full pl-8 pr-2 py-1 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1b2e23]"
+                                                    />
+                                                </div>
+                                                <div className="max-h-56 overflow-y-auto space-y-0.5">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSummaryVehicleFilter('all');
+                                                            setSummaryPage(1);
+                                                            setSummaryVehicleDropdownOpen(false);
+                                                        }}
+                                                        className={cn(
+                                                            'w-full text-left px-2.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer flex items-center justify-between',
+                                                            summaryVehicleFilter === 'all'
+                                                                ? 'bg-emerald-50 text-emerald-800 font-semibold'
+                                                                : 'text-slate-700 hover:bg-slate-50'
+                                                        )}
+                                                    >
+                                                        <span>All vehicles</span>
+                                                        {summaryVehicleFilter === 'all' && <Check className="h-3.5 w-3.5 text-emerald-700" />}
+                                                    </button>
+                                                    {summaryVehicleOptions
+                                                        .filter((v) =>
+                                                            !summaryVehicleSearch.trim() ||
+                                                            v.toLowerCase().includes(summaryVehicleSearch.toLowerCase())
+                                                        )
+                                                        .map((v) => {
+                                                            const isSelected = summaryVehicleFilter === v;
+                                                            return (
+                                                                <button
+                                                                    key={v}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setSummaryVehicleFilter(v);
+                                                                        setSummaryPage(1);
+                                                                        setSummaryVehicleDropdownOpen(false);
+                                                                    }}
+                                                                    className={cn(
+                                                                        'w-full text-left px-2.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer flex items-center justify-between',
+                                                                        isSelected
+                                                                            ? 'bg-emerald-50 text-emerald-800 font-semibold'
+                                                                            : 'text-slate-700 hover:bg-slate-50'
+                                                                    )}
+                                                                >
+                                                                    <span className="truncate">{v}</span>
+                                                                    {isSelected && <Check className="h-3.5 w-3.5 text-emerald-700" />}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* KPI text: LITRES ISSUED 3 430   TOTAL DIFFERENCE 158 */}
+                                    <div className="flex items-center gap-5 ml-2 text-xs font-bold uppercase tracking-wider text-slate-700">
+                                        <span>
+                                            LITRES ISSUED{' '}
+                                            <span className="text-[#b91c1c] text-sm font-extrabold ml-1">
+                                                {formatSpaceNumber(summaryKpis.totalLitres, 0)}
+                                            </span>
+                                        </span>
+                                        <span>
+                                            TOTAL DIFFERENCE{' '}
+                                            <span
+                                                className={cn(
+                                                    'text-sm font-extrabold ml-1',
+                                                    summaryKpis.totalDifference >= 0 ? 'text-[#166534]' : 'text-[#b91c1c]'
+                                                )}
+                                            >
+                                                {summaryKpis.totalDifference >= 0
+                                                    ? `${formatSpaceNumber(summaryKpis.totalDifference, 0)}`
+                                                    : formatSpaceNumber(summaryKpis.totalDifference, 0)}
+                                            </span>
+                                        </span>
                                     </div>
                                 </div>
 
-                                {/* Pagination & Print */}
+                                {/* Top Right Controls: Displaying 1-14 of 14, Page Size, Print */}
                                 <div className="flex items-center gap-3 text-xs text-slate-600">
-                                    <span>
+                                    <span className="font-medium">
                                         Displaying {totalSummaryRows === 0 ? 0 : (summaryPage - 1) * summaryPageSize + 1}-
                                         {Math.min(summaryPage * summaryPageSize, totalSummaryRows)} of {totalSummaryRows}
                                     </span>
@@ -1572,99 +2010,211 @@ function VehiclesContent() {
                                             setSummaryPageSize(Number(e.target.value));
                                             setSummaryPage(1);
                                         }}
-                                        className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800 focus:outline-none cursor-pointer"
+                                        className="bg-white border border-slate-200/90 rounded-full px-3 py-1 text-xs text-slate-800 focus:outline-none shadow-2xs cursor-pointer"
                                     >
                                         <option value={10}>10</option>
-                                        <option value={20}>20</option>
+                                        <option value={25}>25</option>
                                         <option value={50}>50</option>
+                                        <option value={100}>100</option>
                                     </select>
                                     <button
                                         onClick={handlePrint}
-                                        className="h-8 w-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 cursor-pointer"
+                                        className="h-8 w-8 rounded-full bg-white border border-slate-200/90 shadow-2xs flex items-center justify-center hover:bg-slate-50 text-slate-600 cursor-pointer transition-colors"
                                         title="Print"
                                     >
                                         <Printer className="h-3.5 w-3.5" />
                                     </button>
-                                    {/* Pagination Controls */}
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            onClick={() => setSummaryPage(1)}
-                                            disabled={summaryPage === 1}
-                                            className="h-7 w-7 rounded bg-white border border-slate-200 flex items-center justify-center text-slate-600 disabled:opacity-40 cursor-pointer"
-                                        >
-                                            <ChevronsLeft className="h-3 w-3" />
-                                        </button>
-                                        <button
-                                            onClick={() => setSummaryPage((p) => Math.max(1, p - 1))}
-                                            disabled={summaryPage === 1}
-                                            className="h-7 w-7 rounded bg-white border border-slate-200 flex items-center justify-center text-slate-600 disabled:opacity-40 cursor-pointer"
-                                        >
-                                            <ChevronLeft className="h-3 w-3" />
-                                        </button>
-                                        <span className="h-7 w-7 rounded bg-slate-900 text-white font-bold flex items-center justify-center text-xs">
-                                            {summaryPage}
-                                        </span>
-                                        <button
-                                            onClick={() => setSummaryPage((p) => Math.min(totalSummaryPages, p + 1))}
-                                            disabled={summaryPage === totalSummaryPages}
-                                            className="h-7 w-7 rounded bg-white border border-slate-200 flex items-center justify-center text-slate-600 disabled:opacity-40 cursor-pointer"
-                                        >
-                                            <ChevronRight className="h-3 w-3" />
-                                        </button>
-                                        <button
-                                            onClick={() => setSummaryPage(totalSummaryPages)}
-                                            disabled={summaryPage === totalSummaryPages}
-                                            className="h-7 w-7 rounded bg-white border border-slate-200 flex items-center justify-center text-slate-600 disabled:opacity-40 cursor-pointer"
-                                        >
-                                            <ChevronsRight className="h-3 w-3" />
-                                        </button>
-                                    </div>
                                 </div>
                             </div>
 
                             {/* Summary Table */}
-                            <div className="flex-1 overflow-x-auto overflow-y-auto bg-white rounded-xl border border-slate-200 shadow-2xs min-h-0">
-                                <table className="w-full text-xs text-left whitespace-nowrap">
-                                    <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
-                                        <tr>
-                                            <th className="py-2.5 px-3">PERIOD</th>
-                                            <th className="py-2.5 px-3">VEHICLE</th>
-                                            <th className="py-2.5 px-3 text-right">REFILLS</th>
-                                            <th className="py-2.5 px-3 text-right">AVG BY REFILL</th>
-                                            <th className="py-2.5 px-3 text-right">AVG BY RANGE</th>
-                                            <th className="py-2.5 px-3 text-right">LITRES USED</th>
-                                            <th className="py-2.5 px-3 text-right">TRAVELLED</th>
-                                            <th className="py-2.5 px-3 text-right">CONSUMPTION</th>
+                            <div className="flex-1 overflow-x-auto overflow-y-auto bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-2xs min-h-0">
+                                <table className="w-full text-xs text-left whitespace-nowrap border-collapse">
+                                    <thead className="sticky top-0 z-10 bg-slate-50 select-none text-[11px]">
+                                        {/* Header Level 1 */}
+                                        <tr className="border-b border-slate-200">
+                                            <th
+                                                rowSpan={2}
+                                                onClick={() => handleSummarySort('vehicle')}
+                                                className="py-2.5 px-3 font-bold text-slate-700 cursor-pointer hover:bg-slate-100 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    <span>Vehicle</span>
+                                                    <ArrowUpDown className="h-3 w-3 text-slate-400" />
+                                                </div>
+                                            </th>
+                                            <th rowSpan={2} className="py-2.5 px-3 font-bold text-slate-700">
+                                                MAKE
+                                            </th>
+                                            <th rowSpan={2} className="py-2.5 px-3 font-bold text-slate-700">
+                                                MODEL
+                                            </th>
+                                            <th rowSpan={2} className="py-2.5 px-3 font-bold text-slate-700">
+                                                TYPE
+                                            </th>
+                                            <th
+                                                rowSpan={2}
+                                                onClick={() => handleSummarySort('dateFrom')}
+                                                className="py-2.5 px-3 font-bold text-slate-700 cursor-pointer hover:bg-slate-100 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    <span>Date From</span>
+                                                    <ArrowUpDown className="h-3 w-3 text-slate-400" />
+                                                </div>
+                                            </th>
+                                            <th rowSpan={2} className="py-2.5 px-3 font-bold text-slate-700">
+                                                DATE TO
+                                            </th>
+                                            <th
+                                                rowSpan={2}
+                                                onClick={() => handleSummarySort('fillUps')}
+                                                className="py-2.5 px-3 font-bold text-slate-700 text-right cursor-pointer hover:bg-slate-100 transition-colors"
+                                            >
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <span>Fill ups</span>
+                                                    <ArrowUpDown className="h-3 w-3 text-slate-400" />
+                                                </div>
+                                            </th>
+                                        </tr>
+
+                                        {/* Header Level 2 */}
+                                        <tr className="border-b border-slate-200">
+                                            <th
+                                                onClick={() => handleSummarySort('distance')}
+                                                className="py-2 px-3 font-bold text-slate-700 text-right bg-[#e4f3e7] border-l border-[#c4e3c9] cursor-pointer hover:bg-[#d5eed9] transition-colors"
+                                            >
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <span>Distance</span>
+                                                    <ArrowUpDown className="h-3 w-3 text-slate-400" />
+                                                </div>
+                                            </th>
+                                            <th
+                                                onClick={() => handleSummarySort('litresUsed')}
+                                                className="py-2 px-3 font-bold text-slate-700 text-right bg-[#e4f3e7] cursor-pointer hover:bg-[#d5eed9] transition-colors"
+                                            >
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <span>Litres Used</span>
+                                                    <ArrowUpDown className="h-3 w-3 text-slate-400" />
+                                                </div>
+                                            </th>
+                                            <th
+                                                onClick={() => handleSummarySort('litresExpected')}
+                                                className="py-2 px-3 font-bold text-slate-700 text-right bg-[#e4f3e7] cursor-pointer hover:bg-[#d5eed9] transition-colors"
+                                            >
+                                                LITRES EXPECTED
+                                            </th>
+                                            <th
+                                                onClick={() => handleSummarySort('difference')}
+                                                className="py-2 px-3 font-bold text-slate-700 text-right bg-[#e4f3e7] border-r border-[#c4e3c9] cursor-pointer hover:bg-[#d5eed9] transition-colors"
+                                            >
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <span>Difference</span>
+                                                    <ArrowUpDown className="h-3 w-3 text-slate-400" />
+                                                </div>
+                                            </th>
+                                            <th
+                                                onClick={() => handleSummarySort('consumption')}
+                                                className="py-2 px-3 font-bold text-slate-700 text-right bg-[#fdf2e4] cursor-pointer hover:bg-[#fae6ce] transition-colors"
+                                            >
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <span>Consumption</span>
+                                                    <ArrowUpDown className="h-3 w-3 text-slate-400" />
+                                                </div>
+                                            </th>
+                                            <th className="py-2 px-3 font-bold text-slate-700 text-right bg-[#fdf2e4]">
+                                                EXPECTED
+                                            </th>
+                                            <th className="py-2 px-3 font-bold text-slate-700 text-center bg-[#fdf2e4]">
+                                                DETAILS
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                                        {paginatedSummaryRows.length === 0 ? (
+                                        {paginatedVehicleSummaryRows.length === 0 ? (
                                             <tr>
-                                                <td colSpan={8} className="py-8 text-center text-slate-400">
-                                                    No summary data available for this selection.
+                                                <td colSpan={14} className="py-12 text-center text-slate-400">
+                                                    No summary records found for this period.
                                                 </td>
                                             </tr>
                                         ) : (
-                                            paginatedSummaryRows.map((r, index) => (
-                                                <tr key={`${r.period}-${r.vehicleId}-${index}`} className="hover:bg-slate-50/80 transition-colors">
-                                                    <td className="py-2.5 px-3 font-semibold text-slate-900">{r.period}</td>
-                                                    <td className="py-2.5 px-3">
-                                                        <div className="font-bold text-slate-900">{r.vehicleId}</div>
-                                                        {r.vehicleReg && (
-                                                            <div className="text-[10px] text-slate-400 uppercase">
-                                                                {r.vehicleReg}
-                                                            </div>
+                                            paginatedVehicleSummaryRows.map((r, index) => (
+                                                <tr
+                                                    key={`${r.vehicleKey}-${index}`}
+                                                    className="hover:bg-slate-50/80 transition-colors"
+                                                >
+                                                    <td
+                                                        className="py-2.5 px-3 font-semibold text-slate-900 max-w-[220px] truncate"
+                                                        title={r.vehicleName}
+                                                    >
+                                                        {r.vehicleName}
+                                                    </td>
+                                                    <td className="py-2.5 px-3 text-slate-700 font-medium">{r.make}</td>
+                                                    <td className="py-2.5 px-3 text-slate-700 font-medium">{r.model}</td>
+                                                    <td className="py-2.5 px-3 text-slate-500">{r.type}</td>
+                                                    <td className="py-2.5 px-3 font-mono text-slate-700 text-xs">
+                                                        {r.dateFrom}
+                                                    </td>
+                                                    <td className="py-2.5 px-3 font-mono text-slate-700 text-xs">
+                                                        {r.dateTo}
+                                                    </td>
+                                                    <td className="py-2.5 px-3 text-right font-medium text-slate-900">
+                                                        {r.fillUps}
+                                                    </td>
+
+                                                    {/* Distance & Litres columns */}
+                                                    <td className="py-2.5 px-3 text-right font-mono text-slate-800 font-medium bg-[#f5fbf6]/40">
+                                                        {r.distance != null ? formatSpaceNumber(r.distance, 0) : '—'}
+                                                    </td>
+                                                    <td className="py-2.5 px-3 text-right font-mono text-slate-900 font-bold bg-[#f5fbf6]/40">
+                                                        {formatSpaceNumber(r.litresUsed, 0)}
+                                                    </td>
+                                                    <td className="py-2.5 px-3 text-right font-mono text-slate-800 font-semibold bg-[#f5fbf6]/40">
+                                                        {r.litresExpected != null
+                                                            ? formatSpaceNumber(r.litresExpected, 0)
+                                                            : '—'}
+                                                    </td>
+                                                    <td
+                                                        className={cn(
+                                                            'py-2.5 px-3 text-right font-mono font-bold bg-[#f5fbf6]/40',
+                                                            r.difference == null
+                                                                ? 'text-slate-400'
+                                                                : r.difference > 0
+                                                                    ? 'text-[#16a34a]'
+                                                                    : 'text-[#dc2626]'
                                                         )}
+                                                    >
+                                                        {r.difference != null
+                                                            ? r.difference > 0
+                                                                ? `+${formatSpaceNumber(r.difference, 0)}`
+                                                                : formatSpaceNumber(r.difference, 0)
+                                                            : '—'}
                                                     </td>
-                                                    <td className="py-2.5 px-3 text-right font-medium">{r.refills}</td>
-                                                    <td className="py-2.5 px-3 text-right">{formatNumber(r.avgByRefill, 0)}</td>
-                                                    <td className="py-2.5 px-3 text-right">{formatNumber(r.avgByRange, 0)}</td>
-                                                    <td className="py-2.5 px-3 text-right font-semibold">
-                                                        {formatNumber(r.litresUsed, 0)}
+
+                                                    {/* Fuel Consumption columns */}
+                                                    <td className="py-2.5 px-3 text-right font-mono text-slate-900 font-bold bg-[#fffaf4]/50">
+                                                        {r.consumption != null ? r.consumption.toFixed(2) : '—'}
                                                     </td>
-                                                    <td className="py-2.5 px-3 text-right">{formatNumber(r.travelled, 0)}</td>
-                                                    <td className="py-2.5 px-3 text-right font-bold text-slate-900">
-                                                        {r.consumption.toFixed(2)}
+                                                    <td className="py-2.5 px-3 text-right font-mono text-slate-700 bg-[#fffaf4]/50">
+                                                        {r.expectedConsumption != null
+                                                            ? r.expectedConsumption.toFixed(2)
+                                                            : '—'}
+                                                    </td>
+                                                    <td className="py-2.5 px-3 text-center bg-[#fffaf4]/50">
+                                                        {r.detailsPercent != null && r.detailsType != null ? (
+                                                            r.detailsType === 'under' ? (
+                                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#e8f7ec] text-[#166534] border border-[#bbf7d0]">
+                                                                    <CheckCircle2 className="h-3 w-3 text-[#166534]" />
+                                                                    <span>{r.detailsPercent}% Under</span>
+                                                                </span>
+                                                            ) : (
+                                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#fef2f2] text-[#991b1b] border border-[#fecaca]">
+                                                                    <AlertTriangle className="h-3 w-3 text-[#dc2626]" />
+                                                                    <span>{r.detailsPercent}% Over</span>
+                                                                </span>
+                                                            )
+                                                        ) : (
+                                                            <span className="text-slate-400 font-mono">—</span>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             ))
@@ -1673,78 +2223,118 @@ function VehiclesContent() {
                                 </table>
                             </div>
 
-                            {/* Bottom Action Bar repeating controls */}
-                            <div className="flex flex-wrap items-center justify-between gap-3 mt-3 pt-2 border-t border-[#d6e7da]/60">
-                                <div className="flex items-center gap-3">
-                                    <Button
-                                        type="button"
-                                        onClick={() => handleExport('excel')}
-                                        className="bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold rounded-lg h-8 px-3 border border-slate-200 shadow-2xs flex items-center gap-1.5 cursor-pointer"
-                                    >
-                                        <Download className="h-3.5 w-3.5 text-slate-500" />
-                                        <span>Export results</span>
-                                    </Button>
-                                    <div className="flex items-center bg-[#d8e8dc] p-0.5 rounded-lg gap-1 border border-[#cbe0d0]">
-                                        {(['Yearly', 'Quarterly', 'Monthly', 'Weekly', 'Daily'] as SummaryGranularity[]).map(
-                                            (gran) => (
-                                                <button
-                                                    key={gran}
-                                                    onClick={() => {
-                                                        setSummaryGranularity(gran);
-                                                        setSummaryPage(1);
-                                                    }}
-                                                    className={cn(
-                                                        'px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer',
-                                                        summaryGranularity === gran
-                                                            ? 'bg-[#1b2e23] text-white shadow-xs'
-                                                            : 'text-slate-700 hover:text-slate-900'
-                                                    )}
-                                                >
-                                                    {gran}
-                                                </button>
-                                            )
-                                        )}
+                            {/* Bottom Control Bar repeating controls */}
+                            <div className="flex flex-wrap items-center justify-between gap-3 shrink-0 pt-1">
+                                <div className="flex flex-wrap items-center gap-2.5">
+                                    {/* Export results dropdown */}
+                                    <div className="relative">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSummaryExportOpen((prev) => !prev)}
+                                            className="bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold rounded-full h-8 px-3.5 border border-slate-200/90 shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                                        >
+                                            <Download className="h-3.5 w-3.5 text-slate-600" />
+                                            <span>Export results</span>
+                                        </button>
+                                    </div>
+
+                                    {/* Date Range Button */}
+                                    <div className="relative">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSummaryDateRangeOpen((prev) => !prev)}
+                                            className="bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold rounded-full h-8 px-3.5 border border-slate-200/90 shadow-2xs flex items-center gap-2 cursor-pointer transition-colors"
+                                        >
+                                            <Calendar className="h-3.5 w-3.5 text-slate-600" />
+                                            <span>{summaryDateRange.label}</span>
+                                            <span className="bg-[#d7ecdb] text-[#1b5e28] px-2 py-0.5 rounded-full text-[11px] font-bold">
+                                                {summaryKpis.totalFillUps}
+                                            </span>
+                                            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                                        </button>
+                                    </div>
+
+                                    {/* Vehicle Filter Button */}
+                                    <div className="relative">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSummaryVehicleDropdownOpen((prev) => !prev)}
+                                            className="bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold rounded-full h-8 px-3.5 border border-slate-200/90 shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                                        >
+                                            <Car className="h-3.5 w-3.5 text-slate-600" />
+                                            <span>
+                                                {summaryVehicleFilter === 'all'
+                                                    ? 'All vehicles'
+                                                    : summaryVehicleFilter}
+                                            </span>
+                                            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                                        </button>
                                     </div>
                                 </div>
+
+                                {/* Bottom Right Controls */}
                                 <div className="flex items-center gap-3 text-xs text-slate-600">
-                                    <span>
+                                    <span className="font-medium">
                                         Displaying {totalSummaryRows === 0 ? 0 : (summaryPage - 1) * summaryPageSize + 1}-
                                         {Math.min(summaryPage * summaryPageSize, totalSummaryRows)} of {totalSummaryRows}
                                     </span>
-                                    {/* Pagination Controls */}
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            onClick={() => setSummaryPage(1)}
-                                            disabled={summaryPage === 1}
-                                            className="h-7 w-7 rounded bg-white border border-slate-200 flex items-center justify-center text-slate-600 disabled:opacity-40 cursor-pointer"
-                                        >
-                                            <ChevronsLeft className="h-3 w-3" />
-                                        </button>
-                                        <button
-                                            onClick={() => setSummaryPage((p) => Math.max(1, p - 1))}
-                                            disabled={summaryPage === 1}
-                                            className="h-7 w-7 rounded bg-white border border-slate-200 flex items-center justify-center text-slate-600 disabled:opacity-40 cursor-pointer"
-                                        >
-                                            <ChevronLeft className="h-3 w-3" />
-                                        </button>
-                                        <span className="h-7 w-7 rounded bg-slate-900 text-white font-bold flex items-center justify-center text-xs">
-                                            {summaryPage}
-                                        </span>
-                                        <button
-                                            onClick={() => setSummaryPage((p) => Math.min(totalSummaryPages, p + 1))}
-                                            disabled={summaryPage === totalSummaryPages}
-                                            className="h-7 w-7 rounded bg-white border border-slate-200 flex items-center justify-center text-slate-600 disabled:opacity-40 cursor-pointer"
-                                        >
-                                            <ChevronRight className="h-3 w-3" />
-                                        </button>
-                                        <button
-                                            onClick={() => setSummaryPage(totalSummaryPages)}
-                                            disabled={summaryPage === totalSummaryPages}
-                                            className="h-7 w-7 rounded bg-white border border-slate-200 flex items-center justify-center text-slate-600 disabled:opacity-40 cursor-pointer"
-                                        >
-                                            <ChevronsRight className="h-3 w-3" />
-                                        </button>
-                                    </div>
+                                    <select
+                                        value={summaryPageSize}
+                                        onChange={(e) => {
+                                            setSummaryPageSize(Number(e.target.value));
+                                            setSummaryPage(1);
+                                        }}
+                                        className="bg-white border border-slate-200/90 rounded-full px-3 py-1 text-xs text-slate-800 focus:outline-none shadow-2xs cursor-pointer"
+                                    >
+                                        <option value={10}>10</option>
+                                        <option value={25}>25</option>
+                                        <option value={50}>50</option>
+                                        <option value={100}>100</option>
+                                    </select>
+                                    <button
+                                        onClick={handlePrint}
+                                        className="h-8 w-8 rounded-full bg-white border border-slate-200/90 shadow-2xs flex items-center justify-center hover:bg-slate-50 text-slate-600 cursor-pointer transition-colors"
+                                        title="Print"
+                                    >
+                                        <Printer className="h-3.5 w-3.5" />
+                                    </button>
+
+                                    {/* Pagination navigation controls if totalSummaryPages > 1 */}
+                                    {totalSummaryPages > 1 && (
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={() => setSummaryPage(1)}
+                                                disabled={summaryPage === 1}
+                                                className="h-7 w-7 rounded-full bg-white border border-slate-200/90 flex items-center justify-center text-slate-600 disabled:opacity-40 cursor-pointer"
+                                            >
+                                                <ChevronsLeft className="h-3 w-3" />
+                                            </button>
+                                            <button
+                                                onClick={() => setSummaryPage((p) => Math.max(1, p - 1))}
+                                                disabled={summaryPage === 1}
+                                                className="h-7 w-7 rounded-full bg-white border border-slate-200/90 flex items-center justify-center text-slate-600 disabled:opacity-40 cursor-pointer"
+                                            >
+                                                <ChevronLeft className="h-3 w-3" />
+                                            </button>
+                                            <span className="h-7 w-7 rounded-full bg-slate-900 text-white font-bold flex items-center justify-center text-xs">
+                                                {summaryPage}
+                                            </span>
+                                            <button
+                                                onClick={() => setSummaryPage((p) => Math.min(totalSummaryPages, p + 1))}
+                                                disabled={summaryPage === totalSummaryPages}
+                                                className="h-7 w-7 rounded-full bg-white border border-slate-200/90 flex items-center justify-center text-slate-600 disabled:opacity-40 cursor-pointer"
+                                            >
+                                                <ChevronRight className="h-3 w-3" />
+                                            </button>
+                                            <button
+                                                onClick={() => setSummaryPage(totalSummaryPages)}
+                                                disabled={summaryPage === totalSummaryPages}
+                                                className="h-7 w-7 rounded-full bg-white border border-slate-200/90 flex items-center justify-center text-slate-600 disabled:opacity-40 cursor-pointer"
+                                            >
+                                                <ChevronsRight className="h-3 w-3" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
