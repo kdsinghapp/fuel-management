@@ -27,6 +27,7 @@ import {
     Smartphone,
     Database,
     Mail,
+    Car,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { authService } from '@/lib/auth';
@@ -56,6 +57,7 @@ const navigationItems: NavItem[] = [
             { name: 'Summary', href: '/vehicles?tab=summary', tab: 'summary' },
         ],
     },
+    { name: 'Vehicle Summary', href: '/vehicle-summary', icon: Car },
     // { name: 'Fuel Efficiency Summary', href: '/fuel-efficiency-summary', icon: FileBarChart },
     { name: 'Fuel Limits', href: '/fuel-limits', icon: Sliders },
     { name: 'Reconciliation', href: '/reconciliation', icon: RefreshCw },
