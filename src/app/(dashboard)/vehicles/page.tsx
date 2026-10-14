@@ -19,7 +19,6 @@ import {
     AlertTriangle,
     RotateCcw,
     Check,
-    CheckCircle2,
     Calendar,
     Car,
     ArrowUpDown,
@@ -896,13 +895,6 @@ function VehiclesContent() {
                     'Date From',
                     'Date To',
                     'Fill ups',
-                    'Distance (km)',
-                    'Litres Used',
-                    'Litres Expected',
-                    'Difference',
-                    'Consumption (km/L)',
-                    'Expected (km/L)',
-                    'Details',
                 ];
                 const rows = vehicleSummaryData.map((r) => [
                     r.vehicleName,
@@ -912,19 +904,6 @@ function VehiclesContent() {
                     r.dateFrom,
                     r.dateTo,
                     r.fillUps,
-                    r.distance != null ? formatSpaceNumber(r.distance, 0) : '—',
-                    formatSpaceNumber(r.litresUsed, 0),
-                    r.litresExpected != null ? formatSpaceNumber(r.litresExpected, 0) : '—',
-                    r.difference != null
-                        ? r.difference > 0
-                            ? `+${r.difference}`
-                            : `${r.difference}`
-                        : '—',
-                    r.consumption != null ? r.consumption.toFixed(2) : '—',
-                    r.expectedConsumption != null ? r.expectedConsumption.toFixed(2) : '—',
-                    r.detailsPercent != null && r.detailsType != null
-                        ? `${r.detailsPercent}% ${r.detailsType === 'under' ? 'Under' : 'Over'}`
-                        : '—',
                 ]);
                 if (format === 'csv') exportToCSV('vehicle_summary.csv', headers, rows);
                 else if (format === 'excel') exportToExcel('vehicle_summary.xlsx', headers, rows, 'Vehicle Summary');
@@ -1039,24 +1018,13 @@ function VehiclesContent() {
                         <table>
                             <thead>
                                 <tr>
-                                    <th rowSpan={2}>Vehicle</th>
-                                    <th rowSpan={2}>Make</th>
-                                    <th rowSpan={2}>Model</th>
-                                    <th rowSpan={2}>Type</th>
-                                    <th rowSpan={2}>Date From</th>
-                                    <th rowSpan={2}>Date To</th>
-                                    <th rowSpan={2} className="r">Fill ups</th>
-                                    <th colSpan={4} style={{ background: '#d7ecdb', textAlign: 'center' }}>Distance and Litres</th>
-                                    <th colSpan={3} style={{ background: '#fcecd7', textAlign: 'center' }}>Fuel Consumption km/L</th>
-                                </tr>
-                                <tr>
-                                    <th className="r" style={{ background: '#d7ecdb' }}>Distance</th>
-                                    <th className="r" style={{ background: '#d7ecdb' }}>Litres Used</th>
-                                    <th className="r" style={{ background: '#d7ecdb' }}>Litres Expected</th>
-                                    <th className="r" style={{ background: '#d7ecdb' }}>Difference</th>
-                                    <th className="r" style={{ background: '#fcecd7' }}>Consumption</th>
-                                    <th className="r" style={{ background: '#fcecd7' }}>Expected</th>
-                                    <th style={{ background: '#fcecd7', textAlign: 'center' }}>Details</th>
+                                    <th>Vehicle</th>
+                                    <th>Make</th>
+                                    <th>Model</th>
+                                    <th>Type</th>
+                                    <th>Date From</th>
+                                    <th>Date To</th>
+                                    <th className="r">Fill ups</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1069,19 +1037,6 @@ function VehiclesContent() {
                                         <td>{r.dateFrom}</td>
                                         <td>{r.dateTo}</td>
                                         <td className="r">{r.fillUps}</td>
-                                        <td className="r">{r.distance != null ? formatSpaceNumber(r.distance, 0) : '—'}</td>
-                                        <td className="r">{formatSpaceNumber(r.litresUsed, 0)}</td>
-                                        <td className="r">{r.litresExpected != null ? formatSpaceNumber(r.litresExpected, 0) : '—'}</td>
-                                        <td className="r">
-                                            {r.difference != null ? (r.difference > 0 ? `+${r.difference}` : r.difference) : '—'}
-                                        </td>
-                                        <td className="r">{r.consumption != null ? r.consumption.toFixed(2) : '—'}</td>
-                                        <td className="r">{r.expectedConsumption != null ? r.expectedConsumption.toFixed(2) : '—'}</td>
-                                        <td style={{ textAlign: 'center' }}>
-                                            {r.detailsPercent != null && r.detailsType != null
-                                                ? `${r.detailsPercent}% ${r.detailsType === 'under' ? 'Under' : 'Over'}`
-                                                : '—'}
-                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -2031,10 +1986,8 @@ function VehiclesContent() {
                             <div className="flex-1 overflow-x-auto overflow-y-auto bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-2xs min-h-0">
                                 <table className="w-full text-xs text-left whitespace-nowrap border-collapse">
                                     <thead className="sticky top-0 z-10 bg-slate-50 select-none text-[11px]">
-                                        {/* Header Level 1 */}
                                         <tr className="border-b border-slate-200">
                                             <th
-                                                rowSpan={2}
                                                 onClick={() => handleSummarySort('vehicle')}
                                                 className="py-2.5 px-3 font-bold text-slate-700 cursor-pointer hover:bg-slate-100 transition-colors"
                                             >
@@ -2043,17 +1996,16 @@ function VehiclesContent() {
                                                     <ArrowUpDown className="h-3 w-3 text-slate-400" />
                                                 </div>
                                             </th>
-                                            <th rowSpan={2} className="py-2.5 px-3 font-bold text-slate-700">
+                                            <th className="py-2.5 px-3 font-bold text-slate-700">
                                                 MAKE
                                             </th>
-                                            <th rowSpan={2} className="py-2.5 px-3 font-bold text-slate-700">
+                                            <th className="py-2.5 px-3 font-bold text-slate-700">
                                                 MODEL
                                             </th>
-                                            <th rowSpan={2} className="py-2.5 px-3 font-bold text-slate-700">
+                                            <th className="py-2.5 px-3 font-bold text-slate-700">
                                                 TYPE
                                             </th>
                                             <th
-                                                rowSpan={2}
                                                 onClick={() => handleSummarySort('dateFrom')}
                                                 className="py-2.5 px-3 font-bold text-slate-700 cursor-pointer hover:bg-slate-100 transition-colors"
                                             >
@@ -2062,11 +2014,10 @@ function VehiclesContent() {
                                                     <ArrowUpDown className="h-3 w-3 text-slate-400" />
                                                 </div>
                                             </th>
-                                            <th rowSpan={2} className="py-2.5 px-3 font-bold text-slate-700">
+                                            <th className="py-2.5 px-3 font-bold text-slate-700">
                                                 DATE TO
                                             </th>
                                             <th
-                                                rowSpan={2}
                                                 onClick={() => handleSummarySort('fillUps')}
                                                 className="py-2.5 px-3 font-bold text-slate-700 text-right cursor-pointer hover:bg-slate-100 transition-colors"
                                             >
@@ -2076,63 +2027,11 @@ function VehiclesContent() {
                                                 </div>
                                             </th>
                                         </tr>
-
-                                        {/* Header Level 2 */}
-                                        <tr className="border-b border-slate-200">
-                                            <th
-                                                onClick={() => handleSummarySort('distance')}
-                                                className="py-2 px-3 font-bold text-slate-700 text-right bg-[#e4f3e7] border-l border-[#c4e3c9] cursor-pointer hover:bg-[#d5eed9] transition-colors"
-                                            >
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <span>Distance</span>
-                                                    <ArrowUpDown className="h-3 w-3 text-slate-400" />
-                                                </div>
-                                            </th>
-                                            <th
-                                                onClick={() => handleSummarySort('litresUsed')}
-                                                className="py-2 px-3 font-bold text-slate-700 text-right bg-[#e4f3e7] cursor-pointer hover:bg-[#d5eed9] transition-colors"
-                                            >
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <span>Litres Used</span>
-                                                    <ArrowUpDown className="h-3 w-3 text-slate-400" />
-                                                </div>
-                                            </th>
-                                            <th
-                                                onClick={() => handleSummarySort('litresExpected')}
-                                                className="py-2 px-3 font-bold text-slate-700 text-right bg-[#e4f3e7] cursor-pointer hover:bg-[#d5eed9] transition-colors"
-                                            >
-                                                LITRES EXPECTED
-                                            </th>
-                                            <th
-                                                onClick={() => handleSummarySort('difference')}
-                                                className="py-2 px-3 font-bold text-slate-700 text-right bg-[#e4f3e7] border-r border-[#c4e3c9] cursor-pointer hover:bg-[#d5eed9] transition-colors"
-                                            >
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <span>Difference</span>
-                                                    <ArrowUpDown className="h-3 w-3 text-slate-400" />
-                                                </div>
-                                            </th>
-                                            <th
-                                                onClick={() => handleSummarySort('consumption')}
-                                                className="py-2 px-3 font-bold text-slate-700 text-right bg-[#fdf2e4] cursor-pointer hover:bg-[#fae6ce] transition-colors"
-                                            >
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <span>Consumption</span>
-                                                    <ArrowUpDown className="h-3 w-3 text-slate-400" />
-                                                </div>
-                                            </th>
-                                            <th className="py-2 px-3 font-bold text-slate-700 text-right bg-[#fdf2e4]">
-                                                EXPECTED
-                                            </th>
-                                            <th className="py-2 px-3 font-bold text-slate-700 text-center bg-[#fdf2e4]">
-                                                DETAILS
-                                            </th>
-                                        </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                                         {paginatedVehicleSummaryRows.length === 0 ? (
                                             <tr>
-                                                <td colSpan={14} className="py-12 text-center text-slate-400">
+                                                <td colSpan={7} className="py-12 text-center text-slate-400">
                                                     No summary records found for this period.
                                                 </td>
                                             </tr>
@@ -2159,62 +2058,6 @@ function VehiclesContent() {
                                                     </td>
                                                     <td className="py-2.5 px-3 text-right font-medium text-slate-900">
                                                         {r.fillUps}
-                                                    </td>
-
-                                                    {/* Distance & Litres columns */}
-                                                    <td className="py-2.5 px-3 text-right font-mono text-slate-800 font-medium bg-[#f5fbf6]/40">
-                                                        {r.distance != null ? formatSpaceNumber(r.distance, 0) : '—'}
-                                                    </td>
-                                                    <td className="py-2.5 px-3 text-right font-mono text-slate-900 font-bold bg-[#f5fbf6]/40">
-                                                        {formatSpaceNumber(r.litresUsed, 0)}
-                                                    </td>
-                                                    <td className="py-2.5 px-3 text-right font-mono text-slate-800 font-semibold bg-[#f5fbf6]/40">
-                                                        {r.litresExpected != null
-                                                            ? formatSpaceNumber(r.litresExpected, 0)
-                                                            : '—'}
-                                                    </td>
-                                                    <td
-                                                        className={cn(
-                                                            'py-2.5 px-3 text-right font-mono font-bold bg-[#f5fbf6]/40',
-                                                            r.difference == null
-                                                                ? 'text-slate-400'
-                                                                : r.difference > 0
-                                                                    ? 'text-[#16a34a]'
-                                                                    : 'text-[#dc2626]'
-                                                        )}
-                                                    >
-                                                        {r.difference != null
-                                                            ? r.difference > 0
-                                                                ? `+${formatSpaceNumber(r.difference, 0)}`
-                                                                : formatSpaceNumber(r.difference, 0)
-                                                            : '—'}
-                                                    </td>
-
-                                                    {/* Fuel Consumption columns */}
-                                                    <td className="py-2.5 px-3 text-right font-mono text-slate-900 font-bold bg-[#fffaf4]/50">
-                                                        {r.consumption != null ? r.consumption.toFixed(2) : '—'}
-                                                    </td>
-                                                    <td className="py-2.5 px-3 text-right font-mono text-slate-700 bg-[#fffaf4]/50">
-                                                        {r.expectedConsumption != null
-                                                            ? r.expectedConsumption.toFixed(2)
-                                                            : '—'}
-                                                    </td>
-                                                    <td className="py-2.5 px-3 text-center bg-[#fffaf4]/50">
-                                                        {r.detailsPercent != null && r.detailsType != null ? (
-                                                            r.detailsType === 'under' ? (
-                                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#e8f7ec] text-[#166534] border border-[#bbf7d0]">
-                                                                    <CheckCircle2 className="h-3 w-3 text-[#166534]" />
-                                                                    <span>{r.detailsPercent}% Under</span>
-                                                                </span>
-                                                            ) : (
-                                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#fef2f2] text-[#991b1b] border border-[#fecaca]">
-                                                                    <AlertTriangle className="h-3 w-3 text-[#dc2626]" />
-                                                                    <span>{r.detailsPercent}% Over</span>
-                                                                </span>
-                                                            )
-                                                        ) : (
-                                                            <span className="text-slate-400 font-mono">—</span>
-                                                        )}
                                                     </td>
                                                 </tr>
                                             ))
